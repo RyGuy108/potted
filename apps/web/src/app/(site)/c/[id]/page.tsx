@@ -5,7 +5,7 @@ import { checkAction, disputeAction, ruleAction } from "@/app/actions";
 import { ActionButton } from "@/components/ActionButton";
 import { FundingBar, StatusPill } from "@/components/ChallengeCard";
 import { AutoRefresh, Countdown } from "@/components/Live";
-import { Plant } from "@/components/Plant";
+import { Beanstalk } from "@/components/Beanstalk";
 import { PledgeForm } from "@/components/PledgeForm";
 import { SignInCard } from "@/components/SignInCard";
 import { clock, gameOf, tierLabel } from "@/lib/format";
@@ -107,7 +107,7 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
       </p>
 
       <section className="card detail">
-        <Plant stage={growth.index} size={132} />
+        <Beanstalk stage={growth.index} size={132} />
         <div className="detail-body">
           <div className="meta">
             <span className="tag">{gameOf(challenge).name}</span>
@@ -189,7 +189,7 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
         <section className="card">
           <h3>Funders</h3>
           {funders.length === 0 ? (
-            <p className="empty">Nobody has pledged yet. The first pledge plants the seed.</p>
+            <p className="empty">Nobody has pledged yet. The first pledge plants the bean.</p>
           ) : (
             <ul className="funders">
               {funders.map((p) => (

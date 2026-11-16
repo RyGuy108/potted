@@ -1,7 +1,7 @@
 import type { Micro } from "./money";
 
-/** The money tree grows as the pot fills. Purely presentational. */
-export const GROWTH_STAGES = ["seed", "sprout", "sapling", "tree", "bloom"] as const;
+/** The beanstalk climbs as the pot fills. Purely presentational. */
+export const GROWTH_STAGES = ["bean", "sprout", "vine", "beanstalk", "clouds"] as const;
 export type GrowthStage = (typeof GROWTH_STAGES)[number];
 
 export interface Growth {

@@ -40,7 +40,7 @@ export interface Challenge {
   gameId: string;
   condition: Condition;
   status: ChallengeStatus;
-  /** The pot size at which the plant is fully grown. Not a minimum. */
+  /** The pot size at which the beanstalk reaches the clouds. Not a minimum. */
   goalMicro: Micro;
   /** Most a single fan can put in. */
   pledgeCapMicro: Micro;

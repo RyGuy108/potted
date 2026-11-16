@@ -66,10 +66,10 @@ describe("challenge rules", () => {
 describe("growth", () => {
   it("moves through the five stages", () => {
     const goal = toMicro(30);
-    expect(growthOf(0, goal).stage).toBe("seed");
+    expect(growthOf(0, goal).stage).toBe("bean");
     expect(growthOf(toMicro(1), goal).stage).toBe("sprout");
-    expect(growthOf(toMicro(10), goal).stage).toBe("sapling");
-    expect(growthOf(toMicro(20), goal).stage).toBe("tree");
-    expect(growthOf(toMicro(45), goal)).toMatchObject({ stage: "bloom", ratio: 1 });
+    expect(growthOf(toMicro(10), goal).stage).toBe("vine");
+    expect(growthOf(toMicro(20), goal).stage).toBe("beanstalk");
+    expect(growthOf(toMicro(45), goal)).toMatchObject({ stage: "clouds", ratio: 1 });
   });
 });

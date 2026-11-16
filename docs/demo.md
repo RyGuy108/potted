@@ -25,7 +25,7 @@ background. Each private window is a separate fan.
 ## A two-minute run
 
 1. Dashboard: create "win your next rated bullet game" with your Lichess name.
-2. Fan windows: join with a name, add to the pot. The plant on the overlay grows.
+2. Fan windows: join with a name, add to the pot. The beanstalk on the overlay climbs.
 3. Dashboard: **Start attempt**. Pledging closes.
 4. Play one rated bullet game from Lichess quick pairing.
 5. The overlay announces the result. The challenge page shows the receipt

@@ -2,13 +2,13 @@ import { GAMES } from "@potted/core";
 import Link from "next/link";
 import { ChallengeCard } from "@/components/ChallengeCard";
 import { Icon, type IconName } from "@/components/Icon";
-import { Plant } from "@/components/Plant";
+import { Beanstalk } from "@/components/Beanstalk";
 import { SignInCard } from "@/components/SignInCard";
 import { getStreamer, listChallenges } from "@/lib/service";
 import { currentUser } from "@/lib/session";
 
 const STEPS = [
-  ["Fund", "Fans add to a pot for a challenge the streamer agreed to. Funds sit in escrow, and the tree grows as the pot fills."],
+  ["Fund", "Fans add to a pot for a challenge the streamer agreed to. Funds sit in escrow, and the beanstalk climbs as the pot fills."],
   ["Play", "The streamer attempts it live before the deadline. Pledging closes the moment the attempt starts."],
   ["Settle", "Game data decides. A win pays the streamer. A miss returns every pledge. Each result keeps a receipt."],
 ] as const;
@@ -19,6 +19,14 @@ const GUARANTEES: [IconName, string, string][] = [
   ["receipt", "Every result has a receipt", "A game id or clip link is stored with the settlement, so funders can recheck it."],
   ["shield", "Arranged games do not count", "Friendly matches, direct challenges and early resignations are ignored."],
 ];
+
+const GROWTH = [
+  ["Bean", "Empty pot"],
+  ["Sprout", "First pledge"],
+  ["Vine", "A third of the way"],
+  ["Beanstalk", "Two thirds"],
+  ["Clouds", "Goal reached"],
+] as const;
 
 /** Sample rows for the hero preview. Labelled as an example on the page. */
 const SAMPLE_PLEDGES = [
@@ -72,7 +80,7 @@ export default async function Home() {
             <span className="pill pill-open">Open for pledges</span>
           </div>
           <div className="preview-main">
-            <Plant stage={3} size={84} />
+            <Beanstalk stage={3} size={84} />
             <div>
               <p className="preview-title">Win the next rated bullet game</p>
               <p className="preview-amount mono">$15.00</p>
@@ -105,6 +113,20 @@ export default async function Home() {
               <span className="step-no mono">0{i + 1}</span>
               <h3>{title}</h3>
               <p className="muted">{text}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <p className="eyebrow">The pot</p>
+        <h2 className="section-title">Every pledge is a magic bean</h2>
+        <div className="card growth">
+          {GROWTH.map(([name, when], stage) => (
+            <div key={name} className="growth-stage">
+              <Beanstalk stage={stage} size={78} />
+              <strong>{name}</strong>
+              <span className="muted small">{when}</span>
             </div>
           ))}
         </div>

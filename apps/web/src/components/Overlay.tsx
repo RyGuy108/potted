@@ -2,7 +2,7 @@
 
 import { formatUsd, growthOf } from "@potted/core";
 import { useEffect, useRef, useState } from "react";
-import { Plant } from "./Plant";
+import { Beanstalk } from "./Beanstalk";
 
 interface OverlayChallenge {
   id: string;
@@ -102,7 +102,7 @@ export function Overlay({ handle, muted }: { handle: string; muted: boolean }) {
           const growth = growthOf(c.totalMicro, c.goalMicro);
           return (
             <div key={c.id} className="overlay-card">
-              <Plant stage={growth.index} size={64} />
+              <Beanstalk stage={growth.index} size={64} />
               <div>
                 <div className="overlay-title">{c.title}</div>
                 <div className="overlay-bar">

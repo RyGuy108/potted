@@ -2,7 +2,7 @@ import { type Challenge, formatUsd, growthOf } from "@potted/core";
 import Link from "next/link";
 import { STATUS_LABEL, gameOf, tierLabel } from "@/lib/format";
 import { Countdown } from "./Live";
-import { Plant } from "./Plant";
+import { Beanstalk } from "./Beanstalk";
 
 export function FundingBar({ challenge }: { challenge: Challenge }) {
   const growth = growthOf(challenge.totalMicro, challenge.goalMicro);
@@ -13,7 +13,7 @@ export function FundingBar({ challenge }: { challenge: Challenge }) {
       </div>
       <div className="funding-row">
         <strong className="mono">{formatUsd(challenge.totalMicro)}</strong>
-        <span className="muted">in the pot · fully grown at {formatUsd(challenge.goalMicro)}</span>
+        <span className="muted">in the pot · reaches the clouds at {formatUsd(challenge.goalMicro)}</span>
       </div>
     </div>
   );
@@ -28,7 +28,7 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
   const live = challenge.status === "open" || challenge.status === "locked";
   return (
     <Link href={`/c/${challenge.id}`} className="card challenge-card">
-      <Plant stage={growth.index} size={72} />
+      <Beanstalk stage={growth.index} size={72} />
       <div className="challenge-body">
         <div className="meta">
           <span className="tag">{gameOf(challenge).name}</span>

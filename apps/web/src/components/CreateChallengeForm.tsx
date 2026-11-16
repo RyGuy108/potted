@@ -150,7 +150,7 @@ export function CreateChallengeForm({ warnings }: { warnings: Record<string, str
       </div>
 
       <div className="grid">
-        {input("goalUsd", "Fully grown at ($)", { inputMode: "decimal", required: true })}
+        {input("goalUsd", "Reaches the clouds at ($)", { inputMode: "decimal", required: true })}
         {input("pledgeCapUsd", "Per-fan limit ($)", { inputMode: "decimal", required: true })}
         {input("minutes", "Deadline (minutes from now)", { inputMode: "numeric", required: true })}
       </div>

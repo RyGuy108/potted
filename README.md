@@ -7,8 +7,8 @@ sits in escrow. If the challenge is verified, the streamer is paid. If it
 fails or the deadline passes, every fan is refunded. Each settlement keeps a
 receipt that points at the evidence, so anyone can check why money moved.
 
-The mascot is a money tree: every pledge waters the pot, and the plant grows
-as the pot fills.
+The mascot is a beanstalk: every pledge is a magic bean, and the stalk climbs
+toward the clouds as the pot fills.
 
 Built for the University Blockchain Conference 2026 hackathon
 (Consumer Applications track, Solana).

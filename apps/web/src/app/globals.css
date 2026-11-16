@@ -611,6 +611,25 @@ input.narrow {
   align-items: flex-start;
 }
 
+.growth {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  align-items: end;
+}
+
+.growth-stage {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 2px;
+}
+
+.growth-stage strong {
+  font-family: var(--display);
+  font-size: 0.95rem;
+}
+
 .step-no {
   display: block;
   color: var(--blue-text);
@@ -1057,6 +1076,11 @@ body:has(.overlay-page) {
 
   .guarantees {
     grid-template-columns: 1fr;
+  }
+
+  .growth {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: 18px;
   }
 
   .detail {
