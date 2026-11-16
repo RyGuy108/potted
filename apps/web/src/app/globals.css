@@ -1056,8 +1056,9 @@ body:has(.overlay-page) {
 
 .overlay-at-top-left,
 .overlay-at-top-right {
-  justify-content: flex-start;
+  /* Reversed so toasts sit under the cards; in a reversed column, flex-end is the top. */
   flex-direction: column-reverse;
+  justify-content: flex-end;
 }
 
 .overlay-stack {
