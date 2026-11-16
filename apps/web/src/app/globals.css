@@ -1744,23 +1744,28 @@ body:has(.overlay-page) {
 /* --- Games marquee ------------------------------------------------------ */
 
 .marquee {
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   margin: 18px 0;
+  cursor: grab;
+  user-select: none;
+  scrollbar-width: none;
   /* Tiles fade out at the edges, not cut off. */
   mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
   -webkit-mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
 }
 
+.marquee::-webkit-scrollbar {
+  display: none;
+}
+
+.marquee.dragging {
+  cursor: grabbing;
+}
+
 .marquee-track {
   display: flex;
   width: max-content;
-  animation: marquee linear infinite;
-}
-
-.marquee:hover .marquee-track,
-.marquee:focus-within .marquee-track,
-.marquee:focus .marquee-track {
-  animation-play-state: paused;
 }
 
 .marquee-set {
@@ -1771,16 +1776,33 @@ body:has(.overlay-page) {
 
 .marquee .game {
   width: 420px;
-  min-height: 190px;
-  padding: 26px 28px;
+  min-height: 400px;
+  padding: 0;
   flex: none;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.game-art {
+  display: block;
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  flex: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+}
+
+.game-text {
+  padding: 22px 26px 26px;
 }
 
 .marquee .game .meta {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .marquee .game h3 {
@@ -1796,29 +1818,52 @@ body:has(.overlay-page) {
   margin-top: 10px;
 }
 
-@keyframes marquee {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .marquee {
-    overflow-x: auto;
-  }
-  .marquee-track {
-    animation: none;
-  }
-  .marquee-set[aria-hidden="true"] {
-    display: none;
-  }
-}
-
 @media (max-width: 560px) {
   .marquee .game {
     width: 300px;
+    min-height: 360px;
   }
+  .game-art {
+    height: 150px;
+  }
+}
+
+/* --- Sign-in panel spacing --------------------------------------------- */
+
+.signin-ways {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.signin-ways .providers {
+  gap: 14px;
+  margin-top: 0;
+}
+
+.signin-ways .divider {
+  margin: 6px 0;
+}
+
+.signin-ways .demo .row {
+  gap: 12px;
+}
+
+.signin-ways .demo > .muted {
+  margin: 12px 0 0;
+}
+
+.signin-ways .demo-roles {
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.signin-ways .demo-role {
+  padding: 18px;
+  gap: 8px;
+}
+
+.signin-ways .demo-role .row {
+  margin-top: 10px;
+  gap: 10px;
 }
