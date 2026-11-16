@@ -47,7 +47,7 @@ async function speak(event: OverlayEvent, muted: boolean): Promise<void> {
   if ("speechSynthesis" in window) window.speechSynthesis.speak(new SpeechSynthesisUtterance(event.message));
 }
 
-const SPOKEN = new Set(["pledged", "locked", "paid", "failed", "claimed", "refunded"]);
+const SPOKEN = new Set(["pledged", "locked", "paid", "failed", "claimed", "refunded", "milestone", "recap"]);
 
 export function Overlay({ handle, muted }: { handle: string; muted: boolean }) {
   const [challenges, setChallenges] = useState<OverlayChallenge[]>([]);
@@ -70,7 +70,8 @@ export function Overlay({ handle, muted }: { handle: string; muted: boolean }) {
       showing.current = true;
       setToast(event);
       if (SPOKEN.has(event.type)) void speak(event, muted || !announcer.current);
-      setTimeout(next, 4000);
+      // The recap is several sentences; give it time to be read.
+      setTimeout(next, event.type === "recap" ? 9000 : 4000);
     }
 
     async function poll() {

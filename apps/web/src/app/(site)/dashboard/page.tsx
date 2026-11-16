@@ -1,6 +1,6 @@
 import { GAMES, formatUsd } from "@potted/core";
 import Link from "next/link";
-import { cancelAction, checkAction, dismissSuggestionAction, lockAction, runAgainAction, simulateAction } from "@/app/actions";
+import { cancelAction, checkAction, recapAction, dismissSuggestionAction, lockAction, runAgainAction, simulateAction } from "@/app/actions";
 import { ActionButton } from "@/components/ActionButton";
 import { StatusPill } from "@/components/ChallengeCard";
 import { ClaimForm } from "@/components/ClaimForm";
@@ -74,7 +74,14 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
       <SettingsForm initial={settingsOf(user)} />
 
-      <h2>Your challenges</h2>
+      <div className="row between">
+        <h2>Your challenges</h2>
+        {challenges.length > 0 && (
+          <ActionButton action={recapAction} variant="ghost">
+            Read stream recap
+          </ActionButton>
+        )}
+      </div>
       {challenges.length === 0 && <p className="empty">Nothing yet. Create your first challenge above.</p>}
       <div className="list">
         {challenges.map((c) => (

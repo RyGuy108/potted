@@ -53,7 +53,7 @@ describe("challenge lifecycle on the sim ledger", () => {
     expect(await service.balanceOf(streamer())).toBe(toMicro(7.5));
     expect(await service.balanceOf(ana)).toBe(toMicro(20));
     const types = service.eventsSince("ryan", 0).map((e) => e.type);
-    expect(types).toEqual(["created", "pledged", "pledged", "locked", "paid"]);
+    expect(types).toEqual(["created", "pledged", "pledged", "milestone", "locked", "paid"]);
   });
 
   it("refunds every fan in full when the streamer loses", async () => {
@@ -226,5 +226,52 @@ describe("streamer controls", () => {
     expect(again.id).not.toBe(c.id);
     expect(again).toMatchObject({ status: "open", title: c.title, goalMicro: c.goalMicro, pledgeCapMicro: c.pledgeCapMicro });
     expect(Math.round((again.deadline - again.createdAt) / 60_000)).toBe(30);
+  });
+});
+
+describe("announcer", () => {
+  const messages = (type: string) => service.eventsSince("ryan", 0).filter((e) => e.type === type).map((e) => e.message);
+
+  it("announces each growth stage once, and only the highest when a pledge jumps stages", async () => {
+    const ana = await service.signIn("Ana", "fan");
+    const ben = await service.signIn("Ben", "fan");
+    const c = await service.createChallenge(streamer(), { ...base, goalUsd: 12, pledgeCapUsd: 10 });
+    await service.pledge(ana, c.id, 1);
+    expect(messages("milestone")).toEqual([]);
+    await service.pledge(ana, c.id, 3);
+    expect(messages("milestone")).toEqual(["The vine is climbing. A third of the way to the clouds."]);
+    await service.pledge(ana, c.id, 1);
+    expect(messages("milestone")).toHaveLength(1);
+    await service.pledge(ben, c.id, 7);
+    expect(messages("milestone")[1]).toBe("The beanstalk has reached the clouds! $12 is in the pot.");
+    expect(messages("milestone")).toHaveLength(2);
+  });
+
+  it("recaps the stream with earnings, refunds and the biggest backer", async () => {
+    expect(service.recapText(streamer())).toBe("No challenges yet this stream.");
+    const ana = await service.signIn("Ana", "fan");
+    const ben = await service.signIn("Ben", "fan");
+    const won = await service.createChallenge(streamer(), base);
+    await service.pledge(ana, won.id, 6);
+    await service.pledge(ben, won.id, 2);
+    await service.lock(streamer(), won.id);
+    process.env.POTTED_ALLOW_SIMULATED_RESULTS = "true";
+    await service.simulateResult(streamer(), won.id, true);
+    delete process.env.POTTED_ALLOW_SIMULATED_RESULTS;
+    const lost = await service.createChallenge(streamer(), base);
+    await service.pledge(ben, lost.id, 3);
+    await service.cancel(streamer(), lost.id);
+
+    await expect(service.announceRecap(ana)).rejects.toThrow("Only a streamer");
+    const text = await service.announceRecap(streamer());
+    expect(text).toBe("2 challenges so far, 1 completed. Ryan earned $8. Fans got $3 back. Biggest backer: Ana, with $6.");
+    expect(messages("recap")).toEqual([text]);
+  });
+
+  it("validates the announcer voice", async () => {
+    const current = service.settingsOf(streamer());
+    expect(current.voice).toBe("george");
+    await expect(service.updateSettings(streamer(), { ...current, voice: "hal" })).rejects.toThrow("Unknown announcer voice");
+    expect((await service.updateSettings(streamer(), { ...current, voice: "sarah" })).voice).toBe("sarah");
   });
 });

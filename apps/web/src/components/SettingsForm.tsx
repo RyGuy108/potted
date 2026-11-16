@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { updateSettingsAction } from "@/app/actions";
 import type { StreamSettings } from "@/lib/store";
+import { VOICES, type VoiceKey } from "@/lib/voices";
 
 const POSITIONS: [StreamSettings["overlayPosition"], string][] = [
   ["bottom-left", "Bottom left"],
@@ -54,6 +55,16 @@ export function SettingsForm({ initial }: { initial: StreamSettings }) {
         <label className="field">
           <span>Smallest pledge ($)</span>
           <input inputMode="decimal" value={minPledge} onChange={(e) => setMinPledge(e.target.value)} required />
+        </label>
+        <label className="field">
+          <span>Announcer voice</span>
+          <select value={settings.voice} onChange={(e) => setSettings({ ...settings, voice: e.target.value as VoiceKey })}>
+            {VOICES.map((voice) => (
+              <option key={voice.key} value={voice.key}>
+                {voice.name} ({voice.note})
+              </option>
+            ))}
+          </select>
         </label>
         <label className="field">
           <span>Overlay position</span>

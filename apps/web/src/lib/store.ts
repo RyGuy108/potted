@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { Challenge, Pledge } from "@potted/core";
+import type { VoiceKey } from "./voices";
 
 /**
  * A small JSON-file store so the prototype runs with no database. Everything
@@ -18,6 +19,8 @@ export interface StreamSettings {
   /** Smallest single pledge, in dollars. */
   minPledgeUsd: number;
   announcer: boolean;
+  /** Which announcer voice reads events. */
+  voice: VoiceKey;
   overlayPosition: OverlayPosition;
   /** How many live challenges the overlay shows at once. */
   overlayCards: 1 | 2;
@@ -29,6 +32,7 @@ export const DEFAULT_SETTINGS: StreamSettings = {
   acceptingSuggestions: true,
   minPledgeUsd: 1,
   announcer: true,
+  voice: "george",
   overlayPosition: "bottom-left",
   overlayCards: 2,
   blockedWords: [],
@@ -58,7 +62,7 @@ export interface User {
   createdAt: number;
 }
 
-export type EventType = "created" | "pledged" | "locked" | "claimed" | "disputed" | "paid" | "failed" | "refunded";
+export type EventType = "created" | "pledged" | "locked" | "claimed" | "disputed" | "paid" | "failed" | "refunded" | "milestone" | "recap";
 
 /** What the overlay shows and reads aloud. */
 export interface StreamEvent {
@@ -66,6 +70,7 @@ export interface StreamEvent {
   at: number;
   type: EventType;
   handle: string;
+  /** Empty for stream-wide events such as the recap. */
   challengeId: string;
   message: string;
 }

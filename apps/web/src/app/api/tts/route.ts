@@ -1,9 +1,9 @@
 import * as service from "@/lib/service";
+import { voiceId } from "@/lib/voices";
 
 export const dynamic = "force-dynamic";
 
-const DEFAULT_VOICE = "JBFqnCBsd6RMkjVDRZzb";
-const cache = new Map<number, ArrayBuffer>();
+const cache = new Map<string, ArrayBuffer>();
 
 /**
  * Announcer audio for one event. It takes an event number, not free text,
@@ -18,9 +18,12 @@ export async function GET(request: Request) {
   const event = service.getEvent(seq);
   if (!event) return new Response(null, { status: 404 });
 
-  let audio = cache.get(seq);
+  // The streamer's chosen voice; ELEVENLABS_VOICE_ID overrides it with a custom one.
+  const streamer = service.getStreamer(event.handle);
+  const voice = process.env.ELEVENLABS_VOICE_ID || voiceId(streamer ? service.settingsOf(streamer).voice : "");
+  const cacheKey = `${seq}:${voice}`;
+  let audio = cache.get(cacheKey);
   if (!audio) {
-    const voice = process.env.ELEVENLABS_VOICE_ID || DEFAULT_VOICE;
     const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_128`, {
       method: "POST",
       headers: { "xi-api-key": key, "Content-Type": "application/json" },
@@ -28,7 +31,7 @@ export async function GET(request: Request) {
     });
     if (!res.ok) return new Response(null, { status: 204 });
     audio = await res.arrayBuffer();
-    cache.set(seq, audio);
+    cache.set(cacheKey, audio);
     if (cache.size > 50) cache.delete(cache.keys().next().value!);
   }
   return new Response(audio, { headers: { "Content-Type": "audio/mpeg", "Cache-Control": "private, max-age=3600" } });

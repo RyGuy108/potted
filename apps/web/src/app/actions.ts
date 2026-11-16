@@ -56,6 +56,10 @@ export async function createChallengeAction(
   });
 }
 
+export async function recapAction(): Promise<ActionResult> {
+  return run(async () => service.announceRecap(await requireUser()));
+}
+
 export async function cancelAction(challengeId: string): Promise<ActionResult> {
   return run(async () => service.cancel(await requireUser(), String(challengeId)));
 }

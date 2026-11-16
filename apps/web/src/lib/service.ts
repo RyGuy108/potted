@@ -8,6 +8,7 @@ import {
   canSettle,
   describeCondition,
   formatUsd,
+  growthOf,
   parseCondition,
   pledgeError,
   refundReason,
@@ -15,6 +16,7 @@ import {
 } from "@potted/core";
 import { type Deps, defaultDeps, snapshot, verify } from "@potted/verifier";
 import { ledger } from "./ledger";
+import { VOICES, type VoiceKey } from "./voices";
 import {
   DEFAULT_SETTINGS,
   type EventType,
@@ -88,9 +90,12 @@ export async function balanceOf(user: User): Promise<number> {
 }
 
 function emit(type: EventType, challenge: Challenge, message: string): void {
+  emitTo(getUser(challenge.streamerId)?.handle ?? "", type, challenge.id, message);
+}
+
+function emitTo(handle: string, type: EventType, challengeId: string, message: string): void {
   const state = db();
-  const handle = getUser(challenge.streamerId)?.handle ?? "";
-  const event: StreamEvent = { seq: ++state.seq, at: Date.now(), type, handle, challengeId: challenge.id, message };
+  const event: StreamEvent = { seq: ++state.seq, at: Date.now(), type, handle, challengeId, message };
   state.events.push(event);
   if (state.events.length > 500) state.events.splice(0, state.events.length - 500);
 }
@@ -136,10 +141,14 @@ export async function updateSettings(actor: User, input: Partial<Record<keyof St
     .map((word) => String(word).trim().toLowerCase())
     .filter((word) => word.length >= 2 && word.length <= 30)
     .slice(0, 50);
+  // Settings saved before voices existed carry no voice; keep the current one.
+  const voice = (input.voice ?? settingsOf(actor).voice) as VoiceKey;
+  if (!VOICES.some((v) => v.key === voice)) fail("Unknown announcer voice");
   actor.settings = {
     acceptingSuggestions: input.acceptingSuggestions === true,
     minPledgeUsd,
     announcer: input.announcer === true,
+    voice,
     overlayPosition: position,
     overlayCards: Number(input.overlayCards) === 1 ? 1 : 2,
     blockedWords,
@@ -263,10 +272,58 @@ export async function pledge(actor: User, challengeId: string, amountUsd: number
     tx,
   };
   db().pledges.push(record);
+  const before = growthOf(challenge.totalMicro, challenge.goalMicro).index;
   challenge.totalMicro += amountMicro;
   emit("pledged", challenge, `${actor.name} added ${formatUsd(amountMicro)}. The pot is at ${formatUsd(challenge.totalMicro)}.`);
+  // One line for the highest stage this pledge reached, so a big pledge
+  // that jumps two stages is announced once.
+  const after = growthOf(challenge.totalMicro, challenge.goalMicro).index;
+  const line = after > before ? MILESTONE_LINES[after] : undefined;
+  if (line) emit("milestone", challenge, line(challenge));
   save();
   return record;
+}
+
+/** Announcer lines by growth stage. The first pledge is its own news, so the sprout has none. */
+const MILESTONE_LINES: Record<number, ((c: Challenge) => string) | undefined> = {
+  2: () => "The vine is climbing. A third of the way to the clouds.",
+  3: () => "That is a proper beanstalk now. Two thirds of the way up.",
+  4: (c) => `The beanstalk has reached the clouds! ${formatUsd(c.totalMicro)} is in the pot.`,
+};
+
+const RECAP_WINDOW_MS = 12 * 60 * 60_000;
+
+/** A spoken summary of the stream so far: the last 12 hours of this streamer's challenges. */
+export function recapText(streamer: User, now = Date.now()): string {
+  const recent = db().challenges.filter((c) => c.streamerId === streamer.id && now - c.createdAt <= RECAP_WINDOW_MS);
+  if (recent.length === 0) return "No challenges yet this stream.";
+  const paid = recent.filter((c) => c.status === "paid");
+  const earned = paid.reduce((sum, c) => sum + c.totalMicro, 0);
+  const ids = new Set(recent.map((c) => c.id));
+  const byFan = new Map<string, number>();
+  let refunded = 0;
+  for (const p of db().pledges) {
+    if (!ids.has(p.challengeId)) continue;
+    if (p.refunded) refunded += p.amountMicro;
+    byFan.set(p.userId, (byFan.get(p.userId) ?? 0) + p.amountMicro);
+  }
+  const top = [...byFan.entries()].sort((a, b) => b[1] - a[1])[0];
+  const parts = [
+    `${recent.length} ${recent.length === 1 ? "challenge" : "challenges"} so far, ${paid.length} completed.`,
+    `${streamer.name} earned ${formatUsd(earned)}.`,
+  ];
+  if (refunded > 0) parts.push(`Fans got ${formatUsd(refunded)} back.`);
+  if (top) parts.push(`Biggest backer: ${getUser(top[0])?.name ?? "a fan"}, with ${formatUsd(top[1])}.`);
+  return parts.join(" ");
+}
+
+/** Sends the recap to the overlay, where the announcer reads it. */
+export async function announceRecap(actor: User): Promise<string> {
+  if (actor.role !== "streamer" || !actor.handle) fail("Only a streamer can read the recap");
+  const text = recapText(actor);
+  emitTo(actor.handle, "recap", "", text);
+  save();
+  return text;
 }
 
 function requireOwner(actor: User, challenge: Challenge): void {

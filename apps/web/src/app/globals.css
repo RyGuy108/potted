@@ -1191,3 +1191,17 @@ body:has(.overlay-page) {
     transition: none !important;
   }
 }
+
+.row.between {
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.overlay-milestone {
+  border-left-color: var(--green);
+}
+
+.overlay-recap {
+  max-width: 440px;
+  line-height: 1.4;
+}
