@@ -51,17 +51,26 @@ export interface SuggestionSeed {
   text: string;
 }
 
+/** Suggested terms from the coordinator. They only pre-fill the form. */
+export interface DraftSeed {
+  fields: Record<string, string>;
+  note: string;
+  source: "grok" | "rules";
+}
+
 export function CreateChallengeForm({
   warnings,
   suggestion,
+  draft,
 }: {
   warnings: Record<string, string | null>;
   /** A fan idea the streamer chose to turn into a challenge. */
   suggestion?: SuggestionSeed;
+  draft?: DraftSeed;
 }) {
   const router = useRouter();
   const [gameId, setGameId] = useState(suggestion?.gameId ?? "chess");
-  const [fields, setFields] = useState<Fields>({ ...DEFAULTS, statement: suggestion?.text ?? "" });
+  const [fields, setFields] = useState<Fields>({ ...DEFAULTS, statement: suggestion?.text ?? "", ...draft?.fields });
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const game = GAMES.find((g) => g.id === gameId)!;
@@ -115,6 +124,11 @@ export function CreateChallengeForm({
       {suggestion && (
         <p className="hint">
           From {suggestion.fanName}: &ldquo;{suggestion.text}&rdquo;. Set the exact terms below; fans fund what you write, not the idea.
+          {draft && (
+            <span className="draft-note">
+              <span className="tag tag-quiet">{draft.source === "grok" ? "Drafted by Grok" : "Drafted by rules"}</span> {draft.note}
+            </span>
+          )}
         </p>
       )}
       <div className="game-tabs" role="tablist" aria-label="Game">

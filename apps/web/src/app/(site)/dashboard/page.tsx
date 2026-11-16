@@ -1,3 +1,4 @@
+import { draftTerms } from "@potted/coordinator";
 import { GAMES, formatUsd } from "@potted/core";
 import Link from "next/link";
 import { cancelAction, checkAction, recapAction, dismissSuggestionAction, lockAction, runAgainAction, simulateAction } from "@/app/actions";
@@ -29,6 +30,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const { use } = await searchParams;
   const picked = use ? getSuggestion(use) : undefined;
   const seed = picked && picked.streamerId === user.id && picked.status === "pending" ? picked : undefined;
+  const draft = seed ? await draftTerms({ gameId: seed.gameId, text: seed.text }) : undefined;
 
   return (
     <>
@@ -69,7 +71,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       )}
 
       <div id="new">
-        <CreateChallengeForm key={seed?.id ?? "blank"} warnings={adapterStatus()} suggestion={seed} />
+        <CreateChallengeForm key={seed?.id ?? "blank"} warnings={adapterStatus()} suggestion={seed} draft={draft} />
       </div>
 
       <SettingsForm initial={settingsOf(user)} />

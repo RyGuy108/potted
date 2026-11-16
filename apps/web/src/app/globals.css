@@ -1279,3 +1279,15 @@ body:has(.overlay-page) {
 .overlay-at-top-right .overlay-qr {
   justify-self: end;
 }
+
+.draft-note {
+  display: block;
+  margin-top: 8px;
+}
+
+.brief {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.11));
+  border-radius: 12px;
+}

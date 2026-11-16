@@ -1,3 +1,4 @@
+import { type Brief, disputeBrief } from "@potted/coordinator";
 import { type Challenge, formatUsd, growthOf, toUsd } from "@potted/core";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -40,6 +41,27 @@ function rulesFor(challenge: Challenge): string[] {
         "A dispute holds the pot until a moderator reviews the clip.",
       ];
   }
+}
+
+/** One brief per disputed challenge, so page refreshes do not call Grok again. */
+const briefs = new Map<string, Promise<Brief>>();
+
+function briefFor(challenge: Challenge, funders: number): Promise<Brief> | undefined {
+  const c = challenge.condition;
+  if (c.kind !== "optimistic" || !challenge.claim) return undefined;
+  let brief = briefs.get(challenge.id);
+  if (!brief) {
+    brief = disputeBrief({
+      title: challenge.title,
+      statement: c.statement,
+      game: c.game,
+      disputes: challenge.claim.disputedBy.length,
+      funders,
+    });
+    briefs.set(challenge.id, brief);
+    if (briefs.size > 100) briefs.delete(briefs.keys().next().value!);
+  }
+  return brief;
 }
 
 function Receipt({ challenge }: { challenge: Challenge }) {
@@ -98,6 +120,8 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
   const live = challenge.status === "open" || challenge.status === "locked";
   const claim = challenge.claim;
   const disputed = (claim?.disputedBy.length ?? 0) > 0;
+  const ruling = user?.role === "mod" && disputed && !claim?.ruling;
+  const brief = ruling ? await briefFor(challenge, funders.length) : undefined;
 
   return (
     <>
@@ -159,7 +183,20 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
                   Dispute this clip
                 </ActionButton>
               )}
-              {user?.role === "mod" && disputed && !claim.ruling && (
+              {brief && (
+                <div className="brief">
+                  <p className="eyebrow">
+                    Before you rule <span className="tag tag-quiet">{brief.source === "grok" ? "Checklist by Grok" : "Standard checklist"}</span>
+                  </p>
+                  <ul className="rules">
+                    {brief.points.map((point) => (
+                      <li key={point}>{point}</li>
+                    ))}
+                  </ul>
+                  <p className="muted small">This is a checklist, not a verdict. The ruling is yours.</p>
+                </div>
+              )}
+              {ruling && (
                 <div className="row">
                   <ActionButton action={ruleAction.bind(null, challenge.id, true)}>Uphold: pay the streamer</ActionButton>
                   <ActionButton action={ruleAction.bind(null, challenge.id, false)} variant="danger">
