@@ -35,9 +35,15 @@ function rulesFor(challenge: Challenge): string[] {
         "Totals are read from public player stats when the attempt begins and compared until the deadline.",
         "The public data has no per-match detail, so this check cannot tell which match a win came from.",
       ];
+    case "steam":
+      return [
+        "Steam records the moment each achievement is unlocked. That timestamp must fall between the start of the attempt and the deadline.",
+        "If the achievement was already unlocked when the attempt began, the challenge fails and everyone is refunded.",
+      ];
     case "optimistic":
       return [
         "The streamer posts a clip of the challenge being completed.",
+        ...(c.proof ? [`The clip must show: ${c.proof}`] : []),
         `Anyone who funded it has ${c.disputeWindowSecs} seconds to dispute. With no dispute, the pot pays out.`,
         "A dispute holds the pot until a moderator reviews the clip.",
       ];
@@ -54,7 +60,7 @@ function briefFor(challenge: Challenge, funders: number): Promise<Brief> | undef
   if (!brief) {
     brief = disputeBrief({
       title: challenge.title,
-      statement: c.statement,
+      statement: c.proof ? `${c.statement} (the clip must show: ${c.proof})` : c.statement,
       game: c.game,
       disputes: challenge.claim.disputedBy.length,
       funders,

@@ -257,7 +257,7 @@ export async function updateSettings(actor: User, input: Partial<Record<keyof St
 const MAX_PENDING_PER_FAN = 3;
 
 /** A fan pitches a challenge. Nothing is funded until the streamer creates it. */
-export async function suggest(actor: User, handle: string, gameId: string, text: string): Promise<Suggestion> {
+export async function suggest(actor: User, handle: string, gameId: string, text: string, customGame = ""): Promise<Suggestion> {
   if (actor.role !== "fan") fail("Sign in as a fan to suggest a challenge");
   const streamer = getStreamer(handle) ?? fail("Streamer not found");
   const settings = settingsOf(streamer);
@@ -265,7 +265,10 @@ export async function suggest(actor: User, handle: string, gameId: string, text:
   const game = GAMES.find((g) => g.id === gameId) ?? fail("Unknown game");
   const clean = text.trim().replace(/\s+/g, " ");
   if (clean.length < 8 || clean.length > 140) fail("Describe the challenge in 8 to 140 characters");
-  const lower = clean.toLowerCase();
+  // A fan can name a game the platform has no entry for; it rides on the clip tier.
+  const named = game.id === "other" ? customGame.trim().replace(/\s+/g, " ") : "";
+  if (named.length > 40) fail("Keep the game's name under 40 characters");
+  const lower = `${clean} ${named}`.toLowerCase();
   if (settings.blockedWords.some((word) => lower.includes(word))) fail("That suggestion uses a word this streamer has blocked");
   const pending = db().suggestions.filter((s) => s.streamerId === streamer.id && s.userId === actor.id && s.status === "pending");
   if (pending.length >= MAX_PENDING_PER_FAN) fail("You already have 3 ideas waiting. Give the streamer a moment");
@@ -276,6 +279,7 @@ export async function suggest(actor: User, handle: string, gameId: string, text:
     fanName: actor.name,
     gameId: game.id,
     text: clean,
+    ...(named ? { customGame: named } : {}),
     createdAt: Date.now(),
     status: "pending",
   };

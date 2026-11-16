@@ -19,6 +19,12 @@ const DEFAULTS: Fields = {
   count: "1",
   game: "",
   statement: "",
+  proof: "",
+  steamId: "",
+  appId: "",
+  gameName: "",
+  achievement: "",
+  achievementTitle: "",
   disputeWindowSecs: "120",
   goalUsd: "20",
   pledgeCapUsd: "10",
@@ -41,7 +47,10 @@ function conditionFor(gameId: string, f: Fields): unknown {
         game: gameId === "other" ? f.game : game.name,
         statement: f.statement,
         disputeWindowSecs: f.disputeWindowSecs,
+        proof: f.proof,
       };
+    case "steam":
+      return { kind: "steam", steamId: f.steamId, appId: f.appId, gameName: f.gameName, achievement: f.achievement, achievementTitle: f.achievementTitle };
   }
 }
 
@@ -50,6 +59,7 @@ export interface SuggestionSeed {
   fanName: string;
   gameId: string;
   text: string;
+  customGame?: string;
 }
 
 /** Suggested terms from the coordinator. They only pre-fill the form. */
@@ -74,7 +84,7 @@ export function CreateChallengeForm({
 }) {
   const router = useRouter();
   const [gameId, setGameId] = useState(suggestion?.gameId ?? "chess");
-  const [fields, setFields] = useState<Fields>({ ...DEFAULTS, statement: suggestion?.text ?? "", ...draft?.fields });
+  const [fields, setFields] = useState<Fields>({ ...DEFAULTS, statement: suggestion?.text ?? "", game: suggestion?.customGame ?? "", ...draft?.fields });
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [partner, setPartner] = useState("");
@@ -172,6 +182,15 @@ export function CreateChallengeForm({
       {warning && <p className="warn small">{warning}</p>}
 
       <div className="grid">
+        {game.verifier === "steam" && (
+          <>
+            {input("gameName", "Game", { placeholder: "Hollow Knight", required: true })}
+            {input("appId", "Steam app id (the number in the store URL)", { inputMode: "numeric", placeholder: "367520", required: true })}
+            {input("steamId", "Your SteamID64 (17 digits)", { inputMode: "numeric", placeholder: "7656119…", required: true })}
+            {input("achievementTitle", "Achievement title", { placeholder: "Steel Soul", required: true })}
+            {input("achievement", "Achievement API name", { placeholder: "STEEL_SOUL", required: true })}
+          </>
+        )}
         {game.verifier === "lichess" && (
           <>
             {input("username", "Lichess username", { placeholder: "your_lichess_name", required: true })}
@@ -206,6 +225,7 @@ export function CreateChallengeForm({
             {gameId === "other" && input("game", "Game or activity", { placeholder: "Cooking stream", required: true })}
             {input("statement", "Challenge", { placeholder: game.example ?? "Something a viewer can confirm from a clip", required: true })}
             {input("disputeWindowSecs", "Dispute window (seconds)", { inputMode: "numeric", required: true })}
+            {input("proof", "What the clip must show (optional)", { placeholder: "The end screen with the timer visible", maxLength: 160 })}
           </>
         )}
       </div>

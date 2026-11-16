@@ -61,6 +61,8 @@ export interface Suggestion {
   fanName: string;
   gameId: string;
   text: string;
+  /** The game's name, when the fan picked "Anything else". */
+  customGame?: string;
   createdAt: number;
   status: "pending" | "used" | "dismissed";
 }

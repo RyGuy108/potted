@@ -8,6 +8,7 @@ import { suggestAction } from "@/app/actions";
 export function SuggestForm({ handle, streamerName }: { handle: string; streamerName: string }) {
   const [gameId, setGameId] = useState(GAMES[0]!.id);
   const [text, setText] = useState("");
+  const [customGame, setCustomGame] = useState("");
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
 
@@ -18,7 +19,7 @@ export function SuggestForm({ handle, streamerName }: { handle: string; streamer
         e.preventDefault();
         setMessage(null);
         start(async () => {
-          const result = await suggestAction(handle, gameId, text);
+          const result = await suggestAction(handle, gameId, text, customGame);
           setMessage(result.ok ? { ok: true, text: `Sent. ${streamerName} sees it on the dashboard.` } : { ok: false, text: result.error });
           if (result.ok) setText("");
         });
@@ -36,6 +37,12 @@ export function SuggestForm({ handle, streamerName }: { handle: string; streamer
           ))}
         </select>
       </label>
+      {gameId === "other" && (
+        <label className="field">
+          <span>Which game or activity?</span>
+          <input value={customGame} maxLength={40} onChange={(e) => setCustomGame(e.target.value)} placeholder="Any game, even one not listed here" />
+        </label>
+      )}
       <label className="field">
         <span>Your idea</span>
         <textarea

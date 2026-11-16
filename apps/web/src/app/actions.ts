@@ -85,8 +85,8 @@ export async function runAgainAction(challengeId: string): Promise<ActionResult>
   return run(async () => service.runAgain(await requireUser(), String(challengeId)));
 }
 
-export async function suggestAction(handle: string, gameId: string, text: string): Promise<ActionResult> {
-  return run(async () => service.suggest(await requireUser(), String(handle), String(gameId), String(text)));
+export async function suggestAction(handle: string, gameId: string, text: string, customGame = ""): Promise<ActionResult> {
+  return run(async () => service.suggest(await requireUser(), String(handle), String(gameId), String(text), String(customGame)));
 }
 
 export async function dismissSuggestionAction(id: string): Promise<ActionResult> {

@@ -57,7 +57,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               <div>
                 <p>{s.text}</p>
                 <p className="muted small">
-                  {s.fanName} · {GAMES.find((g) => g.id === s.gameId)?.name}
+                  {s.fanName} · {s.customGame ?? GAMES.find((g) => g.id === s.gameId)?.name}
                 </p>
               </div>
               <div className="row">

@@ -3,16 +3,18 @@ import { brawlStarsAdapter } from "./brawlstars";
 import { fortniteAdapter } from "./fortnite";
 import { lichessAdapter } from "./lichess";
 import { optimisticAdapter } from "./optimistic";
+import { steamAdapter } from "./steam";
 import type { Adapter, CheckContext, Deps } from "./types";
 
 export * from "./types";
-export { lichessAdapter, brawlStarsAdapter, fortniteAdapter, optimisticAdapter };
+export { lichessAdapter, brawlStarsAdapter, fortniteAdapter, optimisticAdapter, steamAdapter };
 
 /** Adding a game means adding one adapter here. Nothing else changes. */
 const ADAPTERS: { [K in Condition["kind"]]: Adapter<Extract<Condition, { kind: K }>> } = {
   lichess: lichessAdapter,
   brawlstars: brawlStarsAdapter,
   fortnite: fortniteAdapter,
+  steam: steamAdapter,
   optimistic: optimisticAdapter,
 };
 

@@ -399,3 +399,32 @@ describe("charity streams", () => {
     await expect(service.updateSettings(streamer(), { ...s, causeName: "Fund", causeUrl: "javascript:alert(1)" })).rejects.toThrow("https://");
   });
 });
+
+describe("games not on the platform", () => {
+  it("lets a fan name any game on a suggestion, subject to the blocked words", async () => {
+    const ana = await service.signIn("Ana", "fan");
+    await service.updateSettings(streamer(), { ...service.settingsOf(streamer()), blockedWords: "gacha" });
+    const idea = await service.suggest(ana, "ryan", "other", "Clear the first boss without healing", "  Hollow   Knight ");
+    expect(idea.customGame).toBe("Hollow Knight");
+    await expect(service.suggest(ana, "ryan", "other", "Pull the limited banner unit", "Some Gacha Game")).rejects.toThrow("blocked");
+    expect((await service.suggest(ana, "ryan", "chess", "Win a game with the Bongcloud", "ignored")).customGame).toBeUndefined();
+  });
+
+  it("opens a Steam achievement challenge and keeps a proof rule on clip challenges", async () => {
+    const steam = await service.createChallenge(streamer(), {
+      ...base,
+      gameId: "steam",
+      condition: { kind: "steam", steamId: "76561198000000000", appId: "367520", gameName: "Hollow Knight", achievement: "STEEL_SOUL", achievementTitle: "Steel Soul" },
+    });
+    expect(steam.title).toBe('Hollow Knight: unlock "Steel Soul" on Steam');
+    await expect(
+      service.createChallenge(streamer(), { ...base, gameId: "steam", condition: { kind: "steam", steamId: "123", appId: 1, gameName: "X", achievement: "A" } }),
+    ).rejects.toThrow("17-digit");
+    const clip = await service.createChallenge(streamer(), {
+      ...base,
+      gameId: "speedrun",
+      condition: { kind: "optimistic", game: "Speedruns", statement: "Beat my personal best", proof: "The final split with the timer visible", disputeWindowSecs: 60 },
+    });
+    expect(clip.condition).toMatchObject({ proof: "The final split with the timer visible" });
+  });
+});

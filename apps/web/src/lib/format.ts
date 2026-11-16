@@ -25,6 +25,7 @@ export function adapterStatus(): Record<string, string | null> {
     lichess: null,
     brawlstars: process.env.BRAWLSTARS_API_KEY ? null : "Needs BRAWLSTARS_API_KEY in .env.local",
     fortnite: process.env.FORTNITE_API_KEY ? null : "Needs FORTNITE_API_KEY in .env.local",
+    steam: process.env.STEAM_API_KEY ? null : "Needs STEAM_API_KEY in .env.local",
     optimistic: null,
   };
 }

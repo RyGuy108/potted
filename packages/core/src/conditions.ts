@@ -40,12 +40,31 @@ export interface OptimisticCondition {
   statement: string;
   /** How long funders have to dispute a claim before it settles. */
   disputeWindowSecs: number;
+  /** What the clip has to show, set by the streamer up front so a dispute has something to be judged against. */
+  proof?: string;
+}
+
+/**
+ * Covers any Steam game without a checker of its own: Steam records when
+ * each achievement was unlocked, so "unlock X during the attempt" is data.
+ */
+export interface SteamCondition {
+  kind: "steam";
+  /** The streamer's 17-digit SteamID64. Their game details must be public. */
+  steamId: string;
+  appId: number;
+  gameName: string;
+  /** The achievement's API name, as Steam stores it. */
+  achievement: string;
+  /** The achievement's display title, shown to fans. */
+  achievementTitle: string;
 }
 
 export type Condition =
   | LichessCondition
   | BrawlStarsCondition
   | FortniteCondition
+  | SteamCondition
   | OptimisticCondition;
 
 export type VerifierKind = Condition["kind"];
@@ -73,6 +92,8 @@ export function describeCondition(c: Condition): string {
       return c.goal === "wins"
         ? `${c.accountName} gets ${c.count} Victory Royale${c.count === 1 ? "" : "s"} in Fortnite`
         : `${c.accountName} gets ${c.count} eliminations in Fortnite`;
+    case "steam":
+      return `${c.gameName}: unlock "${c.achievementTitle}" on Steam`;
     case "optimistic":
       return `${c.game}: ${c.statement}`;
   }
@@ -132,11 +153,25 @@ export function parseCondition(input: unknown): Condition {
         count: requireInt(raw.count, "Count", 1, 500),
       };
     }
+    case "steam": {
+      const steamId = requireString(raw.steamId, "Steam ID", 17);
+      if (!/^\d{17}$/.test(steamId)) throw new Error("Steam ID must be the 17-digit SteamID64");
+      const achievement = requireString(raw.achievement, "Achievement API name", 80);
+      return {
+        kind: "steam",
+        steamId,
+        appId: requireInt(raw.appId, "Steam app id", 1, 99_999_999),
+        gameName: requireString(raw.gameName, "Game name", 40),
+        achievement,
+        achievementTitle: raw.achievementTitle ? requireString(raw.achievementTitle, "Achievement title", 80) : achievement,
+      };
+    }
     case "optimistic":
       return {
         kind: "optimistic",
         game: requireString(raw.game, "Game", 40),
         statement: requireString(raw.statement, "Challenge", 200),
+        ...(typeof raw.proof === "string" && raw.proof.trim() ? { proof: requireString(raw.proof, "Proof rule", 160) } : {}),
         disputeWindowSecs:
           raw.disputeWindowSecs == null
             ? 120
@@ -165,6 +200,7 @@ export const GAMES: GameInfo[] = [
   { id: "chess", name: "Chess", verifier: "lichess", how: "Checked against the public Lichess game record.", featured: true, example: "Win the next rated blitz game" },
   { id: "brawlstars", name: "Brawl Stars", verifier: "brawlstars", how: "Checked against the official battle log.", featured: true, example: "Win 3 of the next 5 battles" },
   { id: "fortnite", name: "Fortnite", verifier: "fortnite", how: "Checked against public player stats.", featured: true, example: "Get 10 eliminations" },
+  { id: "steam", name: "Any Steam game", verifier: "steam", how: "Checked against the time Steam recorded the achievement.", featured: true, example: "Unlock a named achievement before the deadline" },
   { id: "gta6", name: "GTA VI", verifier: "optimistic", how: CLIP, featured: true, example: "Finish the first heist without getting busted" },
   // Stream types beyond the featured games. Each settles by clip until it
   // gets a data checker of its own: add an adapter in packages/verifier and
