@@ -1,0 +1,357 @@
+import {
+  type Challenge,
+  type Evidence,
+  GAMES,
+  type Pledge,
+  type Verdict,
+  canLock,
+  canSettle,
+  describeCondition,
+  formatUsd,
+  parseCondition,
+  pledgeError,
+  refundReason,
+  toMicro,
+} from "@potted/core";
+import { type Deps, defaultDeps, snapshot, verify } from "@potted/verifier";
+import { ledger } from "./ledger";
+import { type EventType, type Role, type StreamEvent, type User, db, newId, save } from "./store";
+
+/**
+ * The use cases. Pages and API routes call these; nothing else touches the
+ * store or the ledger. Each function checks who is acting.
+ */
+
+const FAUCET_MICRO = toMicro(25);
+/** Time the verifier has after the deadline before refunds open to anyone. */
+const SETTLE_GRACE_MS = 10 * 60_000;
+/** Don't ask a game API about the same challenge more often than this. */
+const CHECK_INTERVAL_MS = 8_000;
+
+const lastChecked = new Map<string, number>();
+
+function fail(message: string): never {
+  throw new Error(message);
+}
+
+export function getUser(id: string | undefined): User | undefined {
+  return id ? db().users.find((u) => u.id === id) : undefined;
+}
+
+export function getStreamer(handle: string): User | undefined {
+  return db().users.find((u) => u.role === "streamer" && u.handle === handle.toLowerCase());
+}
+
+export function getChallenge(id: string): Challenge {
+  return db().challenges.find((c) => c.id === id) ?? fail("Challenge not found");
+}
+
+export function listChallenges(streamerId: string): Challenge[] {
+  const live = (c: Challenge) => (c.status === "open" || c.status === "locked" ? 0 : 1);
+  return db()
+    .challenges.filter((c) => c.streamerId === streamerId)
+    .sort((a, b) => live(a) - live(b) || b.createdAt - a.createdAt);
+}
+
+export function pledgesFor(challengeId: string): (Pledge & { fanName: string })[] {
+  return db()
+    .pledges.filter((p) => p.challengeId === challengeId)
+    .map((p) => ({ ...p, fanName: getUser(p.userId)?.name ?? "A fan" }));
+}
+
+/** One row per fan, for the funders list. */
+export function fundersOf(challengeId: string): { userId: string; fanName: string; amountMicro: number; refunded: boolean }[] {
+  const byFan = new Map<string, { userId: string; fanName: string; amountMicro: number; refunded: boolean }>();
+  for (const p of pledgesFor(challengeId)) {
+    const row = byFan.get(p.userId) ?? { userId: p.userId, fanName: p.fanName, amountMicro: 0, refunded: true };
+    row.amountMicro += p.amountMicro;
+    row.refunded = row.refunded && p.refunded;
+    byFan.set(p.userId, row);
+  }
+  return [...byFan.values()].sort((a, b) => b.amountMicro - a.amountMicro);
+}
+
+export async function balanceOf(user: User): Promise<number> {
+  return ledger().balanceOf(user.wallet);
+}
+
+function emit(type: EventType, challenge: Challenge, message: string): void {
+  const state = db();
+  const handle = getUser(challenge.streamerId)?.handle ?? "";
+  const event: StreamEvent = { seq: ++state.seq, at: Date.now(), type, handle, challengeId: challenge.id, message };
+  state.events.push(event);
+  if (state.events.length > 500) state.events.splice(0, state.events.length - 500);
+}
+
+export function eventsSince(handle: string, since: number): StreamEvent[] {
+  return db().events.filter((e) => e.handle === handle && e.seq > since);
+}
+
+export function latestSeq(): number {
+  return db().seq;
+}
+
+export function getEvent(seq: number): StreamEvent | undefined {
+  return db().events.find((e) => e.seq === seq);
+}
+
+/** Judge mode: a named account with test funds, no password. */
+export async function signIn(name: string, role: Role): Promise<User> {
+  const clean = name.trim().slice(0, 24);
+  if (clean.length < 2) fail("Pick a name with at least 2 characters");
+  if (role === "streamer") fail("Use the demo streamer account");
+  const id = newId("u");
+  const user: User = { id, name: clean, role, wallet: `sim:${id}`, createdAt: Date.now() };
+  db().users.push(user);
+  if (role === "fan") await ledger().faucet(user.wallet, FAUCET_MICRO);
+  save();
+  return user;
+}
+
+export interface NewChallenge {
+  gameId: string;
+  condition: unknown;
+  goalUsd: number;
+  pledgeCapUsd: number;
+  minutes: number;
+}
+
+export async function createChallenge(actor: User, input: NewChallenge): Promise<Challenge> {
+  if (actor.role !== "streamer") fail("Only the streamer can create challenges");
+  const game = GAMES.find((g) => g.id === input.gameId) ?? fail("Unknown game");
+  const condition = parseCondition(input.condition);
+  if (condition.kind !== game.verifier) fail("That condition does not match the game");
+  if (!(input.minutes >= 1 && input.minutes <= 24 * 60)) fail("Deadline must be 1 minute to 24 hours away");
+  if (!(input.goalUsd >= 1 && input.goalUsd <= 10_000)) fail("Goal must be $1 to $10,000");
+  if (!(input.pledgeCapUsd >= 1 && input.pledgeCapUsd <= 1_000)) fail("Per-fan limit must be $1 to $1,000");
+
+  const now = Date.now();
+  const deadline = now + Math.round(input.minutes * 60_000);
+  const disputeMs = condition.kind === "optimistic" ? condition.disputeWindowSecs * 1000 : 0;
+  const challenge: Challenge = {
+    id: newId("c"),
+    streamerId: actor.id,
+    title: describeCondition(condition),
+    gameId: game.id,
+    condition,
+    status: "open",
+    goalMicro: toMicro(input.goalUsd),
+    pledgeCapMicro: toMicro(input.pledgeCapUsd),
+    totalMicro: 0,
+    createdAt: now,
+    deadline,
+    settleBy: deadline + disputeMs + SETTLE_GRACE_MS,
+    txs: {},
+  };
+  const created = await ledger().createChallenge(challenge, actor.wallet);
+  challenge.ledgerRef = created.ref;
+  challenge.txs.create = created.tx;
+  db().challenges.push(challenge);
+  emit("created", challenge, `New challenge: ${challenge.title}.`);
+  save();
+  return challenge;
+}
+
+export async function pledge(actor: User, challengeId: string, amountUsd: number): Promise<Pledge> {
+  if (actor.role !== "fan") fail("Sign in as a fan to pledge");
+  const challenge = getChallenge(challengeId);
+  const amountMicro = toMicro(amountUsd);
+  const already = db()
+    .pledges.filter((p) => p.challengeId === challengeId && p.userId === actor.id)
+    .reduce((sum, p) => sum + p.amountMicro, 0);
+  const problem = pledgeError(challenge, already, amountMicro, Date.now());
+  if (problem) fail(problem);
+
+  const tx = await ledger().pledge(challenge, actor.wallet, amountMicro);
+  const record: Pledge = {
+    id: newId("p"),
+    challengeId,
+    userId: actor.id,
+    amountMicro,
+    refunded: false,
+    createdAt: Date.now(),
+    tx,
+  };
+  db().pledges.push(record);
+  challenge.totalMicro += amountMicro;
+  emit("pledged", challenge, `${actor.name} added ${formatUsd(amountMicro)}. The pot is at ${formatUsd(challenge.totalMicro)}.`);
+  save();
+  return record;
+}
+
+function requireOwner(actor: User, challenge: Challenge): void {
+  if (actor.id !== challenge.streamerId) fail("Only this challenge's streamer can do that");
+}
+
+/** Closes pledging and starts the attempt. Play before this is ignored. */
+export async function lock(actor: User, challengeId: string, deps: Deps = defaultDeps()): Promise<Challenge> {
+  const challenge = getChallenge(challengeId);
+  requireOwner(actor, challenge);
+  if (!canLock(challenge, Date.now())) fail("This challenge cannot be started");
+  // Taken before the ledger call so a failing game API cannot leave a locked
+  // challenge without the baseline it needs.
+  const baseline = await snapshot(challenge.condition, deps);
+  challenge.txs.lock = await ledger().lock(challenge);
+  challenge.baseline = baseline;
+  challenge.status = "locked";
+  challenge.lockedAt = Date.now();
+  emit("locked", challenge, `Pledging is closed. ${formatUsd(challenge.totalMicro)} is riding on this one.`);
+  save();
+  return challenge;
+}
+
+async function refundAll(challenge: Challenge): Promise<number> {
+  let count = 0;
+  for (const p of db().pledges) {
+    if (p.challengeId !== challenge.id || p.refunded) continue;
+    const fan = getUser(p.userId);
+    if (!fan) continue;
+    p.refundTx = await ledger().refund(challenge, fan.wallet, p.amountMicro);
+    p.refunded = true;
+    count += 1;
+  }
+  return count;
+}
+
+async function applyVerdict(challenge: Challenge, verdict: Verdict): Promise<void> {
+  challenge.verdict = verdict;
+  if (verdict.outcome === "pending") return;
+  const streamer = getUser(challenge.streamerId) ?? fail("Streamer not found");
+  const success = verdict.outcome === "success";
+  challenge.txs.settle = await ledger().settle(challenge, success, verdict.evidence, streamer.wallet);
+  challenge.settledAt = Date.now();
+  if (success) {
+    challenge.status = "paid";
+    emit("paid", challenge, `Challenge complete! ${streamer.name} earned ${formatUsd(challenge.totalMicro)}.`);
+  } else {
+    challenge.status = "failed";
+    const fans = await refundAll(challenge);
+    emit(
+      "failed",
+      challenge,
+      fans > 0
+        ? `Challenge failed. ${formatUsd(challenge.totalMicro)} is going back to ${fans} ${fans === 1 ? "fan" : "fans"}.`
+        : "Challenge failed.",
+    );
+  }
+}
+
+/**
+ * Asks the verifier for a result and settles if there is one. Safe to call
+ * as often as you like; `force` skips the rate limit for a manual check.
+ */
+export async function check(
+  challengeId: string,
+  opts: { force?: boolean; deps?: Deps } = {},
+): Promise<Challenge> {
+  const challenge = getChallenge(challengeId);
+  const now = Date.now();
+
+  if (refundReason(challenge, now) === "expired") {
+    challenge.status = "failed";
+    challenge.verdict = { outcome: "failure", reason: "No result arrived in time, so every pledge was refunded" };
+    challenge.settledAt = now;
+    const fans = await refundAll(challenge);
+    emit("refunded", challenge, `Time ran out. ${fans} ${fans === 1 ? "fan was" : "fans were"} refunded.`);
+    save();
+    return challenge;
+  }
+  if (challenge.status !== "locked" || !canSettle(challenge, now)) return challenge;
+  if (!opts.force && now - (lastChecked.get(challengeId) ?? 0) < CHECK_INTERVAL_MS) return challenge;
+  lastChecked.set(challengeId, now);
+
+  const verdict = await verify(
+    challenge.condition,
+    {
+      lockedAt: challenge.lockedAt ?? challenge.createdAt,
+      deadline: challenge.deadline,
+      now,
+      baseline: challenge.baseline,
+      claim: challenge.claim,
+    },
+    opts.deps ?? defaultDeps(),
+  );
+  await applyVerdict(challenge, verdict);
+  save();
+  return challenge;
+}
+
+/** Background pass for one streamer's live challenges. Errors are per challenge. */
+export async function tick(streamerId: string): Promise<void> {
+  for (const challenge of listChallenges(streamerId)) {
+    if (challenge.status !== "open" && challenge.status !== "locked") continue;
+    try {
+      await check(challenge.id);
+    } catch (err) {
+      challenge.verdict = { outcome: "pending", reason: `Could not check yet: ${(err as Error).message}` };
+    }
+  }
+}
+
+/** Optimistic tier: the streamer says "done" and attaches a clip. */
+export async function claim(actor: User, challengeId: string, clipUrl: string): Promise<Challenge> {
+  const challenge = getChallenge(challengeId);
+  requireOwner(actor, challenge);
+  if (challenge.condition.kind !== "optimistic") fail("This challenge is verified from game data");
+  if (challenge.status !== "locked") fail("Start the attempt before claiming");
+  if (Date.now() > challenge.deadline) fail("The deadline has passed");
+  if (challenge.claim) fail("A clip was already posted");
+  let url: URL;
+  try {
+    url = new URL(clipUrl);
+  } catch {
+    fail("Enter a full clip link");
+  }
+  if (url.protocol !== "https:") fail("The clip link must start with https://");
+  challenge.claim = { clipUrl: url.toString(), claimedAt: Date.now(), disputedBy: [] };
+  emit("claimed", challenge, `Clip posted. Funders have ${challenge.condition.disputeWindowSecs} seconds to dispute.`);
+  save();
+  return challenge;
+}
+
+export async function dispute(actor: User, challengeId: string): Promise<Challenge> {
+  const challenge = getChallenge(challengeId);
+  const funded = db().pledges.some((p) => p.challengeId === challengeId && p.userId === actor.id);
+  if (!funded) fail("Only funders of this challenge can dispute");
+  const current = challenge.claim ?? fail("There is no claim to dispute");
+  if (challenge.status !== "locked" || current.ruling) fail("This claim can no longer be disputed");
+  if (!current.disputedBy.includes(actor.id)) current.disputedBy.push(actor.id);
+  emit("disputed", challenge, `${actor.name} disputed the clip. A moderator will review it.`);
+  save();
+  return challenge;
+}
+
+export async function rule(actor: User, challengeId: string, upheld: boolean): Promise<Challenge> {
+  if (actor.role !== "mod") fail("Only a moderator can rule on disputes");
+  const challenge = getChallenge(challengeId);
+  const current = challenge.claim ?? fail("There is no claim to rule on");
+  if (current.disputedBy.length === 0) fail("Nobody has disputed this claim");
+  current.ruling = upheld ? "upheld" : "rejected";
+  save();
+  return check(challengeId, { force: true });
+}
+
+export function simulatedResultsAllowed(): boolean {
+  return process.env.POTTED_ALLOW_SIMULATED_RESULTS === "true";
+}
+
+/** Rehearsal only. The receipt is permanently marked as simulated. */
+export async function simulateResult(actor: User, challengeId: string, success: boolean): Promise<Challenge> {
+  if (!simulatedResultsAllowed()) fail("Simulated results are turned off");
+  const challenge = getChallenge(challengeId);
+  requireOwner(actor, challenge);
+  if (challenge.status !== "locked") fail("Start the attempt first");
+  const evidence: Evidence = {
+    source: "rehearsal",
+    ref: "simulated",
+    summary: "Result forced from the dashboard for a rehearsal. No game data was checked.",
+    simulated: true,
+  };
+  await applyVerdict(challenge, {
+    outcome: success ? "success" : "failure",
+    reason: "Simulated result for a rehearsal",
+    evidence,
+  });
+  save();
+  return challenge;
+}

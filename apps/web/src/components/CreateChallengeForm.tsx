@@ -1,0 +1,170 @@
+"use client";
+
+import { GAMES } from "@potted/core";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { createChallengeAction } from "@/app/actions";
+
+type Fields = Record<string, string>;
+
+const DEFAULTS: Fields = {
+  username: "",
+  speed: "bullet",
+  minOpponentRating: "",
+  playerTag: "",
+  wins: "2",
+  battles: "3",
+  accountName: "",
+  goal: "wins",
+  count: "1",
+  game: "",
+  statement: "",
+  disputeWindowSecs: "120",
+  goalUsd: "20",
+  pledgeCapUsd: "10",
+  minutes: "30",
+};
+
+function conditionFor(gameId: string, f: Fields): unknown {
+  const game = GAMES.find((g) => g.id === gameId)!;
+  switch (game.verifier) {
+    case "lichess":
+      return { kind: "lichess", username: f.username, speed: f.speed, minOpponentRating: f.minOpponentRating };
+    case "brawlstars":
+      return { kind: "brawlstars", playerTag: f.playerTag, wins: f.wins, battles: f.battles };
+    case "fortnite":
+      return { kind: "fortnite", accountName: f.accountName, goal: f.goal, count: f.count };
+    case "optimistic":
+      return {
+        kind: "optimistic",
+        game: gameId === "gta4" ? "GTA IV" : f.game,
+        statement: f.statement,
+        disputeWindowSecs: f.disputeWindowSecs,
+      };
+  }
+}
+
+export function CreateChallengeForm({ warnings }: { warnings: Record<string, string | null> }) {
+  const router = useRouter();
+  const [gameId, setGameId] = useState("chess");
+  const [fields, setFields] = useState<Fields>(DEFAULTS);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const game = GAMES.find((g) => g.id === gameId)!;
+  const warning = warnings[game.verifier];
+
+  const input = (name: string, label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
+    <label className="field">
+      <span>{label}</span>
+      <input value={fields[name]} onChange={(e) => setFields({ ...fields, [name]: e.target.value })} {...props} />
+    </label>
+  );
+  const select = (name: string, label: string, options: [string, string][]) => (
+    <label className="field">
+      <span>{label}</span>
+      <select value={fields[name]} onChange={(e) => setFields({ ...fields, [name]: e.target.value })}>
+        {options.map(([value, text]) => (
+          <option key={value} value={value}>
+            {text}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+
+  return (
+    <form
+      className="card create"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setError(null);
+        start(async () => {
+          const result = await createChallengeAction({
+            gameId,
+            condition: conditionFor(gameId, fields),
+            goalUsd: Number(fields.goalUsd),
+            pledgeCapUsd: Number(fields.pledgeCapUsd),
+            minutes: Number(fields.minutes),
+          });
+          if (!result.ok) return setError(result.error);
+          setFields({ ...fields, statement: "" });
+          router.refresh();
+        });
+      }}
+    >
+      <h3>New challenge</h3>
+      <div className="game-tabs" role="tablist" aria-label="Game">
+        {GAMES.map((g) => (
+          <button
+            key={g.id}
+            type="button"
+            role="tab"
+            aria-selected={g.id === gameId}
+            className={g.id === gameId ? "tab tab-on" : "tab"}
+            onClick={() => setGameId(g.id)}
+          >
+            {g.name}
+          </button>
+        ))}
+      </div>
+      <p className="muted small">{game.how}</p>
+      {warning && <p className="warn small">{warning}</p>}
+
+      <div className="grid">
+        {game.verifier === "lichess" && (
+          <>
+            {input("username", "Lichess username", { placeholder: "your_lichess_name", required: true })}
+            {select("speed", "Time control", [
+              ["bullet", "Bullet"],
+              ["blitz", "Blitz"],
+              ["rapid", "Rapid"],
+              ["", "Any"],
+            ])}
+            {input("minOpponentRating", "Opponent rating floor (optional)", { inputMode: "numeric", placeholder: "e.g. 1500" })}
+          </>
+        )}
+        {game.verifier === "brawlstars" && (
+          <>
+            {input("playerTag", "Player tag", { placeholder: "#2PP0LYQ", required: true })}
+            {input("wins", "Wins needed", { inputMode: "numeric", required: true })}
+            {input("battles", "Out of next battles", { inputMode: "numeric", required: true })}
+          </>
+        )}
+        {game.verifier === "fortnite" && (
+          <>
+            {input("accountName", "Epic account name", { required: true })}
+            {select("goal", "Goal", [
+              ["wins", "Victory Royales"],
+              ["kills", "Eliminations"],
+            ])}
+            {input("count", "How many", { inputMode: "numeric", required: true })}
+          </>
+        )}
+        {game.verifier === "optimistic" && (
+          <>
+            {gameId !== "gta4" && input("game", "Game or activity", { placeholder: "Cooking stream", required: true })}
+            {input("statement", "Challenge", { placeholder: "Finish Three Leaf Clover without dying", required: true })}
+            {input("disputeWindowSecs", "Dispute window (seconds)", { inputMode: "numeric", required: true })}
+          </>
+        )}
+      </div>
+
+      <div className="grid">
+        {input("goalUsd", "Fully grown at ($)", { inputMode: "decimal", required: true })}
+        {input("pledgeCapUsd", "Per-fan limit ($)", { inputMode: "decimal", required: true })}
+        {input("minutes", "Deadline (minutes from now)", { inputMode: "numeric", required: true })}
+      </div>
+
+      <div className="row">
+        <button className="btn btn-primary" disabled={pending}>
+          {pending ? "Creating…" : "Open for pledges"}
+        </button>
+        {error && (
+          <span className="error" role="alert">
+            {error}
+          </span>
+        )}
+      </div>
+    </form>
+  );
+}
