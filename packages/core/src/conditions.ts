@@ -1,0 +1,164 @@
+/**
+ * A condition is the precise, checkable statement fans fund. Each kind maps
+ * to one verifier adapter. Conditions are frozen when a challenge is created.
+ */
+
+export type LichessSpeed = "bullet" | "blitz" | "rapid" | "classical";
+
+export interface LichessCondition {
+  kind: "lichess";
+  username: string;
+  goal: "win_next_rated";
+  /** Limit to one time control. Any speed counts when omitted. */
+  speed?: LichessSpeed;
+  /** Games shorter than this many half-moves are ignored (anti-collusion). */
+  minPlies: number;
+  minOpponentRating?: number;
+}
+
+export interface BrawlStarsCondition {
+  kind: "brawlstars";
+  /** Player tag without the leading "#". */
+  playerTag: string;
+  goal: "wins_in_next_battles";
+  wins: number;
+  battles: number;
+}
+
+export interface FortniteCondition {
+  kind: "fortnite";
+  accountName: string;
+  /** Totals gained between lock and deadline. */
+  goal: "wins" | "kills";
+  count: number;
+}
+
+export interface OptimisticCondition {
+  kind: "optimistic";
+  /** Free-text game or activity, e.g. "GTA IV". */
+  game: string;
+  statement: string;
+  /** How long funders have to dispute a claim before it settles. */
+  disputeWindowSecs: number;
+}
+
+export type Condition =
+  | LichessCondition
+  | BrawlStarsCondition
+  | FortniteCondition
+  | OptimisticCondition;
+
+export type VerifierKind = Condition["kind"];
+export type Tier = "data" | "optimistic";
+
+export function tierOf(kind: VerifierKind): Tier {
+  return kind === "optimistic" ? "optimistic" : "data";
+}
+
+/** Brawl Stars tags are case-insensitive and often typed with "#" or "O". */
+export function normalizeBrawlTag(tag: string): string {
+  return tag.trim().replace(/^#/, "").toUpperCase().replace(/O/g, "0");
+}
+
+export function describeCondition(c: Condition): string {
+  switch (c.kind) {
+    case "lichess": {
+      const speed = c.speed ? `${c.speed} ` : "";
+      const floor = c.minOpponentRating ? ` against a ${c.minOpponentRating}+ opponent` : "";
+      return `${c.username} wins their next rated ${speed}game on Lichess${floor}`;
+    }
+    case "brawlstars":
+      return `#${c.playerTag} wins ${c.wins} of their next ${c.battles} Brawl Stars battles`;
+    case "fortnite":
+      return c.goal === "wins"
+        ? `${c.accountName} gets ${c.count} Victory Royale${c.count === 1 ? "" : "s"} in Fortnite`
+        : `${c.accountName} gets ${c.count} eliminations in Fortnite`;
+    case "optimistic":
+      return `${c.game}: ${c.statement}`;
+  }
+}
+
+function requireString(value: unknown, field: string, max = 120): string {
+  if (typeof value !== "string" || value.trim() === "") throw new Error(`${field} is required`);
+  if (value.length > max) throw new Error(`${field} is too long`);
+  return value.trim();
+}
+
+function requireInt(value: unknown, field: string, min: number, max: number): number {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < min || n > max) {
+    throw new Error(`${field} must be a whole number from ${min} to ${max}`);
+  }
+  return n;
+}
+
+const SPEEDS: LichessSpeed[] = ["bullet", "blitz", "rapid", "classical"];
+
+/** Parses untrusted input into a Condition, or throws with a readable reason. */
+export function parseCondition(input: unknown): Condition {
+  if (typeof input !== "object" || input === null) throw new Error("Condition is required");
+  const raw = input as Record<string, unknown>;
+  switch (raw.kind) {
+    case "lichess": {
+      const speed = raw.speed == null || raw.speed === "" ? undefined : (raw.speed as LichessSpeed);
+      if (speed && !SPEEDS.includes(speed)) throw new Error("Unknown Lichess speed");
+      const username = requireString(raw.username, "Lichess username", 30);
+      if (!/^[A-Za-z0-9_-]{2,30}$/.test(username)) throw new Error("Invalid Lichess username");
+      return {
+        kind: "lichess",
+        username,
+        goal: "win_next_rated",
+        speed,
+        minPlies: raw.minPlies == null ? 20 : requireInt(raw.minPlies, "Minimum moves", 2, 200),
+        minOpponentRating:
+          raw.minOpponentRating == null || raw.minOpponentRating === ""
+            ? undefined
+            : requireInt(raw.minOpponentRating, "Opponent rating floor", 400, 3500),
+      };
+    }
+    case "brawlstars": {
+      const playerTag = normalizeBrawlTag(requireString(raw.playerTag, "Player tag", 16));
+      if (!/^[0-9A-Z]{3,15}$/.test(playerTag)) throw new Error("Invalid Brawl Stars player tag");
+      const battles = requireInt(raw.battles, "Battles", 1, 20);
+      const wins = requireInt(raw.wins, "Wins", 1, battles);
+      return { kind: "brawlstars", playerTag, goal: "wins_in_next_battles", wins, battles };
+    }
+    case "fortnite": {
+      if (raw.goal !== "wins" && raw.goal !== "kills") throw new Error("Unknown Fortnite goal");
+      return {
+        kind: "fortnite",
+        accountName: requireString(raw.accountName, "Epic account name", 40),
+        goal: raw.goal,
+        count: requireInt(raw.count, "Count", 1, 500),
+      };
+    }
+    case "optimistic":
+      return {
+        kind: "optimistic",
+        game: requireString(raw.game, "Game", 40),
+        statement: requireString(raw.statement, "Challenge", 200),
+        disputeWindowSecs:
+          raw.disputeWindowSecs == null
+            ? 120
+            : requireInt(raw.disputeWindowSecs, "Dispute window", 10, 86_400),
+      };
+    default:
+      throw new Error("Unknown verifier kind");
+  }
+}
+
+export interface GameInfo {
+  id: string;
+  name: string;
+  verifier: VerifierKind;
+  /** One line shown to fans about how the result is decided. */
+  how: string;
+}
+
+export const GAMES: GameInfo[] = [
+  { id: "chess", name: "Chess", verifier: "lichess", how: "Checked against the public Lichess game record." },
+  { id: "brawlstars", name: "Brawl Stars", verifier: "brawlstars", how: "Checked against the official battle log." },
+  { id: "fortnite", name: "Fortnite", verifier: "fortnite", how: "Checked against public player stats." },
+  { id: "gta4", name: "GTA IV", verifier: "optimistic", how: "Streamer posts a clip; funders can dispute before it settles." },
+  { id: "other", name: "Anything else", verifier: "optimistic", how: "Streamer posts a clip; funders can dispute before it settles." },
+];
