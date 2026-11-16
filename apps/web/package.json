@@ -13,6 +13,7 @@
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@fontsource-variable/space-grotesk": "^5.3.0",
+    "@potted/chain": "workspace:*",
     "@potted/coordinator": "workspace:*",
     "@potted/core": "workspace:*",
     "@potted/verifier": "workspace:*",

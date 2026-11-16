@@ -60,6 +60,11 @@ export function getChallenge(id: string): Challenge {
   return db().challenges.find((c) => c.id === id) ?? fail("Challenge not found");
 }
 
+/** Finds the challenge behind an on-chain account, once the ledger has given it one. */
+export function challengeByLedgerRef(ref: string): Challenge | undefined {
+  return db().challenges.find((c) => c.ledgerRef === ref);
+}
+
 export function listChallenges(streamerId: string): Challenge[] {
   const live = (c: Challenge) => (c.status === "open" || c.status === "locked" ? 0 : 1);
   return db()

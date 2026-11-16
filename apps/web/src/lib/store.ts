@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import type { ChainEvent } from "@potted/chain";
 import type { Challenge, Pledge } from "@potted/core";
 import type { VoiceKey } from "./voices";
 
@@ -83,6 +84,8 @@ export interface Db {
   challenges: Challenge[];
   pledges: Pledge[];
   suggestions: Suggestion[];
+  /** Escrow events delivered by the QuickNode Stream. */
+  chain: ChainEvent[];
   events: StreamEvent[];
   /** Sim ledger balances in micro-USDC, by wallet. */
   balances: Record<string, number>;
@@ -106,6 +109,7 @@ function seed(): Db {
     challenges: [],
     pledges: [],
     suggestions: [],
+    chain: [],
     events: [],
     balances: {},
     seq: 0,
@@ -125,6 +129,7 @@ export function db(): Db {
       cache.__pottedDb = JSON.parse(fs.readFileSync(dataFile(), "utf8")) as Db;
       // Files written before suggestions existed.
       cache.__pottedDb.suggestions ??= [];
+      cache.__pottedDb.chain ??= [];
     } catch {
       cache.__pottedDb = seed();
     }

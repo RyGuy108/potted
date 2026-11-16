@@ -1291,3 +1291,41 @@ body:has(.overlay-page) {
   border: 1px solid var(--line, rgba(255, 255, 255, 0.11));
   border-radius: 12px;
 }
+
+.activity {
+  padding: 4px 18px;
+}
+
+.activity-row {
+  display: grid;
+  grid-template-columns: 92px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.activity-row:last-child {
+  border-bottom: 0;
+}
+
+.activity-row .tag {
+  justify-self: start;
+}
+
+.tag-settled,
+.tag-pledged {
+  color: var(--green);
+}
+
+.tag-refunded,
+.tag-cancelled {
+  color: var(--gold);
+}
+
+@media (max-width: 640px) {
+  .activity-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}
