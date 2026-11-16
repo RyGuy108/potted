@@ -4,6 +4,7 @@ import { signOutAction } from "@/app/actions";
 import { ActionButton } from "@/components/ActionButton";
 import { Beanstalk } from "@/components/Beanstalk";
 import { ledger } from "@/lib/ledger";
+import { ROLES } from "@/lib/roles";
 import { balanceOf } from "@/lib/service";
 import { currentUser } from "@/lib/session";
 
@@ -22,13 +23,14 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           {user?.role === "streamer" && <Link href="/dashboard">Dashboard</Link>}
           {user?.role === "fan" && <Link href="/garden">My garden</Link>}
           <Link href="/activity">Activity</Link>
+          {user && <Link href="/about">How it works</Link>}
         </nav>
         <div className="session">
           {user ? (
             <>
               <span className="who">
                 {user.name}
-                <span className="tag tag-quiet">{user.role}</span>
+                <span className={`tag tag-role tag-role-${user.role}`}>{ROLES[user.role].label}</span>
               </span>
               <span className="mono balance" title="Test USDC balance">
                 {formatUsd(balance)}
@@ -38,7 +40,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
               </ActionButton>
             </>
           ) : (
-            <Link href="/#try" className="btn btn-ghost">
+            <Link href="/login" className="btn btn-primary">
               Sign in
             </Link>
           )}

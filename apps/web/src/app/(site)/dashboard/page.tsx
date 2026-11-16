@@ -8,7 +8,7 @@ import { ClaimForm } from "@/components/ClaimForm";
 import { CreateChallengeForm } from "@/components/CreateChallengeForm";
 import { AutoRefresh, CopyField, Countdown } from "@/components/Live";
 import { SettingsForm } from "@/components/SettingsForm";
-import { SignInCard } from "@/components/SignInCard";
+import { SignInPanel } from "@/components/SignInPanel";
 import { adapterStatus, gameOf } from "@/lib/format";
 import { getSuggestion, getUser, invitesFor, listChallenges, listStreamers, pendingSuggestions, settingsOf, shareOf, simulatedResultsAllowed, stageChallenges } from "@/lib/service";
 import { currentUser } from "@/lib/session";
@@ -20,7 +20,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       <>
         <h1>Streamer dashboard</h1>
         <p className="lede">Sign in as the demo streamer to create challenges and run an attempt.</p>
-        <SignInCard compact />
+        <SignInPanel />
       </>
     );
   }

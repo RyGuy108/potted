@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { ChainEvent } from "@potted/chain";
@@ -77,6 +78,11 @@ export interface User {
   settings?: Partial<StreamSettings>;
   wallet: string;
   createdAt: number;
+  /** Accounts this user signs in with, e.g. Google. Demo users have none. */
+  identities?: { provider: string; subject: string }[];
+  email?: string;
+  /** False until someone who signed in with a provider has picked planter or climber. */
+  onboarded?: boolean;
 }
 
 export type EventType = "created" | "pledged" | "locked" | "claimed" | "disputed" | "paid" | "failed" | "refunded" | "milestone" | "recap";
@@ -100,6 +106,8 @@ export interface Db {
   /** Escrow events delivered by the QuickNode Stream. */
   chain: ChainEvent[];
   invites: Invite[];
+  /** Signs session cookies when SESSION_SECRET is not set. Made once per data file. */
+  secret?: string;
   events: StreamEvent[];
   /** Sim ledger balances in micro-USDC, by wallet. */
   balances: Record<string, number>;
@@ -182,6 +190,17 @@ export function db(): Db {
 }
 
 /** Writes through a temp file so a crash cannot leave half a file. */
+/** The key session cookies are signed with. Set SESSION_SECRET when hosting; otherwise one is kept with the data. */
+export function sessionSecret(): string {
+  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+  const state = db();
+  if (!state.secret) {
+    state.secret = randomBytes(32).toString("hex");
+    save();
+  }
+  return state.secret;
+}
+
 export function save(): void {
   const file = dataFile();
   fs.mkdirSync(path.dirname(file), { recursive: true });

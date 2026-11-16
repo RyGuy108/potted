@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 import { ChallengeCard } from "@/components/ChallengeCard";
 import { AutoRefresh } from "@/components/Live";
-import { SignInCard } from "@/components/SignInCard";
+import { SignInPanel } from "@/components/SignInPanel";
 import { SuggestForm } from "@/components/SuggestForm";
 import { formatUsd } from "@potted/core";
-import { getStreamer, raisedFor, settingsOf, stageChallenges } from "@/lib/service";
+import { getStreamer, raisedFor, settingsOf, stageChallenges, topPlanters } from "@/lib/service";
 import { currentUser } from "@/lib/session";
 
 export default async function StreamerPage({ params }: { params: Promise<{ handle: string }> }) {
@@ -16,6 +16,7 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
   const live = challenges.filter((c) => c.status === "open" || c.status === "locked");
   const past = challenges.filter((c) => c.status === "paid" || c.status === "failed");
 
+  const planters = topPlanters(streamer.id);
   const cause = settingsOf(streamer);
   const raised = raisedFor(streamer, cause.causeName);
   return (
@@ -51,7 +52,7 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
         </section>
       )}
 
-      {!user && <SignInCard compact />}
+      {!user && <SignInPanel />}
 
       <h2>Live now</h2>
       {live.length === 0 ? (
@@ -68,6 +69,24 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
         <>
           <h2>Got an idea?</h2>
           <SuggestForm handle={streamer.handle} streamerName={streamer.name} />
+        </>
+      )}
+
+      {planters.length > 0 && (
+        <>
+          <h2>Top planters</h2>
+          <ol className="card leaderboard">
+            {planters.map((p, i) => (
+              <li key={p.userId} className={p.userId === user?.id ? "me" : undefined}>
+                <span className="mono rank">{i + 1}</span>
+                <span>{p.name}</span>
+                <span className="muted small">
+                  {p.challenges} {p.challenges === 1 ? "challenge" : "challenges"}
+                </span>
+                <span className="mono">{formatUsd(p.amountMicro)}</span>
+              </li>
+            ))}
+          </ol>
         </>
       )}
 

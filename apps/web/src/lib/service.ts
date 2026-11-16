@@ -762,3 +762,179 @@ export async function simulateResult(actor: User, challengeId: string, success: 
   save();
   return challenge;
 }
+
+// ---------------------------------------------------------------------------
+// Accounts
+// ---------------------------------------------------------------------------
+
+/**
+ * Signs someone in with a provider account. The first time, they get a
+ * planter account that still has to choose its role.
+ */
+export async function signInWith(provider: string, profile: { subject: string; name: string; email?: string }): Promise<User> {
+  const existing = db().users.find((u) => u.identities?.some((i) => i.provider === provider && i.subject === profile.subject));
+  if (existing) return existing;
+  const id = newId("u");
+  const name = profile.name.trim().slice(0, 24) || "Planter";
+  const user: User = {
+    id,
+    name,
+    role: "fan",
+    wallet: `sim:${id}`,
+    createdAt: Date.now(),
+    identities: [{ provider, subject: profile.subject }],
+    ...(profile.email ? { email: profile.email } : {}),
+    onboarded: false,
+  };
+  db().users.push(user);
+  await ledger().faucet(user.wallet, FAUCET_MICRO);
+  save();
+  return user;
+}
+
+const RESERVED_HANDLES = new Set(["ryan", "kai", "admin", "potted", "api", "login", "welcome", "dashboard", "garden", "activity", "about"]);
+
+/** A new account picks what it is here to do. Climbers also claim their stream's address. */
+export async function chooseRole(actor: User, role: "fan" | "streamer", handle = ""): Promise<User> {
+  if (actor.onboarded !== false) fail("This account has already chosen");
+  if (role === "streamer") {
+    const clean = handle.trim().toLowerCase();
+    if (!/^[a-z0-9_]{3,20}$/.test(clean)) fail("Pick a stream address of 3 to 20 letters, numbers or underscores");
+    if (RESERVED_HANDLES.has(clean) || db().users.some((u) => u.handle === clean)) fail("That stream address is taken");
+    actor.role = "streamer";
+    actor.handle = clean;
+  }
+  actor.onboarded = true;
+  save();
+  return actor;
+}
+
+// ---------------------------------------------------------------------------
+// Planter stats
+// ---------------------------------------------------------------------------
+
+/** Levels are earned by taking part, not by the size of a pledge. */
+export const LEVELS = [
+  { name: "Seed", at: 0 },
+  { name: "Sprout", at: 30 },
+  { name: "Vine tender", at: 90 },
+  { name: "Green thumb", at: 200 },
+  { name: "Beanstalk keeper", at: 400 },
+  { name: "Cloud walker", at: 800 },
+] as const;
+
+const XP = { backed: 10, grown: 15, firstIn: 5, cloudPush: 10 } as const;
+
+export interface Badge {
+  id: string;
+  name: string;
+  how: string;
+  earned: boolean;
+}
+
+export interface PlanterStats {
+  xp: number;
+  level: { index: number; name: string; floor: number; next?: { name: string; at: number } };
+  /** Days in a row with at least one pledge, counting today or yesterday as the latest. */
+  streakDays: number;
+  backed: number;
+  grown: number;
+  firstIn: number;
+  cloudPushes: number;
+  streamersBacked: number;
+  badges: Badge[];
+}
+
+const DAY_MS = 24 * 60 * 60_000;
+
+export function planterStats(fan: User, now = Date.now()): PlanterStats {
+  const mine = db().pledges.filter((p) => p.userId === fan.id);
+  const challengeIds = [...new Set(mine.map((p) => p.challengeId))];
+  const challenges = challengeIds.flatMap((id) => db().challenges.find((c) => c.id === id) ?? []);
+  const grown = challenges.filter((c) => c.status === "paid").length;
+
+  let firstIn = 0;
+  let cloudPushes = 0;
+  let causes = 0;
+  let collabs = 0;
+  for (const c of challenges) {
+    const all = db().pledges.filter((p) => p.challengeId === c.id).sort((a, b) => a.createdAt - b.createdAt);
+    if (all[0]?.userId === fan.id) firstIn++;
+    // The pledge that carried the pot past its goal.
+    let running = 0;
+    for (const p of all) {
+      const before = running;
+      running += p.amountMicro;
+      if (before < c.goalMicro && running >= c.goalMicro) {
+        if (p.userId === fan.id) cloudPushes++;
+        break;
+      }
+    }
+    if (c.splits?.some((s) => s.kind === "cause")) causes++;
+    if (c.splits?.some((s) => s.kind === "guest")) collabs++;
+  }
+
+  const days = new Set(mine.map((p) => Math.floor(p.createdAt / DAY_MS)));
+  const today = Math.floor(now / DAY_MS);
+  let streakDays = 0;
+  for (let day = days.has(today) ? today : today - 1; days.has(day); day--) streakDays++;
+
+  const streamersBacked = new Set(challenges.map((c) => c.streamerId)).size;
+  const games = new Set(challenges.map((c) => c.gameId)).size;
+  const xp = challenges.length * XP.backed + grown * XP.grown + firstIn * XP.firstIn + cloudPushes * XP.cloudPush;
+  const index = LEVELS.reduce((best, level, i) => (xp >= level.at ? i : best), 0);
+  const next = LEVELS[index + 1];
+
+  const badges: Badge[] = [
+    { id: "first-bean", name: "First bean", how: "Back your first challenge", earned: challenges.length >= 1 },
+    { id: "early-bird", name: "Early bird", how: "Be the first to back a challenge", earned: firstIn >= 1 },
+    { id: "cloud-pusher", name: "Cloud pusher", how: "Make the pledge that takes a pot to its goal", earned: cloudPushes >= 1 },
+    { id: "good-harvest", name: "Good harvest", how: "Back 3 challenges that were completed", earned: grown >= 3 },
+    { id: "wide-garden", name: "Wide garden", how: "Back challenges in 3 different games", earned: games >= 3 },
+    { id: "good-cause", name: "Good cause", how: "Back a charity stream challenge", earned: causes >= 1 },
+    { id: "matchmaker", name: "Matchmaker", how: "Back a collab between two climbers", earned: collabs >= 1 },
+    { id: "regular", name: "Regular", how: "Pledge three days in a row", earned: streakDays >= 3 },
+  ];
+
+  return {
+    xp,
+    level: { index, name: LEVELS[index]!.name, floor: LEVELS[index]!.at, ...(next ? { next: { name: next.name, at: next.at } } : {}) },
+    streakDays,
+    backed: challenges.length,
+    grown,
+    firstIn,
+    cloudPushes,
+    streamersBacked,
+    badges,
+  };
+}
+
+/** The biggest backers of a streamer's stage, by money that stayed in (refunds do not count). */
+export function topPlanters(streamerId: string, limit = 5): { userId: string; name: string; amountMicro: number; challenges: number }[] {
+  const ids = new Set(stageChallenges(streamerId).map((c) => c.id));
+  const rows = new Map<string, { amountMicro: number; challenges: Set<string> }>();
+  for (const p of db().pledges) {
+    if (!ids.has(p.challengeId) || p.refunded) continue;
+    const row = rows.get(p.userId) ?? { amountMicro: 0, challenges: new Set<string>() };
+    row.amountMicro += p.amountMicro;
+    row.challenges.add(p.challengeId);
+    rows.set(p.userId, row);
+  }
+  return [...rows.entries()]
+    .map(([userId, row]) => ({ userId, name: getUser(userId)?.name ?? "A planter", amountMicro: row.amountMicro, challenges: row.challenges.size }))
+    .sort((a, b) => b.amountMicro - a.amountMicro)
+    .slice(0, limit);
+}
+
+/** Open and in-progress challenges across every stream, fullest pots first. */
+export function liveEverywhere(limit = 6): Challenge[] {
+  return db()
+    .challenges.filter((c) => c.status === "open" || c.status === "locked")
+    .sort((a, b) => b.totalMicro / b.goalMicro - a.totalMicro / a.goalMicro || b.createdAt - a.createdAt)
+    .slice(0, limit);
+}
+
+/** Disputed clips that still need a keeper's ruling. */
+export function disputesWaiting(): Challenge[] {
+  return db().challenges.filter((c) => c.status === "locked" && (c.claim?.disputedBy.length ?? 0) > 0 && !c.claim?.ruling);
+}

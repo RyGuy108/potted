@@ -52,6 +52,10 @@ export async function withdrawInviteAction(inviteId: string): Promise<ActionResu
   return run(async () => service.withdrawInvite(await requireUser(), inviteId));
 }
 
+export async function chooseRoleAction(role: "fan" | "streamer", handle: string): Promise<ActionResult> {
+  return run(async () => service.chooseRole(await requireUser(), role === "streamer" ? "streamer" : "fan", String(handle)));
+}
+
 export async function signOutAction(): Promise<ActionResult> {
   return run(endSession);
 }
