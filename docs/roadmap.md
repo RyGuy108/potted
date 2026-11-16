@@ -16,12 +16,18 @@ request shows one change. Merge from the top of the list down.
 | 7 | `feat/announcer-milestones` | Growth milestones, voice choice, spoken recap | Done |
 | 8 | `feat/fan-garden-share` | Fan garden, share image, overlay QR | Done |
 | 9 | `feat/coordinator` | Grok drafts terms and the moderator checklist | Done; live Grok calls untested (needs a key) |
-| 10 | `feat/chain-events` | QuickNode Streams webhook feeding the overlay and a public activity page | Next |
-| 11 | `feat/solana-ledger` | Real devnet transactions, sponsored fees, explorer links on receipts | Needs the deployed program |
-| 12 | `feat/solana-pay` | Pledge from a QR code or a link (Solana Pay, Blinks) | After 11 |
-| 13 | `feat/privy-auth` | Email or Google sign-in with a wallet made for the fan | Needs a Privy app id |
-| 14 | `feat/stretch-tiers` | Several pot sizes on one challenge, each unlocking more | After 11, touches the program |
-| 15 | `feat/funder-beans` | A compressed NFT for funders of a completed challenge | After 11 |
+| 10 | `feat/chain-events` | QuickNode Streams webhook, event decoder, public activity page | Done; not yet run against a live Stream |
+| 11 | `feat/collabs` | Invite another streamer, split the pot, show on both stages | Done on the simulated ledger |
+| 12 | `feat/charity-streams` | A cause share on every completed pot, totals on page and overlay | Done on the simulated ledger |
+| 13 | `feat/stream-directory` | More stream types behind "Show more" | Done |
+| 14 | `feat/any-game` | Steam achievement checker, proof rules on clips, fan-named games | Done; Steam untested live (needs a key) |
+| 15 | `feat/bounty-board` | Fans put money on an idea before the streamer accepts; refunded if it expires | Next |
+| 16 | `feat/solana-ledger` | Real devnet transactions, sponsored fees, explorer links on receipts | Needs the deployed program |
+| 17 | `feat/program-splits` | Guest and cause shares paid by the escrow program itself | After 16, touches the program |
+| 18 | `feat/solana-pay` | Pledge from a QR code or a link (Solana Pay, Blinks) | After 16 |
+| 19 | `feat/privy-auth` | Email or Google sign-in with a wallet made for the fan | Needs a Privy app id |
+| 20 | `feat/stretch-tiers` | Several pot sizes on one challenge, each unlocking more | After 16, touches the program |
+| 21 | `feat/funder-beans` | A compressed NFT for funders of a completed challenge | After 16 |
 
 ## Where new code plugs in
 
@@ -38,6 +44,9 @@ These seams are why the remaining branches stay small.
 - **Coordinator** (`packages/coordinator`). Advice only. Anything it drafts
   goes through the same form and the same `parseCondition` check as terms
   typed by hand, and it has no access to the ledger.
+- **Splits** (`splitPot` in `packages/core`). Collabs and charity streams are
+  both entries in one `splits` list on the challenge, fixed when it opens.
+  Any new way of sharing a pot is another entry, not another payout path.
 - **Session** (`apps/web/src/lib/session.ts`). Pages ask for `currentUser()`.
   Branch 13 changes how that user is found, not who calls it.
 - **Store** (`apps/web/src/lib/store.ts`). One module owns persistence, so
@@ -47,7 +56,9 @@ These seams are why the remaining branches stay small.
 
 | Branch | Needs |
 | --- | --- |
-| 10 | A QuickNode Streams endpoint pointed at the app's webhook URL, and `QUICKNODE_WEBHOOK_SECRET` |
-| 11 | `anchor build`, `anchor keys sync`, `anchor test` and `anchor deploy` run locally; then `POTTED_PROGRAM_ID` and `VERIFIER_SECRET_KEY` |
-| 13 | A Privy app id |
+| 10 | A QuickNode Stream pointed at the webhook (docs/quicknode.md) and `QUICKNODE_WEBHOOK_SECRET` |
+| 14 | `STEAM_API_KEY` to check real achievements |
+| 16 | `anchor build`, `anchor keys sync`, `anchor test` and `anchor deploy` run locally; then `POTTED_PROGRAM_ID` and `VERIFIER_SECRET_KEY` |
+| 17 | A verified wallet address per cause, before real money is sent to one |
+| 19 | A Privy app id |
 | Hosting | A database, because the JSON file store does not persist on serverless hosts |
