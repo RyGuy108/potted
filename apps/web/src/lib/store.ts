@@ -9,12 +9,51 @@ import type { Challenge, Pledge } from "@potted/core";
 
 export type Role = "fan" | "streamer" | "mod";
 
+export type OverlayPosition = "bottom-left" | "bottom-right" | "top-left" | "top-right";
+
+/** What a streamer controls about their own stream. */
+export interface StreamSettings {
+  /** Whether fans can send challenge ideas. */
+  acceptingSuggestions: boolean;
+  /** Smallest single pledge, in dollars. */
+  minPledgeUsd: number;
+  announcer: boolean;
+  overlayPosition: OverlayPosition;
+  /** How many live challenges the overlay shows at once. */
+  overlayCards: 1 | 2;
+  /** Suggestions containing any of these are rejected. Lower-case. */
+  blockedWords: string[];
+}
+
+export const DEFAULT_SETTINGS: StreamSettings = {
+  acceptingSuggestions: true,
+  minPledgeUsd: 1,
+  announcer: true,
+  overlayPosition: "bottom-left",
+  overlayCards: 2,
+  blockedWords: [],
+};
+
+/** A fan's challenge idea, waiting for the streamer to use or dismiss it. */
+export interface Suggestion {
+  id: string;
+  streamerId: string;
+  userId: string;
+  fanName: string;
+  gameId: string;
+  text: string;
+  createdAt: number;
+  status: "pending" | "used" | "dismissed";
+}
+
 export interface User {
   id: string;
   name: string;
   role: Role;
   /** Public URL handle; streamers only. */
   handle?: string;
+  /** Streamers only. Missing fields fall back to DEFAULT_SETTINGS. */
+  settings?: Partial<StreamSettings>;
   wallet: string;
   createdAt: number;
 }
@@ -35,6 +74,7 @@ export interface Db {
   users: User[];
   challenges: Challenge[];
   pledges: Pledge[];
+  suggestions: Suggestion[];
   events: StreamEvent[];
   /** Sim ledger balances in micro-USDC, by wallet. */
   balances: Record<string, number>;
@@ -57,6 +97,7 @@ function seed(): Db {
     ],
     challenges: [],
     pledges: [],
+    suggestions: [],
     events: [],
     balances: {},
     seq: 0,
@@ -74,6 +115,8 @@ export function db(): Db {
   if (!cache.__pottedDb) {
     try {
       cache.__pottedDb = JSON.parse(fs.readFileSync(dataFile(), "utf8")) as Db;
+      // Files written before suggestions existed.
+      cache.__pottedDb.suggestions ??= [];
     } catch {
       cache.__pottedDb = seed();
     }

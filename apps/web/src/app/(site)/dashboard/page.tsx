@@ -1,17 +1,18 @@
-import { formatUsd } from "@potted/core";
+import { GAMES, formatUsd } from "@potted/core";
 import Link from "next/link";
-import { checkAction, lockAction, simulateAction } from "@/app/actions";
+import { cancelAction, checkAction, dismissSuggestionAction, lockAction, runAgainAction, simulateAction } from "@/app/actions";
 import { ActionButton } from "@/components/ActionButton";
 import { StatusPill } from "@/components/ChallengeCard";
 import { ClaimForm } from "@/components/ClaimForm";
 import { CreateChallengeForm } from "@/components/CreateChallengeForm";
 import { AutoRefresh, CopyField, Countdown } from "@/components/Live";
+import { SettingsForm } from "@/components/SettingsForm";
 import { SignInCard } from "@/components/SignInCard";
 import { adapterStatus, gameOf } from "@/lib/format";
-import { listChallenges, simulatedResultsAllowed } from "@/lib/service";
+import { getSuggestion, listChallenges, pendingSuggestions, settingsOf, simulatedResultsAllowed } from "@/lib/service";
 import { currentUser } from "@/lib/session";
 
-export default async function Dashboard() {
+export default async function Dashboard({ searchParams }: { searchParams: Promise<{ use?: string }> }) {
   const user = await currentUser();
   if (user?.role !== "streamer") {
     return (
@@ -24,6 +25,10 @@ export default async function Dashboard() {
   }
   const challenges = listChallenges(user.id);
   const rehearsal = simulatedResultsAllowed();
+  const suggestions = pendingSuggestions(user.id);
+  const { use } = await searchParams;
+  const picked = use ? getSuggestion(use) : undefined;
+  const seed = picked && picked.streamerId === user.id && picked.status === "pending" ? picked : undefined;
 
   return (
     <>
@@ -39,7 +44,35 @@ export default async function Dashboard() {
         </p>
       </section>
 
-      <CreateChallengeForm warnings={adapterStatus()} />
+      {suggestions.length > 0 && (
+        <section className="card manage">
+          <h3>Ideas from fans</h3>
+          {suggestions.map((s) => (
+            <div key={s.id} className="suggestion">
+              <div>
+                <p>{s.text}</p>
+                <p className="muted small">
+                  {s.fanName} · {GAMES.find((g) => g.id === s.gameId)?.name}
+                </p>
+              </div>
+              <div className="row">
+                <Link href={`/dashboard?use=${s.id}#new`} className="btn btn-primary">
+                  Use this
+                </Link>
+                <ActionButton action={dismissSuggestionAction.bind(null, s.id)} variant="ghost">
+                  Dismiss
+                </ActionButton>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
+      <div id="new">
+        <CreateChallengeForm key={seed?.id ?? "blank"} warnings={adapterStatus()} suggestion={seed} />
+      </div>
+
+      <SettingsForm initial={settingsOf(user)} />
 
       <h2>Your challenges</h2>
       {challenges.length === 0 && <p className="empty">Nothing yet. Create your first challenge above.</p>}
@@ -61,9 +94,14 @@ export default async function Dashboard() {
             </h3>
 
             {c.status === "open" && (
-              <ActionButton action={lockAction.bind(null, c.id)} confirm="Close pledging and start the attempt?">
-                Start attempt
-              </ActionButton>
+              <div className="row">
+                <ActionButton action={lockAction.bind(null, c.id)} confirm="Close pledging and start the attempt?">
+                  Start attempt
+                </ActionButton>
+                <ActionButton action={cancelAction.bind(null, c.id)} variant="danger" confirm="Cancel this challenge and refund every fan?">
+                  Cancel and refund
+                </ActionButton>
+              </div>
             )}
 
             {c.status === "locked" && (
@@ -72,6 +110,9 @@ export default async function Dashboard() {
                 <div className="row">
                   <ActionButton action={checkAction.bind(null, c.id)} variant="ghost">
                     Check now
+                  </ActionButton>
+                  <ActionButton action={cancelAction.bind(null, c.id)} variant="danger" confirm="Give up on this attempt and refund every fan?">
+                    Give up and refund
                   </ActionButton>
                   {rehearsal && (
                     <>
@@ -89,7 +130,14 @@ export default async function Dashboard() {
               </>
             )}
 
-            {(c.status === "paid" || c.status === "failed") && <p className="muted small">{c.verdict?.reason}</p>}
+            {(c.status === "paid" || c.status === "failed") && (
+              <>
+                <p className="muted small">{c.verdict?.reason}</p>
+                <ActionButton action={runAgainAction.bind(null, c.id)} variant="ghost">
+                  Run it again
+                </ActionButton>
+              </>
+            )}
           </section>
         ))}
       </div>

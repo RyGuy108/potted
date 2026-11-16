@@ -20,7 +20,13 @@ export async function GET(request: Request) {
     .filter((c) => c.status === "open" || c.status === "locked")
     .map(({ id, title, status, totalMicro, goalMicro }) => ({ id, title, status, totalMicro, goalMicro }));
 
+  const settings = service.settingsOf(streamer);
   return NextResponse.json({
+    settings: {
+      announcer: settings.announcer,
+      position: settings.overlayPosition,
+      cards: settings.overlayCards,
+    },
     seq: service.latestSeq(),
     // A first poll (since < 0) only syncs the cursor, so old events never replay.
     events: since < 0 ? [] : service.eventsSince(streamer.handle, since).map(({ seq, type, message }) => ({ seq, type, message })),

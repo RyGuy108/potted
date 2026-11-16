@@ -15,7 +15,19 @@ import {
 } from "@potted/core";
 import { type Deps, defaultDeps, snapshot, verify } from "@potted/verifier";
 import { ledger } from "./ledger";
-import { type EventType, type Role, type StreamEvent, type User, db, newId, save } from "./store";
+import {
+  DEFAULT_SETTINGS,
+  type EventType,
+  type OverlayPosition,
+  type Role,
+  type StreamEvent,
+  type StreamSettings,
+  type Suggestion,
+  type User,
+  db,
+  newId,
+  save,
+} from "./store";
 
 /**
  * The use cases. Pages and API routes call these; nothing else touches the
@@ -108,6 +120,81 @@ export async function signIn(name: string, role: Role): Promise<User> {
   return user;
 }
 
+export function settingsOf(streamer: User): StreamSettings {
+  return { ...DEFAULT_SETTINGS, ...streamer.settings };
+}
+
+const POSITIONS: OverlayPosition[] = ["bottom-left", "bottom-right", "top-left", "top-right"];
+
+export async function updateSettings(actor: User, input: Partial<Record<keyof StreamSettings, unknown>>): Promise<StreamSettings> {
+  if (actor.role !== "streamer") fail("Only a streamer has stream settings");
+  const minPledgeUsd = Number(input.minPledgeUsd);
+  if (!(minPledgeUsd >= 0.5 && minPledgeUsd <= 100)) fail("Minimum pledge must be $0.50 to $100");
+  const position = String(input.overlayPosition) as OverlayPosition;
+  if (!POSITIONS.includes(position)) fail("Unknown overlay position");
+  const blockedWords = (Array.isArray(input.blockedWords) ? input.blockedWords : String(input.blockedWords ?? "").split(","))
+    .map((word) => String(word).trim().toLowerCase())
+    .filter((word) => word.length >= 2 && word.length <= 30)
+    .slice(0, 50);
+  actor.settings = {
+    acceptingSuggestions: input.acceptingSuggestions === true,
+    minPledgeUsd,
+    announcer: input.announcer === true,
+    overlayPosition: position,
+    overlayCards: Number(input.overlayCards) === 1 ? 1 : 2,
+    blockedWords,
+  };
+  save();
+  return settingsOf(actor);
+}
+
+const MAX_PENDING_PER_FAN = 3;
+
+/** A fan pitches a challenge. Nothing is funded until the streamer creates it. */
+export async function suggest(actor: User, handle: string, gameId: string, text: string): Promise<Suggestion> {
+  if (actor.role !== "fan") fail("Sign in as a fan to suggest a challenge");
+  const streamer = getStreamer(handle) ?? fail("Streamer not found");
+  const settings = settingsOf(streamer);
+  if (!settings.acceptingSuggestions) fail(`${streamer.name} is not taking suggestions right now`);
+  const game = GAMES.find((g) => g.id === gameId) ?? fail("Unknown game");
+  const clean = text.trim().replace(/\s+/g, " ");
+  if (clean.length < 8 || clean.length > 140) fail("Describe the challenge in 8 to 140 characters");
+  const lower = clean.toLowerCase();
+  if (settings.blockedWords.some((word) => lower.includes(word))) fail("That suggestion uses a word this streamer has blocked");
+  const pending = db().suggestions.filter((s) => s.streamerId === streamer.id && s.userId === actor.id && s.status === "pending");
+  if (pending.length >= MAX_PENDING_PER_FAN) fail("You already have 3 ideas waiting. Give the streamer a moment");
+  const suggestion: Suggestion = {
+    id: newId("s"),
+    streamerId: streamer.id,
+    userId: actor.id,
+    fanName: actor.name,
+    gameId: game.id,
+    text: clean,
+    createdAt: Date.now(),
+    status: "pending",
+  };
+  db().suggestions.push(suggestion);
+  save();
+  return suggestion;
+}
+
+export function pendingSuggestions(streamerId: string): Suggestion[] {
+  return db()
+    .suggestions.filter((s) => s.streamerId === streamerId && s.status === "pending")
+    .sort((a, b) => a.createdAt - b.createdAt);
+}
+
+export function getSuggestion(id: string): Suggestion | undefined {
+  return db().suggestions.find((s) => s.id === id);
+}
+
+export async function resolveSuggestion(actor: User, id: string, status: "used" | "dismissed"): Promise<void> {
+  const suggestion = getSuggestion(id) ?? fail("Suggestion not found");
+  if (suggestion.streamerId !== actor.id) fail("Only the streamer can manage suggestions");
+  suggestion.status = status;
+  save();
+}
+
 export interface NewChallenge {
   gameId: string;
   condition: unknown;
@@ -161,6 +248,9 @@ export async function pledge(actor: User, challengeId: string, amountUsd: number
     .reduce((sum, p) => sum + p.amountMicro, 0);
   const problem = pledgeError(challenge, already, amountMicro, Date.now());
   if (problem) fail(problem);
+  const streamer = getUser(challenge.streamerId);
+  const minMicro = toMicro(streamer ? settingsOf(streamer).minPledgeUsd : DEFAULT_SETTINGS.minPledgeUsd);
+  if (amountMicro < minMicro) fail(`The smallest pledge on this stream is ${formatUsd(minMicro)}`);
 
   const tx = await ledger().pledge(challenge, actor.wallet, amountMicro);
   const record: Pledge = {
@@ -211,6 +301,42 @@ async function refundAll(challenge: Challenge): Promise<number> {
     count += 1;
   }
   return count;
+}
+
+/**
+ * The streamer calls a challenge off, before or during the attempt. It can
+ * only ever send money back to fans, never to the streamer.
+ */
+export async function cancel(actor: User, challengeId: string): Promise<Challenge> {
+  const challenge = getChallenge(challengeId);
+  requireOwner(actor, challenge);
+  if (challenge.status !== "open" && challenge.status !== "locked") fail("This challenge is already settled");
+  challenge.txs.settle = await ledger().settle(challenge, false, undefined, actor.wallet);
+  challenge.status = "failed";
+  challenge.settledAt = Date.now();
+  challenge.verdict = { outcome: "failure", reason: "Cancelled by the streamer" };
+  const fans = await refundAll(challenge);
+  emit(
+    "refunded",
+    challenge,
+    fans > 0 ? `Challenge cancelled. ${fans} ${fans === 1 ? "fan was" : "fans were"} refunded in full.` : "Challenge cancelled.",
+  );
+  save();
+  return challenge;
+}
+
+/** Opens a fresh copy of a settled challenge with the same terms and length. */
+export async function runAgain(actor: User, challengeId: string): Promise<Challenge> {
+  const previous = getChallenge(challengeId);
+  requireOwner(actor, previous);
+  if (previous.status !== "paid" && previous.status !== "failed") fail("Finish this challenge before running it again");
+  return createChallenge(actor, {
+    gameId: previous.gameId,
+    condition: previous.condition,
+    goalUsd: previous.goalMicro / 1_000_000,
+    pledgeCapUsd: previous.pledgeCapMicro / 1_000_000,
+    minutes: Math.max(1, Math.round((previous.deadline - previous.createdAt) / 60_000)),
+  });
 }
 
 async function applyVerdict(challenge: Challenge, verdict: Verdict): Promise<void> {

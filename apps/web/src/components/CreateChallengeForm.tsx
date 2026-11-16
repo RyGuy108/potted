@@ -44,10 +44,24 @@ function conditionFor(gameId: string, f: Fields): unknown {
   }
 }
 
-export function CreateChallengeForm({ warnings }: { warnings: Record<string, string | null> }) {
+export interface SuggestionSeed {
+  id: string;
+  fanName: string;
+  gameId: string;
+  text: string;
+}
+
+export function CreateChallengeForm({
+  warnings,
+  suggestion,
+}: {
+  warnings: Record<string, string | null>;
+  /** A fan idea the streamer chose to turn into a challenge. */
+  suggestion?: SuggestionSeed;
+}) {
   const router = useRouter();
-  const [gameId, setGameId] = useState("chess");
-  const [fields, setFields] = useState<Fields>(DEFAULTS);
+  const [gameId, setGameId] = useState(suggestion?.gameId ?? "chess");
+  const [fields, setFields] = useState<Fields>({ ...DEFAULTS, statement: suggestion?.text ?? "" });
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const game = GAMES.find((g) => g.id === gameId)!;
@@ -79,20 +93,30 @@ export function CreateChallengeForm({ warnings }: { warnings: Record<string, str
         e.preventDefault();
         setError(null);
         start(async () => {
-          const result = await createChallengeAction({
-            gameId,
-            condition: conditionFor(gameId, fields),
-            goalUsd: Number(fields.goalUsd),
-            pledgeCapUsd: Number(fields.pledgeCapUsd),
-            minutes: Number(fields.minutes),
-          });
+          const result = await createChallengeAction(
+            {
+              gameId,
+              condition: conditionFor(gameId, fields),
+              goalUsd: Number(fields.goalUsd),
+              pledgeCapUsd: Number(fields.pledgeCapUsd),
+              minutes: Number(fields.minutes),
+            },
+            suggestion?.id,
+          );
           if (!result.ok) return setError(result.error);
           setFields({ ...fields, statement: "" });
+          // Drops ?use=… so the form goes back to a blank challenge.
+          router.replace("/dashboard");
           router.refresh();
         });
       }}
     >
       <h3>New challenge</h3>
+      {suggestion && (
+        <p className="hint">
+          From {suggestion.fanName}: &ldquo;{suggestion.text}&rdquo;. Set the exact terms below; fans fund what you write, not the idea.
+        </p>
+      )}
       <div className="game-tabs" role="tablist" aria-label="Game">
         {GAMES.map((g) => (
           <button

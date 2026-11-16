@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { ChallengeCard } from "@/components/ChallengeCard";
 import { AutoRefresh } from "@/components/Live";
 import { SignInCard } from "@/components/SignInCard";
-import { getStreamer, listChallenges } from "@/lib/service";
+import { SuggestForm } from "@/components/SuggestForm";
+import { getStreamer, listChallenges, settingsOf } from "@/lib/service";
 import { currentUser } from "@/lib/session";
 
 export default async function StreamerPage({ params }: { params: Promise<{ handle: string }> }) {
@@ -32,6 +33,13 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
             <ChallengeCard key={c.id} challenge={c} />
           ))}
         </div>
+      )}
+
+      {user?.role === "fan" && streamer.handle && settingsOf(streamer).acceptingSuggestions && (
+        <>
+          <h2>Got an idea?</h2>
+          <SuggestForm handle={streamer.handle} streamerName={streamer.name} />
+        </>
       )}
 
       {past.length > 0 && (

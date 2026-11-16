@@ -18,7 +18,14 @@ interface OverlayEvent {
   message: string;
 }
 
+interface OverlaySettings {
+  announcer: boolean;
+  position: string;
+  cards: number;
+}
+
 interface Feed {
+  settings: OverlaySettings;
   seq: number;
   events: OverlayEvent[];
   challenges: OverlayChallenge[];
@@ -45,6 +52,9 @@ const SPOKEN = new Set(["pledged", "locked", "paid", "failed", "claimed", "refun
 export function Overlay({ handle, muted }: { handle: string; muted: boolean }) {
   const [challenges, setChallenges] = useState<OverlayChallenge[]>([]);
   const [toast, setToast] = useState<OverlayEvent | null>(null);
+  const [settings, setSettings] = useState<OverlaySettings>({ announcer: true, position: "bottom-left", cards: 2 });
+  // Read inside the timer callbacks, so a settings change applies without restarting the poll.
+  const announcer = useRef(true);
   const since = useRef(-1);
   const queue = useRef<OverlayEvent[]>([]);
   const showing = useRef(false);
@@ -59,7 +69,7 @@ export function Overlay({ handle, muted }: { handle: string; muted: boolean }) {
       }
       showing.current = true;
       setToast(event);
-      if (SPOKEN.has(event.type)) void speak(event, muted);
+      if (SPOKEN.has(event.type)) void speak(event, muted || !announcer.current);
       setTimeout(next, 4000);
     }
 
@@ -69,6 +79,8 @@ export function Overlay({ handle, muted }: { handle: string; muted: boolean }) {
         if (!res.ok) return;
         const feed = (await res.json()) as Feed;
         since.current = feed.seq;
+        announcer.current = feed.settings.announcer;
+        setSettings(feed.settings);
         setChallenges(feed.challenges);
         if (feed.events.length > 0) {
           queue.current.push(...feed.events);
@@ -91,14 +103,14 @@ export function Overlay({ handle, muted }: { handle: string; muted: boolean }) {
   }, [handle, muted]);
 
   return (
-    <div className="overlay">
+    <div className={`overlay overlay-at-${settings.position}`}>
       {toast && (
         <div key={toast.seq} className={`overlay-toast overlay-${toast.type}`}>
           {toast.message}
         </div>
       )}
       <div className="overlay-stack">
-        {challenges.slice(0, 2).map((c) => {
+        {challenges.slice(0, settings.cards).map((c) => {
           const growth = growthOf(c.totalMicro, c.goalMicro);
           return (
             <div key={c.id} className="overlay-card">

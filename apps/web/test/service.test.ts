@@ -167,3 +167,64 @@ describe("rehearsal results", () => {
     expect(done.verdict?.evidence?.simulated).toBe(true);
   });
 });
+
+describe("streamer controls", () => {
+  it("cancels a challenge and refunds every fan, before or during the attempt", async () => {
+    const ana = await service.signIn("Ana", "fan");
+    const c = await service.createChallenge(streamer(), base);
+    await service.pledge(ana, c.id, 6);
+    await expect(service.cancel(ana, c.id)).rejects.toThrow("Only this challenge's streamer");
+    await service.lock(streamer(), c.id);
+
+    const cancelled = await service.cancel(streamer(), c.id);
+    expect(cancelled.status).toBe("failed");
+    expect(cancelled.verdict?.reason).toBe("Cancelled by the streamer");
+    expect(await service.balanceOf(ana)).toBe(toMicro(25));
+    expect(await service.balanceOf(streamer())).toBe(0);
+    await expect(service.cancel(streamer(), c.id)).rejects.toThrow("already settled");
+  });
+
+  it("enforces the streamer's minimum pledge", async () => {
+    const ana = await service.signIn("Ana", "fan");
+    await service.updateSettings(streamer(), { ...service.settingsOf(streamer()), minPledgeUsd: 2 });
+    const c = await service.createChallenge(streamer(), base);
+    await expect(service.pledge(ana, c.id, 1)).rejects.toThrow("smallest pledge on this stream is $2");
+    await service.pledge(ana, c.id, 2);
+  });
+
+  it("takes fan suggestions, with blocked words, a per-fan limit and an off switch", async () => {
+    const ana = await service.signIn("Ana", "fan");
+    await service.updateSettings(streamer(), { ...service.settingsOf(streamer()), blockedWords: "Spoiler, x" });
+    expect(service.settingsOf(streamer()).blockedWords).toEqual(["spoiler"]);
+    await expect(service.suggest(ana, "ryan", "gta6", "Play the SPOILER mission tonight")).rejects.toThrow("blocked");
+    await expect(service.suggest(ana, "ryan", "gta6", "short")).rejects.toThrow("8 to 140");
+
+    for (const n of [1, 2, 3]) await service.suggest(ana, "ryan", "chess", `Win game number ${n} with black`);
+    await expect(service.suggest(ana, "ryan", "chess", "One more idea for you")).rejects.toThrow("already have 3");
+    const [first] = service.pendingSuggestions(streamer().id);
+    await expect(service.resolveSuggestion(ana, first!.id, "dismissed")).rejects.toThrow("Only the streamer");
+    await service.resolveSuggestion(streamer(), first!.id, "dismissed");
+    expect(service.pendingSuggestions(streamer().id)).toHaveLength(2);
+
+    await service.updateSettings(streamer(), { ...service.settingsOf(streamer()), acceptingSuggestions: false });
+    await expect(service.suggest(ana, "ryan", "chess", "Is anyone reading these?")).rejects.toThrow("not taking suggestions");
+  });
+
+  it("rejects bad settings and lets only streamers change them", async () => {
+    const ana = await service.signIn("Ana", "fan");
+    const current = service.settingsOf(streamer());
+    await expect(service.updateSettings(ana, current)).rejects.toThrow("Only a streamer");
+    await expect(service.updateSettings(streamer(), { ...current, minPledgeUsd: 0 })).rejects.toThrow("Minimum pledge");
+    await expect(service.updateSettings(streamer(), { ...current, overlayPosition: "middle" })).rejects.toThrow("overlay position");
+  });
+
+  it("reopens a settled challenge with the same terms", async () => {
+    const c = await service.createChallenge(streamer(), base);
+    await expect(service.runAgain(streamer(), c.id)).rejects.toThrow("Finish this challenge");
+    await service.cancel(streamer(), c.id);
+    const again = await service.runAgain(streamer(), c.id);
+    expect(again.id).not.toBe(c.id);
+    expect(again).toMatchObject({ status: "open", title: c.title, goalMicro: c.goalMicro, pledgeCapMicro: c.pledgeCapMicro });
+    expect(Math.round((again.deadline - again.createdAt) / 60_000)).toBe(30);
+  });
+});

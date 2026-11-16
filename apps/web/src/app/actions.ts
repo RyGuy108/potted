@@ -39,16 +39,41 @@ export async function signOutAction(): Promise<ActionResult> {
   return run(endSession);
 }
 
-export async function createChallengeAction(input: service.NewChallenge): Promise<ActionResult> {
-  return run(async () =>
-    service.createChallenge(await requireUser(), {
+export async function createChallengeAction(
+  input: service.NewChallenge,
+  fromSuggestionId?: string,
+): Promise<ActionResult> {
+  return run(async () => {
+    const user = await requireUser();
+    await service.createChallenge(user, {
       gameId: String(input.gameId),
       condition: input.condition,
       goalUsd: Number(input.goalUsd),
       pledgeCapUsd: Number(input.pledgeCapUsd),
       minutes: Number(input.minutes),
-    }),
-  );
+    });
+    if (fromSuggestionId) await service.resolveSuggestion(user, String(fromSuggestionId), "used");
+  });
+}
+
+export async function cancelAction(challengeId: string): Promise<ActionResult> {
+  return run(async () => service.cancel(await requireUser(), String(challengeId)));
+}
+
+export async function runAgainAction(challengeId: string): Promise<ActionResult> {
+  return run(async () => service.runAgain(await requireUser(), String(challengeId)));
+}
+
+export async function suggestAction(handle: string, gameId: string, text: string): Promise<ActionResult> {
+  return run(async () => service.suggest(await requireUser(), String(handle), String(gameId), String(text)));
+}
+
+export async function dismissSuggestionAction(id: string): Promise<ActionResult> {
+  return run(async () => service.resolveSuggestion(await requireUser(), String(id), "dismissed"));
+}
+
+export async function updateSettingsAction(input: Record<string, unknown>): Promise<ActionResult> {
+  return run(async () => service.updateSettings(await requireUser(), input));
 }
 
 export async function pledgeAction(challengeId: string, amountUsd: number): Promise<ActionResult> {
