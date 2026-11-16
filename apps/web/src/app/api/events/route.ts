@@ -21,7 +21,9 @@ export async function GET(request: Request) {
     .map(({ id, title, status, totalMicro, goalMicro }) => ({ id, title, status, totalMicro, goalMicro }));
 
   const settings = service.settingsOf(streamer);
+  const raised = settings.causeOn ? service.raisedFor(streamer, settings.causeName) : undefined;
   return NextResponse.json({
+    cause: raised ? { name: settings.causeName, pct: settings.causePct, ...raised } : null,
     settings: {
       announcer: settings.announcer,
       position: settings.overlayPosition,

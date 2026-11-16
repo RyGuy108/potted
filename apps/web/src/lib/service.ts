@@ -223,7 +223,23 @@ export async function updateSettings(actor: User, input: Partial<Record<keyof St
   // Settings saved before voices existed carry no voice; keep the current one.
   const voice = (input.voice ?? settingsOf(actor).voice) as VoiceKey;
   if (!VOICES.some((v) => v.key === voice)) fail("Unknown announcer voice");
+  const current = settingsOf(actor);
+  const causeOn = input.causeOn === undefined ? current.causeOn : input.causeOn === true;
+  const causeName = input.causeName === undefined ? current.causeName : String(input.causeName).trim().replace(/\s+/g, " ");
+  const causeUrl = input.causeUrl === undefined ? current.causeUrl : String(input.causeUrl).trim();
+  const causePct = input.causePct === undefined ? current.causePct : Number(input.causePct);
+  if (causeName.length > 60) fail("Keep the cause's name under 60 characters");
+  if (causeUrl && !/^https:\/\/[^\s]+\.[^\s]+$/.test(causeUrl)) fail("The cause's link must start with https://");
+  if (causeOn) {
+    if (causeName.length < 3) fail("Name the cause before turning the charity stream on");
+    const problem = splitsError([{ kind: "cause", name: causeName, pct: causePct }]);
+    if (problem) fail(problem);
+  }
   actor.settings = {
+    causeOn,
+    causeName,
+    causeUrl,
+    causePct: Number.isInteger(causePct) ? causePct : current.causePct,
     acceptingSuggestions: input.acceptingSuggestions === true,
     minPledgeUsd,
     announcer: input.announcer === true,
@@ -316,7 +332,7 @@ export async function invite(actor: User, guestHandle: string, guestPct: number,
   const guest = getStreamer(String(guestHandle)) ?? fail("No streamer with that handle");
   if (guest.id === actor.id) fail("Pick another streamer to collab with");
   const split: Split = { kind: "guest", userId: guest.id, name: guest.name, pct: Number(guestPct) };
-  const problem = splitsError([split]);
+  const problem = splitsError([split, ...causeSplit(actor)]);
   if (problem) fail(problem);
   if (db().invites.filter((i) => i.hostId === actor.id && i.status === "pending").length >= MAX_PENDING_INVITES) {
     fail(`You already have ${MAX_PENDING_INVITES} invites waiting. Withdraw one first.`);
@@ -368,8 +384,39 @@ export async function withdrawInvite(actor: User, inviteId: string): Promise<voi
   save();
 }
 
-export async function createChallenge(actor: User, input: NewChallenge, splits: Split[] = []): Promise<Challenge> {
+/** The cause share a streamer's new challenges carry while their charity stream is on. */
+function causeSplit(streamer: User): Split[] {
+  const s = settingsOf(streamer);
+  return s.causeOn ? [{ kind: "cause", name: s.causeName, pct: s.causePct, ...(s.causeUrl ? { url: s.causeUrl } : {}) }] : [];
+}
+
+/** The sim ledger account a cause's share is paid into. */
+export function causeWallet(name: string): string {
+  return `cause:${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+}
+
+/**
+ * What a streamer's stage has sent to a cause, and what is still riding on
+ * live challenges. Counted from the challenges themselves, so it cannot
+ * drift from what was actually paid.
+ */
+export function raisedFor(streamer: User, causeName: string): { raisedMicro: number; inPlayMicro: number } {
+  let raisedMicro = 0;
+  let inPlayMicro = 0;
+  for (const c of stageChallenges(streamer.id)) {
+    const { parts } = splitPot(c.totalMicro, c.splits);
+    (c.splits ?? []).forEach((s, i) => {
+      if (s.kind !== "cause" || s.name !== causeName) return;
+      if (c.status === "paid") raisedMicro += parts[i]!;
+      else if (c.status === "open" || c.status === "locked") inPlayMicro += parts[i]!;
+    });
+  }
+  return { raisedMicro, inPlayMicro };
+}
+
+export async function createChallenge(actor: User, input: NewChallenge, guests: Split[] = []): Promise<Challenge> {
   const { game, condition } = validate(actor, input);
+  const splits = [...guests, ...causeSplit(actor)];
   const problem = splitsError(splits);
   if (problem) fail(problem);
 
@@ -465,6 +512,9 @@ export function recapText(streamer: User, now = Date.now()): string {
     `${recent.length} ${recent.length === 1 ? "challenge" : "challenges"} so far, ${paid.length} completed.`,
     `${streamer.name} earned ${formatUsd(earned)}.`,
   ];
+  const cause = settingsOf(streamer);
+  const raised = cause.causeOn ? raisedFor(streamer, cause.causeName).raisedMicro : 0;
+  if (raised > 0) parts.push(`${formatUsd(raised)} raised for ${cause.causeName}.`);
   if (refunded > 0) parts.push(`Fans got ${formatUsd(refunded)} back.`);
   if (top) parts.push(`Biggest backer: ${getUser(top[0])?.name ?? "a fan"}, with ${formatUsd(top[1])}.`);
   return parts.join(" ");
@@ -557,7 +607,7 @@ function payoutsOf(challenge: Challenge): { wallet: string; amountMicro: number 
   const { hostMicro, parts } = splitPot(challenge.totalMicro, challenge.splits);
   const payouts = [{ wallet: host.wallet, amountMicro: hostMicro }];
   (challenge.splits ?? []).forEach((split, index) => {
-    const wallet = split.kind === "guest" ? getUser(split.userId ?? "")?.wallet : undefined;
+    const wallet = split.kind === "guest" ? getUser(split.userId ?? "")?.wallet : causeWallet(split.name);
     if (!wallet) fail(`No wallet on file for ${split.name}`);
     payouts.push({ wallet, amountMicro: parts[index]! });
   });
@@ -572,7 +622,10 @@ async function applyVerdict(challenge: Challenge, verdict: Verdict): Promise<voi
   challenge.settledAt = Date.now();
   if (success) {
     challenge.status = "paid";
-    emit("paid", challenge, `Challenge complete! ${namesOf(challenge)} earned ${formatUsd(challenge.totalMicro)}.`);
+    const { parts } = splitPot(challenge.totalMicro, challenge.splits);
+    const gifts = (challenge.splits ?? []).flatMap((s, i) => (s.kind === "cause" && parts[i]! > 0 ? [`${formatUsd(parts[i]!)} goes to ${s.name}.`] : []));
+    const earned = challenge.totalMicro - (challenge.splits ?? []).reduce((sum, s, i) => sum + (s.kind === "cause" ? parts[i]! : 0), 0);
+    emit("paid", challenge, [`Challenge complete! ${namesOf(challenge)} earned ${formatUsd(earned)}.`, ...gifts].join(" "));
   } else {
     challenge.status = "failed";
     const fans = await refundAll(challenge);

@@ -19,10 +19,11 @@ export function SettingsForm({ initial }: { initial: StreamSettings }) {
   const [settings, setSettings] = useState(initial);
   const [blocked, setBlocked] = useState(initial.blockedWords.join(", "));
   const [minPledge, setMinPledge] = useState(String(initial.minPledgeUsd));
+  const [causePct, setCausePct] = useState(String(initial.causePct));
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
 
-  const toggle = (key: "acceptingSuggestions" | "announcer" | "overlayQr", label: string) => (
+  const toggle = (key: "acceptingSuggestions" | "announcer" | "overlayQr" | "causeOn", label: string) => (
     <label className="check">
       <input
         type="checkbox"
@@ -40,7 +41,7 @@ export function SettingsForm({ initial }: { initial: StreamSettings }) {
         e.preventDefault();
         setMessage(null);
         start(async () => {
-          const result = await updateSettingsAction({ ...settings, minPledgeUsd: minPledge, blockedWords: blocked });
+          const result = await updateSettingsAction({ ...settings, minPledgeUsd: minPledge, blockedWords: blocked, causePct: Number(causePct) });
           setMessage(result.ok ? { ok: true, text: "Saved. The overlay picks this up within a couple of seconds." } : { ok: false, text: result.error });
           router.refresh();
         });
@@ -89,6 +90,26 @@ export function SettingsForm({ initial }: { initial: StreamSettings }) {
             <option value={1}>One</option>
             <option value={2}>Two</option>
           </select>
+        </label>
+      </div>
+      <h3 className="settings-sub">Charity stream</h3>
+      <p className="muted small">
+        While this is on, every new challenge sends a share of its pot to the cause when it is completed. Missed challenges still refund
+        fans in full. Challenges already open keep the terms they opened with.
+      </p>
+      <div className="grid">
+        {toggle("causeOn", "Run this as a charity stream")}
+        <label className="field">
+          <span>Cause</span>
+          <input value={settings.causeName} maxLength={60} onChange={(e) => setSettings({ ...settings, causeName: e.target.value })} placeholder="e.g. Austin Pets Alive" />
+        </label>
+        <label className="field">
+          <span>Share of each completed pot (%)</span>
+          <input inputMode="numeric" value={causePct} onChange={(e) => setCausePct(e.target.value)} />
+        </label>
+        <label className="field">
+          <span>Link to the cause (optional)</span>
+          <input value={settings.causeUrl} onChange={(e) => setSettings({ ...settings, causeUrl: e.target.value })} placeholder="https://" />
         </label>
       </div>
       <label className="field">

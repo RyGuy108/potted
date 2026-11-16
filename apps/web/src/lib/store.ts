@@ -27,6 +27,13 @@ export interface StreamSettings {
   overlayCards: 1 | 2;
   /** Show a QR code to the fan page on the overlay. */
   overlayQr: boolean;
+  /** Charity stream: while on, every new challenge sends a share of a completed pot to the cause. */
+  causeOn: boolean;
+  causeName: string;
+  /** Where viewers can read about the cause. Shown as given; not verified. */
+  causeUrl: string;
+  /** Whole percent of each completed pot. */
+  causePct: number;
   /** Suggestions containing any of these are rejected. Lower-case. */
   blockedWords: string[];
 }
@@ -39,6 +46,10 @@ export const DEFAULT_SETTINGS: StreamSettings = {
   overlayPosition: "bottom-left",
   overlayCards: 2,
   overlayQr: true,
+  causeOn: false,
+  causeName: "",
+  causeUrl: "",
+  causePct: 50,
   blockedWords: [],
 };
 

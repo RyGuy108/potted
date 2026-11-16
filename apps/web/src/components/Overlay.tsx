@@ -25,8 +25,16 @@ interface OverlaySettings {
   qr: boolean;
 }
 
+interface OverlayCause {
+  name: string;
+  pct: number;
+  raisedMicro: number;
+  inPlayMicro: number;
+}
+
 interface Feed {
   settings: OverlaySettings;
+  cause: OverlayCause | null;
   seq: number;
   events: OverlayEvent[];
   challenges: OverlayChallenge[];
@@ -53,6 +61,7 @@ const SPOKEN = new Set(["pledged", "locked", "paid", "failed", "claimed", "refun
 export function Overlay({ handle, muted, qrSvg }: { handle: string; muted: boolean; /** QR code to the fan page, as SVG markup made on the server. */ qrSvg: string }) {
   const [challenges, setChallenges] = useState<OverlayChallenge[]>([]);
   const [toast, setToast] = useState<OverlayEvent | null>(null);
+  const [cause, setCause] = useState<OverlayCause | null>(null);
   const [settings, setSettings] = useState<OverlaySettings>({ announcer: true, position: "bottom-left", cards: 2, qr: false });
   // Read inside the timer callbacks, so a settings change applies without restarting the poll.
   const announcer = useRef(true);
@@ -83,6 +92,7 @@ export function Overlay({ handle, muted, qrSvg }: { handle: string; muted: boole
         since.current = feed.seq;
         announcer.current = feed.settings.announcer;
         setSettings(feed.settings);
+        setCause(feed.cause);
         setChallenges(feed.challenges);
         if (feed.events.length > 0) {
           queue.current.push(...feed.events);
@@ -112,6 +122,13 @@ export function Overlay({ handle, muted, qrSvg }: { handle: string; muted: boole
         </div>
       )}
       <div className="overlay-stack">
+        {cause && (
+          <div className="overlay-cause">
+            <span>For {cause.name}</span>
+            <strong className="mono">{formatUsd(cause.raisedMicro)}</strong>
+            <span className="muted">raised{cause.inPlayMicro > 0 ? ` · ${formatUsd(cause.inPlayMicro)} more if the live pots are won` : ""}</span>
+          </div>
+        )}
         {settings.qr && challenges.some((c) => c.status === "open") && (
           <div className="overlay-qr">
             <div className="overlay-qr-code" dangerouslySetInnerHTML={{ __html: qrSvg }} />

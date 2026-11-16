@@ -346,3 +346,56 @@ describe("collabs", () => {
     expect(service.stageChallenges(kai().id)).toEqual([]);
   });
 });
+
+describe("charity streams", () => {
+  const on = async (pct = 50) =>
+    service.updateSettings(streamer(), { ...service.settingsOf(streamer()), causeOn: true, causeName: "Austin Pets Alive", causeUrl: "https://example.org/apa", causePct: pct });
+
+  it("sends the cause its share of a completed pot and counts what was raised", async () => {
+    const ana = await service.signIn("Ana", "fan");
+    const before = await service.createChallenge(streamer(), base);
+    await on(50);
+    const c = await service.createChallenge(streamer(), base);
+    expect(before.splits).toBeUndefined();
+    expect(c.splits).toEqual([{ kind: "cause", name: "Austin Pets Alive", pct: 50, url: "https://example.org/apa" }]);
+
+    await service.pledge(ana, c.id, 7);
+    expect(service.raisedFor(streamer(), "Austin Pets Alive")).toEqual({ raisedMicro: 0, inPlayMicro: toMicro(3.5) });
+    await service.lock(streamer(), c.id);
+    await service.check(c.id, { force: true, deps: lichess("white") });
+    expect(await service.balanceOf(streamer())).toBe(toMicro(3.5));
+    expect(service.raisedFor(streamer(), "Austin Pets Alive")).toEqual({ raisedMicro: toMicro(3.5), inPlayMicro: 0 });
+    expect(service.eventsSince("ryan", 0).at(-1)!.message).toBe("Challenge complete! Ryan earned $3.50. $3.50 goes to Austin Pets Alive.");
+    expect(service.recapText(streamer())).toContain("$3.50 raised for Austin Pets Alive.");
+  });
+
+  it("refunds fans in full on a miss and pays the cause nothing", async () => {
+    const ana = await service.signIn("Ana", "fan");
+    await on(80);
+    const c = await service.createChallenge(streamer(), base);
+    await service.pledge(ana, c.id, 5);
+    await service.cancel(streamer(), c.id);
+    expect(await service.balanceOf(ana)).toBe(toMicro(25));
+    expect(service.raisedFor(streamer(), "Austin Pets Alive")).toEqual({ raisedMicro: 0, inPlayMicro: 0 });
+  });
+
+  it("splits three ways on a charity collab and refuses shares that leave the host under 10%", async () => {
+    const kai = service.getStreamer("kai")!;
+    const ana = await service.signIn("Ana", "fan");
+    await on(50);
+    await expect(service.invite(streamer(), "kai", 45, base)).rejects.toThrow("90%");
+    const c = (await service.respondInvite(kai, (await service.invite(streamer(), "kai", 30, base)).id, true))!;
+    await service.pledge(ana, c.id, 10);
+    await service.lock(streamer(), c.id);
+    await service.check(c.id, { force: true, deps: lichess("white") });
+    expect([await service.balanceOf(streamer()), await service.balanceOf(kai)]).toEqual([toMicro(2), toMicro(3)]);
+    expect(service.raisedFor(streamer(), "Austin Pets Alive").raisedMicro).toBe(toMicro(5));
+  });
+
+  it("validates the cause", async () => {
+    const s = service.settingsOf(streamer());
+    await expect(service.updateSettings(streamer(), { ...s, causeOn: true, causeName: "" })).rejects.toThrow("Name the cause");
+    await expect(service.updateSettings(streamer(), { ...s, causeOn: true, causeName: "Fund", causePct: 95 })).rejects.toThrow("90%");
+    await expect(service.updateSettings(streamer(), { ...s, causeName: "Fund", causeUrl: "javascript:alert(1)" })).rejects.toThrow("https://");
+  });
+});

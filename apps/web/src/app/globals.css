@@ -1351,3 +1351,40 @@ body:has(.overlay-page) {
 .collab-fields {
   margin-top: 4px;
 }
+
+.settings-sub {
+  margin-top: 22px;
+}
+
+.cause-banner {
+  border-color: rgba(53, 201, 139, 0.4);
+  margin: 16px 0;
+}
+
+.cause-banner h3 {
+  margin: 4px 0 8px;
+}
+
+.overlay-cause {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-self: start;
+  max-width: 440px;
+  background: rgba(10, 22, 40, 0.92);
+  border: 1px solid rgba(53, 201, 139, 0.5);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-family: var(--display);
+}
+
+.overlay-cause strong {
+  color: var(--green);
+  font-size: 1.15rem;
+}
+
+.overlay-at-bottom-right .overlay-cause,
+.overlay-at-top-right .overlay-cause {
+  justify-self: end;
+}
