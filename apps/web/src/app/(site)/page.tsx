@@ -1,6 +1,6 @@
-import { GAMES } from "@potted/core";
 import Link from "next/link";
 import { ChallengeCard } from "@/components/ChallengeCard";
+import { GameDirectory } from "@/components/GameDirectory";
 import { Icon, type IconName } from "@/components/Icon";
 import { Beanstalk } from "@/components/Beanstalk";
 import { SignInCard } from "@/components/SignInCard";
@@ -151,22 +151,10 @@ export default async function Home() {
       </section>
 
       <section>
-        <p className="eyebrow">Games</p>
-        <h2 className="section-title">One escrow, a checker per game</h2>
-        <div className="games">
-          {GAMES.map((game) => (
-            <div key={game.id} className="card game">
-              <div className="meta">
-                <h3>{game.name}</h3>
-                <span className="tag tag-quiet">
-                  <Icon name={game.verifier === "optimistic" ? "clip" : "data"} size={13} />
-                  {game.verifier === "optimistic" ? "Clip + dispute" : "Game data"}
-                </span>
-              </div>
-              <p className="muted small">{game.how}</p>
-            </div>
-          ))}
-        </div>
+        <p className="eyebrow">Games and streams</p>
+        <h2 className="section-title">One escrow, any kind of stream</h2>
+        <p className="lede">Games with public results are checked against the data. Everything else settles by clip, with a window for funders to dispute.</p>
+        <GameDirectory />
       </section>
 
       {live.length > 0 && (

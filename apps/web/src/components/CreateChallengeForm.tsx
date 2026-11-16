@@ -37,7 +37,8 @@ function conditionFor(gameId: string, f: Fields): unknown {
     case "optimistic":
       return {
         kind: "optimistic",
-        game: gameId === "gta6" ? "GTA VI" : f.game,
+        // Only "Anything else" asks what the activity is; the rest are named by their type.
+        game: gameId === "other" ? f.game : game.name,
         statement: f.statement,
         disputeWindowSecs: f.disputeWindowSecs,
       };
@@ -141,7 +142,7 @@ export function CreateChallengeForm({
         </p>
       )}
       <div className="game-tabs" role="tablist" aria-label="Game">
-        {GAMES.map((g) => (
+        {GAMES.filter((g) => g.featured || g.id === gameId).map((g) => (
           <button
             key={g.id}
             type="button"
@@ -154,6 +155,19 @@ export function CreateChallengeForm({
           </button>
         ))}
       </div>
+      {GAMES.some((g) => !g.featured) && (
+        <label className="field more-types">
+          <span>More stream types</span>
+          <select value={game.featured ? "" : gameId} onChange={(e) => e.target.value && setGameId(e.target.value)}>
+            <option value="">Choose…</option>
+            {GAMES.filter((g) => !g.featured).map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <p className="muted small">{game.how}</p>
       {warning && <p className="warn small">{warning}</p>}
 
@@ -189,8 +203,8 @@ export function CreateChallengeForm({
         )}
         {game.verifier === "optimistic" && (
           <>
-            {gameId !== "gta6" && input("game", "Game or activity", { placeholder: "Cooking stream", required: true })}
-            {input("statement", "Challenge", { placeholder: "Finish the first heist without getting busted", required: true })}
+            {gameId === "other" && input("game", "Game or activity", { placeholder: "Cooking stream", required: true })}
+            {input("statement", "Challenge", { placeholder: game.example ?? "Something a viewer can confirm from a clip", required: true })}
             {input("disputeWindowSecs", "Dispute window (seconds)", { inputMode: "numeric", required: true })}
           </>
         )}

@@ -1388,3 +1388,18 @@ body:has(.overlay-page) {
 .overlay-at-top-right .overlay-cause {
   justify-self: end;
 }
+
+.game-example {
+  margin-top: 8px;
+  color: var(--text, #eef3fb);
+  opacity: 0.85;
+}
+
+.show-more {
+  margin-top: 14px;
+}
+
+.more-types {
+  max-width: 260px;
+  margin-bottom: 10px;
+}

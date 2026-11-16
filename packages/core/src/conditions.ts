@@ -153,12 +153,28 @@ export interface GameInfo {
   verifier: VerifierKind;
   /** One line shown to fans about how the result is decided. */
   how: string;
+  /** Shown up front; the rest sit behind "Show more". */
+  featured?: boolean;
+  /** An example challenge, shown in the directory and as the form's placeholder. */
+  example?: string;
 }
 
+const CLIP = "Streamer posts a clip; funders can dispute before it settles.";
+
 export const GAMES: GameInfo[] = [
-  { id: "chess", name: "Chess", verifier: "lichess", how: "Checked against the public Lichess game record." },
-  { id: "brawlstars", name: "Brawl Stars", verifier: "brawlstars", how: "Checked against the official battle log." },
-  { id: "fortnite", name: "Fortnite", verifier: "fortnite", how: "Checked against public player stats." },
-  { id: "gta6", name: "GTA VI", verifier: "optimistic", how: "Streamer posts a clip; funders can dispute before it settles." },
-  { id: "other", name: "Anything else", verifier: "optimistic", how: "Streamer posts a clip; funders can dispute before it settles." },
+  { id: "chess", name: "Chess", verifier: "lichess", how: "Checked against the public Lichess game record.", featured: true, example: "Win the next rated blitz game" },
+  { id: "brawlstars", name: "Brawl Stars", verifier: "brawlstars", how: "Checked against the official battle log.", featured: true, example: "Win 3 of the next 5 battles" },
+  { id: "fortnite", name: "Fortnite", verifier: "fortnite", how: "Checked against public player stats.", featured: true, example: "Get 10 eliminations" },
+  { id: "gta6", name: "GTA VI", verifier: "optimistic", how: CLIP, featured: true, example: "Finish the first heist without getting busted" },
+  // Stream types beyond the featured games. Each settles by clip until it
+  // gets a data checker of its own: add an adapter in packages/verifier and
+  // change `verifier` here.
+  { id: "speedrun", name: "Speedruns", verifier: "optimistic", how: CLIP, example: "Beat my personal best in any% tonight" },
+  { id: "minecraft", name: "Minecraft", verifier: "optimistic", how: CLIP, example: "Beat the Ender Dragon in hardcore" },
+  { id: "fitness", name: "Fitness and IRL", verifier: "optimistic", how: CLIP, example: "Finish a 5k on the treadmill without stopping" },
+  { id: "cooking", name: "Cooking", verifier: "optimistic", how: CLIP, example: "Plate a three-course dinner in 45 minutes" },
+  { id: "music", name: "Music", verifier: "optimistic", how: CLIP, example: "Learn and play a requested song by the end of stream" },
+  { id: "art", name: "Art and making", verifier: "optimistic", how: CLIP, example: "Finish the commission live in one sitting" },
+  { id: "study", name: "Study and coding", verifier: "optimistic", how: CLIP, example: "Ship the feature before the stream ends" },
+  { id: "other", name: "Anything else", verifier: "optimistic", how: CLIP, featured: true, example: "Any outcome a viewer could confirm from a clip" },
 ];

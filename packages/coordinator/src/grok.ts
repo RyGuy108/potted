@@ -64,7 +64,7 @@ function whole(value: unknown, min: number, max: number): string | undefined {
 export async function draftWithGrok(idea: Idea, deps: Deps): Promise<Draft> {
   const game = GAMES.find((g) => g.id === idea.gameId);
   if (!game) return draftWithRules(idea);
-  const reply = await askJson(deps, DRAFT_PROMPT, JSON.stringify({ game: game.id === "gta6" || game.id === "other" ? `other (${game.name})` : game.id, idea: idea.text }));
+  const reply = await askJson(deps, DRAFT_PROMPT, JSON.stringify({ game: game.verifier === "optimistic" ? `other (${game.name})` : game.id, idea: idea.text }));
   const raw = typeof reply.fields === "object" && reply.fields !== null ? (reply.fields as Record<string, unknown>) : {};
   const fields: Record<string, string> = {};
   for (const [name, check] of Object.entries(ALLOWED[game.verifier] ?? {})) {
