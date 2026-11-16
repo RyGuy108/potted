@@ -188,6 +188,21 @@ describe("escrow", () => {
     assert.equal(await balance(fanA.publicKey), start);
   });
 
+  it("lets only the streamer cancel, which opens refunds and blocks a payout", async () => {
+    const c = await open();
+    const start = await balance(fanA.publicKey);
+    await pledge(c, fanA, 2 * USDC);
+    const cancel = (who: anchor.web3.Keypair) =>
+      program.methods.cancel().accountsPartial({ streamer: who.publicKey, challenge: c.challenge }).signers([who]).rpc();
+
+    await expectError(cancel(fanA), "Unauthorized");
+    await cancel(streamer);
+    await expectError(settle(c, true), "AlreadySettled");
+    await expectError(cancel(streamer), "AlreadySettled");
+    await refund(c, fanA.publicKey);
+    assert.equal(await balance(fanA.publicKey), start);
+  });
+
   it("rejects bad timing at creation", async () => {
     await expectError(open({ deadlineIn: -10 }), "DeadlineInPast");
     await expectError(open({ deadlineIn: 600, settleIn: 300 }), "BadSettleWindow");

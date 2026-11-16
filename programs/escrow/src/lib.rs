@@ -134,6 +134,22 @@ pub mod escrow {
 
     /// Reports the result. Works exactly once, and only until `settle_by`,
     /// so a late result can never race the timeout refunds.
+    /// The streamer calls the challenge off. It can only ever send money back
+    /// to fans: the status goes to Failed, which opens `refund` for everyone.
+    pub fn cancel(ctx: Context<CancelChallenge>) -> Result<()> {
+        let challenge = &mut ctx.accounts.challenge;
+        require!(
+            challenge.status == Status::Open || challenge.status == Status::Locked,
+            EscrowError::AlreadySettled
+        );
+        challenge.status = Status::Failed;
+        emit!(Cancelled {
+            challenge: challenge.key(),
+            total_pledged: challenge.total_pledged,
+        });
+        Ok(())
+    }
+
     pub fn settle(
         ctx: Context<Settle>,
         success: bool,
@@ -355,6 +371,13 @@ pub struct LockChallenge<'info> {
 }
 
 #[derive(Accounts)]
+pub struct CancelChallenge<'info> {
+    pub streamer: Signer<'info>,
+    #[account(mut, has_one = streamer @ EscrowError::Unauthorized)]
+    pub challenge: Account<'info, Challenge>,
+}
+
+#[derive(Accounts)]
 pub struct Settle<'info> {
     pub verifier: Signer<'info>,
     #[account(mut, has_one = verifier @ EscrowError::Unauthorized)]
@@ -406,6 +429,12 @@ pub struct Pledged {
 
 #[event]
 pub struct Locked {
+    pub challenge: Pubkey,
+    pub total_pledged: u64,
+}
+
+#[event]
+pub struct Cancelled {
     pub challenge: Pubkey,
     pub total_pledged: u64,
 }

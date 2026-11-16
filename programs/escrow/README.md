@@ -7,6 +7,7 @@ USDC pots that pay out or refund on a verified result.
 | `create_challenge` | Streamer | Opens a challenge and its vault, and fixes the verifier, deadline and per-fan cap |
 | `pledge` | Fan | Moves USDC into the vault while the challenge is open |
 | `lock` | Streamer or verifier | Closes pledging when the attempt starts |
+| `cancel` | Streamer only | Calls the challenge off before a result; it can only open refunds, never pay out |
 | `settle` | Verifier only | Reports the result once: success pays the pot to the streamer, failure opens refunds |
 | `refund` | Anyone | Returns a fan's pledge after a failure, or after `settle_by` with no result |
 
