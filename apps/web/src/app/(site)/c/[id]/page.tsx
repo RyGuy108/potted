@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { checkAction, disputeAction, ruleAction } from "@/app/actions";
 import { ActionButton } from "@/components/ActionButton";
 import { FundingBar, StatusPill } from "@/components/ChallengeCard";
-import { AutoRefresh, Countdown } from "@/components/Live";
+import { AutoRefresh, CopyField, Countdown } from "@/components/Live";
 import { Beanstalk } from "@/components/Beanstalk";
 import { PledgeForm } from "@/components/PledgeForm";
 import { SignInCard } from "@/components/SignInCard";
@@ -173,6 +173,11 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
       </section>
 
       <Receipt challenge={challenge} />
+
+      <section className="card share">
+        <CopyField label="Share this challenge" value={`/c/${challenge.id}`} />
+        <p className="muted small">The link unfurls as a card with the beanstalk, the pot and the result.</p>
+      </section>
 
       <div className="two-col">
         <section className="card">

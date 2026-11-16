@@ -275,3 +275,22 @@ describe("announcer", () => {
     expect((await service.updateSettings(streamer(), { ...current, voice: "sarah" })).voice).toBe("sarah");
   });
 });
+
+describe("fan garden", () => {
+  it("lists what a fan backed and where the money went", async () => {
+    const ana = await service.signIn("Ana", "fan");
+    expect(service.gardenOf(ana).plots).toEqual([]);
+    const won = await service.createChallenge(streamer(), base);
+    await service.pledge(ana, won.id, 4);
+    await service.pledge(ana, won.id, 2);
+    await service.lock(streamer(), won.id);
+    await service.check(won.id, { force: true, deps: lichess("white") });
+    const lost = await service.createChallenge(streamer(), base);
+    await service.pledge(ana, lost.id, 3);
+    await service.cancel(streamer(), lost.id);
+
+    const garden = service.gardenOf(ana);
+    expect(garden).toMatchObject({ grown: 1, pledgedMicro: toMicro(9), paidMicro: toMicro(6), returnedMicro: toMicro(3) });
+    expect(garden.plots.map((p) => [p.amountMicro, p.refunded]).sort()).toEqual([[toMicro(3), true], [toMicro(6), false]].sort());
+  });
+});

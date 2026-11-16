@@ -26,6 +26,7 @@ export async function GET(request: Request) {
       announcer: settings.announcer,
       position: settings.overlayPosition,
       cards: settings.overlayCards,
+      qr: settings.overlayQr,
     },
     seq: service.latestSeq(),
     // A first poll (since < 0) only syncs the cursor, so old events never replay.

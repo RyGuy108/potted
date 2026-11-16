@@ -24,6 +24,8 @@ export interface StreamSettings {
   overlayPosition: OverlayPosition;
   /** How many live challenges the overlay shows at once. */
   overlayCards: 1 | 2;
+  /** Show a QR code to the fan page on the overlay. */
+  overlayQr: boolean;
   /** Suggestions containing any of these are rejected. Lower-case. */
   blockedWords: string[];
 }
@@ -35,6 +37,7 @@ export const DEFAULT_SETTINGS: StreamSettings = {
   voice: "george",
   overlayPosition: "bottom-left",
   overlayCards: 2,
+  overlayQr: true,
   blockedWords: [],
 };
 

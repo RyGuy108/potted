@@ -20,6 +20,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         <nav>
           <Link href="/s/ryan">Demo stream</Link>
           {user?.role === "streamer" && <Link href="/dashboard">Dashboard</Link>}
+          {user?.role === "fan" && <Link href="/garden">My garden</Link>}
         </nav>
         <div className="session">
           {user ? (

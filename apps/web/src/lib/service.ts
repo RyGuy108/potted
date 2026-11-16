@@ -85,6 +85,44 @@ export function fundersOf(challengeId: string): { userId: string; fanName: strin
   return [...byFan.values()].sort((a, b) => b.amountMicro - a.amountMicro);
 }
 
+export interface Plot {
+  challenge: Challenge;
+  streamerName: string;
+  amountMicro: number;
+  refunded: boolean;
+}
+
+/** Every challenge a fan has backed, newest first, with where the money went. */
+export function gardenOf(fan: User): { plots: Plot[]; grown: number; pledgedMicro: number; paidMicro: number; returnedMicro: number } {
+  const byChallenge = new Map<string, { amountMicro: number; refundedMicro: number }>();
+  for (const p of db().pledges) {
+    if (p.userId !== fan.id) continue;
+    const row = byChallenge.get(p.challengeId) ?? { amountMicro: 0, refundedMicro: 0 };
+    row.amountMicro += p.amountMicro;
+    if (p.refunded) row.refundedMicro += p.amountMicro;
+    byChallenge.set(p.challengeId, row);
+  }
+  const plots: Plot[] = [];
+  let pledgedMicro = 0;
+  let paidMicro = 0;
+  let returnedMicro = 0;
+  for (const [challengeId, row] of byChallenge) {
+    const challenge = db().challenges.find((c) => c.id === challengeId);
+    if (!challenge) continue;
+    pledgedMicro += row.amountMicro;
+    returnedMicro += row.refundedMicro;
+    if (challenge.status === "paid") paidMicro += row.amountMicro;
+    plots.push({
+      challenge,
+      streamerName: getUser(challenge.streamerId)?.name ?? "A streamer",
+      amountMicro: row.amountMicro,
+      refunded: row.refundedMicro === row.amountMicro,
+    });
+  }
+  plots.sort((a, b) => b.challenge.createdAt - a.challenge.createdAt);
+  return { plots, grown: plots.filter((p) => p.challenge.status === "paid").length, pledgedMicro, paidMicro, returnedMicro };
+}
+
 export async function balanceOf(user: User): Promise<number> {
   return ledger().balanceOf(user.wallet);
 }
@@ -151,6 +189,8 @@ export async function updateSettings(actor: User, input: Partial<Record<keyof St
     voice,
     overlayPosition: position,
     overlayCards: Number(input.overlayCards) === 1 ? 1 : 2,
+    // Absent in settings saved before the QR existed; keep the current value then.
+    overlayQr: input.overlayQr === undefined ? settingsOf(actor).overlayQr : input.overlayQr === true,
     blockedWords,
   };
   save();

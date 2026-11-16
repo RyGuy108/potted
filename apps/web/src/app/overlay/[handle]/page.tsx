@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
+import QRCode from "qrcode";
 import { Overlay } from "@/components/Overlay";
 import { getStreamer } from "@/lib/service";
+import { publicBase } from "@/lib/url";
 
 /**
  * The stream overlay. Add this URL to OBS as a browser source; the page
@@ -17,9 +19,14 @@ export default async function OverlayPage({
   const { muted, bg } = await searchParams;
   const streamer = getStreamer(handle);
   if (!streamer?.handle) notFound();
+  const qrSvg = await QRCode.toString(`${await publicBase()}/s/${streamer.handle}`, {
+    type: "svg",
+    margin: 1,
+    errorCorrectionLevel: "M",
+  });
   return (
     <div className={bg === "1" ? "overlay-page overlay-preview" : "overlay-page"}>
-      <Overlay handle={streamer.handle} muted={muted === "1"} />
+      <Overlay handle={streamer.handle} muted={muted === "1"} qrSvg={qrSvg} />
     </div>
   );
 }

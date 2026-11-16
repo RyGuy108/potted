@@ -1205,3 +1205,77 @@ body:has(.overlay-page) {
   max-width: 440px;
   line-height: 1.4;
 }
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat .mono {
+  font-size: 1.5rem;
+}
+
+.garden {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.plot {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+}
+
+.plot-title {
+  font-family: var(--display);
+  font-weight: 600;
+  margin: 6px 0 2px;
+}
+
+.share {
+  margin: 14px 0;
+}
+
+.overlay-qr {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-self: start;
+  background: rgba(10, 22, 40, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  padding: 10px 14px 10px 10px;
+  font-family: var(--display);
+  font-weight: 600;
+}
+
+/* White quiet zone so phone cameras read it over any gameplay. */
+.overlay-qr-code {
+  width: 84px;
+  height: 84px;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.overlay-qr-code svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.overlay-at-bottom-right .overlay-qr,
+.overlay-at-top-right .overlay-qr {
+  justify-self: end;
+}

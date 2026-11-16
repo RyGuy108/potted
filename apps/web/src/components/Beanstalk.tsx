@@ -32,10 +32,12 @@ function climb(top: number): { d: string; bends: Bend[] } {
   return { d, bends };
 }
 
-function Leaf({ bend, size }: { bend: Bend; size: number }) {
+/** A plain function, not a component: the share image renderer only accepts built-in SVG elements. */
+function leaf(bend: Bend, size: number) {
   const x = 60 + (bend.dir * SWAY) / 2;
   return (
     <path
+      key={bend.y}
       d={`M0 0 C ${size * 0.5} ${-size * 0.55}, ${size} ${-size * 0.35}, ${size * 1.15} 0 C ${size} ${size * 0.4}, ${size * 0.45} ${size * 0.45}, 0 0 Z`}
       fill={LEAF}
       transform={`translate(${x} ${bend.y}) rotate(${bend.dir === 1 ? -18 : 198})`}
@@ -56,7 +58,7 @@ export function Beanstalk({ stage, size = 96, label }: { stage: number; size?: n
       aria-label={label ?? `Beanstalk, growth stage ${s + 1} of 5`}
     >
       {s >= 1 && (
-        <>
+        <g>
           {s >= 3 && (
             <path
               d={climb(top + 10).d}
@@ -68,9 +70,7 @@ export function Beanstalk({ stage, size = 96, label }: { stage: number; size?: n
             />
           )}
           <path d={d} stroke={STALK} strokeWidth={[0, 3, 4, 5, 5.5][s]} strokeLinecap="round" fill="none" />
-          {bends.map((bend) => (
-            <Leaf key={bend.y} bend={bend} size={[0, 11, 14, 15, 16][s]!} />
-          ))}
+          {bends.map((bend) => leaf(bend, [0, 11, 14, 15, 16][s]!))}
           {/* the curling tip */}
           <path
             d={`M60 ${top} q 7 -7 1 -11 q -5 -2 -5 3`}
@@ -79,10 +79,10 @@ export function Beanstalk({ stage, size = 96, label }: { stage: number; size?: n
             strokeLinecap="round"
             fill="none"
           />
-        </>
+        </g>
       )}
       {s === 4 && (
-        <>
+        <g>
           <g fill="#e9eef7">
             <ellipse cx="46" cy="18" rx="17" ry="9" />
             <ellipse cx="68" cy="14" rx="20" ry="11" />
@@ -93,7 +93,7 @@ export function Beanstalk({ stage, size = 96, label }: { stage: number; size?: n
             <ellipse cx="86" cy="86" rx="4" ry="3" transform="rotate(20 86 86)" />
             <ellipse cx="84" cy="44" rx="4" ry="3" transform="rotate(-15 84 44)" />
           </g>
-        </>
+        </g>
       )}
       <path d={`M26 ${GROUND_Y + 6} Q 60 ${GROUND_Y - 12} 94 ${GROUND_Y + 6} Z`} fill="#4d3b2b" />
       <path d={`M36 ${GROUND_Y + 1} Q 60 ${GROUND_Y - 9} 84 ${GROUND_Y + 1}`} stroke="#6a523b" strokeWidth="1.5" fill="none" strokeLinecap="round" />

@@ -22,6 +22,7 @@ interface OverlaySettings {
   announcer: boolean;
   position: string;
   cards: number;
+  qr: boolean;
 }
 
 interface Feed {
@@ -49,10 +50,10 @@ async function speak(event: OverlayEvent, muted: boolean): Promise<void> {
 
 const SPOKEN = new Set(["pledged", "locked", "paid", "failed", "claimed", "refunded", "milestone", "recap"]);
 
-export function Overlay({ handle, muted }: { handle: string; muted: boolean }) {
+export function Overlay({ handle, muted, qrSvg }: { handle: string; muted: boolean; /** QR code to the fan page, as SVG markup made on the server. */ qrSvg: string }) {
   const [challenges, setChallenges] = useState<OverlayChallenge[]>([]);
   const [toast, setToast] = useState<OverlayEvent | null>(null);
-  const [settings, setSettings] = useState<OverlaySettings>({ announcer: true, position: "bottom-left", cards: 2 });
+  const [settings, setSettings] = useState<OverlaySettings>({ announcer: true, position: "bottom-left", cards: 2, qr: false });
   // Read inside the timer callbacks, so a settings change applies without restarting the poll.
   const announcer = useRef(true);
   const since = useRef(-1);
@@ -111,6 +112,12 @@ export function Overlay({ handle, muted }: { handle: string; muted: boolean }) {
         </div>
       )}
       <div className="overlay-stack">
+        {settings.qr && challenges.some((c) => c.status === "open") && (
+          <div className="overlay-qr">
+            <div className="overlay-qr-code" dangerouslySetInnerHTML={{ __html: qrSvg }} />
+            <span>Scan to add a bean</span>
+          </div>
+        )}
         {challenges.slice(0, settings.cards).map((c) => {
           const growth = growthOf(c.totalMicro, c.goalMicro);
           return (
