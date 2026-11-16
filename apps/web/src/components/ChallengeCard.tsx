@@ -23,6 +23,23 @@ export function StatusPill({ challenge }: { challenge: Challenge }) {
   return <span className={`pill pill-${challenge.status}`}>{STATUS_LABEL[challenge.status]}</span>;
 }
 
+/** Says who else is paid from a successful pot. Renders nothing for a solo challenge. */
+export function SplitLine({ challenge }: { challenge: Challenge }) {
+  const splits = challenge.splits ?? [];
+  if (splits.length === 0) return null;
+  const host = 100 - splits.reduce((sum, s) => sum + s.pct, 0);
+  return (
+    <p className="split-line small">
+      {splits.map((s) => (
+        <span key={`${s.kind}:${s.name}`} className={`tag tag-${s.kind}`}>
+          {s.kind === "guest" ? `Collab with ${s.name}` : `For ${s.name}`} · {s.pct}%
+        </span>
+      ))}
+      <span className="muted">host keeps {host}%</span>
+    </p>
+  );
+}
+
 export function ChallengeCard({ challenge }: { challenge: Challenge }) {
   const growth = growthOf(challenge.totalMicro, challenge.goalMicro);
   const live = challenge.status === "open" || challenge.status === "locked";
@@ -36,6 +53,7 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
           <StatusPill challenge={challenge} />
         </div>
         <h3>{challenge.title}</h3>
+        <SplitLine challenge={challenge} />
         <FundingBar challenge={challenge} />
         {live && (
           <p className="muted small">

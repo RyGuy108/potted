@@ -3,7 +3,7 @@
 import { GAMES } from "@potted/core";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { createChallengeAction } from "@/app/actions";
+import { inviteAction, createChallengeAction } from "@/app/actions";
 
 type Fields = Record<string, string>;
 
@@ -62,7 +62,10 @@ export function CreateChallengeForm({
   warnings,
   suggestion,
   draft,
+  partners = [],
 }: {
+  /** Other streamers who can be invited to share the challenge. */
+  partners?: { handle: string; name: string }[];
   warnings: Record<string, string | null>;
   /** A fan idea the streamer chose to turn into a challenge. */
   suggestion?: SuggestionSeed;
@@ -73,6 +76,9 @@ export function CreateChallengeForm({
   const [fields, setFields] = useState<Fields>({ ...DEFAULTS, statement: suggestion?.text ?? "", ...draft?.fields });
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [partner, setPartner] = useState("");
+  const [partnerPct, setPartnerPct] = useState("50");
+  const [sent, setSent] = useState<string | null>(null);
   const game = GAMES.find((g) => g.id === gameId)!;
   const warning = warnings[game.verifier];
 
@@ -101,18 +107,21 @@ export function CreateChallengeForm({
       onSubmit={(e) => {
         e.preventDefault();
         setError(null);
+        setSent(null);
         start(async () => {
-          const result = await createChallengeAction(
-            {
-              gameId,
-              condition: conditionFor(gameId, fields),
-              goalUsd: Number(fields.goalUsd),
-              pledgeCapUsd: Number(fields.pledgeCapUsd),
-              minutes: Number(fields.minutes),
-            },
-            suggestion?.id,
-          );
+          const terms = {
+            gameId,
+            condition: conditionFor(gameId, fields),
+            goalUsd: Number(fields.goalUsd),
+            pledgeCapUsd: Number(fields.pledgeCapUsd),
+            minutes: Number(fields.minutes),
+          };
+          const result = partner ? await inviteAction(partner, Number(partnerPct), terms) : await createChallengeAction(terms, suggestion?.id);
           if (!result.ok) return setError(result.error);
+          if (partner) {
+            setSent(`Invite sent to ${partners.find((p) => p.handle === partner)?.name}. The challenge opens when they accept.`);
+            setPartner("");
+          }
           setFields({ ...fields, statement: "" });
           // Drops ?use=… so the form goes back to a blank challenge.
           router.replace("/dashboard");
@@ -193,10 +202,37 @@ export function CreateChallengeForm({
         {input("minutes", "Deadline (minutes from now)", { inputMode: "numeric", required: true })}
       </div>
 
+      {partners.length > 0 && (
+        <div className="grid collab-fields">
+          <label className="field">
+            <span>Collab with (optional)</span>
+            <select value={partner} onChange={(e) => setPartner(e.target.value)}>
+              <option value="">Just me</option>
+              {partners.map((p) => (
+                <option key={p.handle} value={p.handle}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          {partner && (
+            <label className="field">
+              <span>Their share of the pot (%)</span>
+              <input inputMode="numeric" value={partnerPct} onChange={(e) => setPartnerPct(e.target.value)} required />
+            </label>
+          )}
+        </div>
+      )}
+
       <div className="row">
         <button className="btn btn-primary" disabled={pending}>
-          {pending ? "Creating…" : "Open for pledges"}
+          {pending ? (partner ? "Sending…" : "Creating…") : partner ? "Send invite" : "Open for pledges"}
         </button>
+        {sent && (
+          <span className="success" role="status">
+            {sent}
+          </span>
+        )}
         {error && (
           <span className="error" role="alert">
             {error}

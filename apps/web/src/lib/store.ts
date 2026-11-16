@@ -86,6 +86,7 @@ export interface Db {
   suggestions: Suggestion[];
   /** Escrow events delivered by the QuickNode Stream. */
   chain: ChainEvent[];
+  invites: Invite[];
   events: StreamEvent[];
   /** Sim ledger balances in micro-USDC, by wallet. */
   balances: Record<string, number>;
@@ -93,6 +94,32 @@ export interface Db {
 }
 
 export const DEMO_STREAMER_ID = "u_demo_streamer";
+/** A second demo streamer, so collabs can be shown without real accounts. */
+export const DEMO_GUEST_ID = "u_demo_streamer_kai";
+
+const demoGuest = (): User => ({
+  id: DEMO_GUEST_ID,
+  name: "Kai",
+  role: "streamer",
+  handle: "kai",
+  wallet: `sim:${DEMO_GUEST_ID}`,
+  createdAt: Date.now(),
+});
+
+/** A host's offer to run a challenge with another streamer. It becomes a challenge only if the guest accepts. */
+export interface Invite {
+  id: string;
+  hostId: string;
+  guestId: string;
+  /** The guest's whole-percent share of a successful pot. */
+  guestPct: number;
+  /** The challenge exactly as the host wrote it. */
+  input: { gameId: string; condition: unknown; goalUsd: number; pledgeCapUsd: number; minutes: number };
+  title: string;
+  createdAt: number;
+  status: "pending" | "accepted" | "declined" | "withdrawn";
+  challengeId?: string;
+}
 
 function seed(): Db {
   return {
@@ -105,11 +132,13 @@ function seed(): Db {
         wallet: `sim:${DEMO_STREAMER_ID}`,
         createdAt: Date.now(),
       },
+      demoGuest(),
     ],
     challenges: [],
     pledges: [],
     suggestions: [],
     chain: [],
+    invites: [],
     events: [],
     balances: {},
     seq: 0,
@@ -130,6 +159,8 @@ export function db(): Db {
       // Files written before suggestions existed.
       cache.__pottedDb.suggestions ??= [];
       cache.__pottedDb.chain ??= [];
+      cache.__pottedDb.invites ??= [];
+      if (!cache.__pottedDb.users.some((u) => u.id === DEMO_GUEST_ID)) cache.__pottedDb.users.push(demoGuest());
     } catch {
       cache.__pottedDb = seed();
     }

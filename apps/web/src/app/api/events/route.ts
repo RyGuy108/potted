@@ -16,7 +16,7 @@ export async function GET(request: Request) {
 
   const since = Number(url.searchParams.get("since") ?? -1);
   const challenges = service
-    .listChallenges(streamer.id)
+    .stageChallenges(streamer.id)
     .filter((c) => c.status === "open" || c.status === "locked")
     .map(({ id, title, status, totalMicro, goalMicro }) => ({ id, title, status, totalMicro, goalMicro }));
 

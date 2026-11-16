@@ -56,10 +56,44 @@ export interface Challenge {
   claim?: OptimisticClaim;
   verdict?: Verdict;
   settledAt?: number;
+  /**
+   * Who else is paid when the challenge succeeds. Fixed when the challenge
+   * opens, so fans always pledge against known terms. The streamer who
+   * created it keeps whatever the splits leave.
+   */
+  splits?: Split[];
   /** Address of the on-chain challenge account, or a sim id. */
   ledgerRef?: string;
   /** Transaction ids by step, for receipts. */
   txs: Partial<Record<"create" | "lock" | "settle", string>>;
+}
+
+/** A share of a successful pot that goes to someone other than the host. */
+export interface Split {
+  /** "guest" is another streamer taking part; "cause" is a charity or fund. */
+  kind: "guest" | "cause";
+  /** The guest's user id. Causes have none. */
+  userId?: string;
+  name: string;
+  /** Whole percent of the pot, 1 to 99. */
+  pct: number;
+  url?: string;
+}
+
+/**
+ * Divides a pot. Each split is rounded down to the micro-dollar and the
+ * host receives the remainder, so the parts always add up to the pot.
+ */
+export function splitPot(totalMicro: Micro, splits: readonly Split[] = []): { hostMicro: Micro; parts: Micro[] } {
+  const parts = splits.map((s) => Math.floor((totalMicro * s.pct) / 100));
+  return { hostMicro: totalMicro - parts.reduce((sum, p) => sum + p, 0), parts };
+}
+
+/** Splits must leave the host something and name whole percents. */
+export function splitsError(splits: readonly Split[]): string | null {
+  if (splits.some((s) => !Number.isInteger(s.pct) || s.pct < 1 || s.pct > 99)) return "Each share must be a whole percent from 1 to 99";
+  if (splits.reduce((sum, s) => sum + s.pct, 0) > 90) return "Shares can add up to 90% at most, so the host keeps at least 10%";
+  return null;
 }
 
 export interface Pledge {

@@ -3,7 +3,7 @@ import { ChallengeCard } from "@/components/ChallengeCard";
 import { AutoRefresh } from "@/components/Live";
 import { SignInCard } from "@/components/SignInCard";
 import { SuggestForm } from "@/components/SuggestForm";
-import { getStreamer, listChallenges, settingsOf } from "@/lib/service";
+import { getStreamer, settingsOf, stageChallenges } from "@/lib/service";
 import { currentUser } from "@/lib/session";
 
 export default async function StreamerPage({ params }: { params: Promise<{ handle: string }> }) {
@@ -11,7 +11,7 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
   const streamer = getStreamer(handle);
   if (!streamer) notFound();
   const user = await currentUser();
-  const challenges = listChallenges(streamer.id);
+  const challenges = stageChallenges(streamer.id);
   const live = challenges.filter((c) => c.status === "open" || c.status === "locked");
   const past = challenges.filter((c) => c.status === "paid" || c.status === "failed");
 

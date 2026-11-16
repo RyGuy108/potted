@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import * as service from "@/lib/service";
 import { currentUser, endSession, startSession } from "@/lib/session";
-import { DEMO_STREAMER_ID, type Role } from "@/lib/store";
+import { DEMO_GUEST_ID, DEMO_STREAMER_ID, type Role } from "@/lib/store";
 
 /** Expected failures come back as values so forms can show them inline. */
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -33,6 +33,23 @@ export async function signInAction(name: string, role: Role): Promise<ActionResu
 
 export async function useDemoStreamerAction(): Promise<ActionResult> {
   return run(() => startSession(DEMO_STREAMER_ID));
+}
+
+/** The second demo streamer, for trying collabs. */
+export async function useDemoGuestAction(): Promise<ActionResult> {
+  return run(() => startSession(DEMO_GUEST_ID));
+}
+
+export async function inviteAction(guestHandle: string, guestPct: number, input: service.NewChallenge): Promise<ActionResult> {
+  return run(async () => service.invite(await requireUser(), guestHandle, guestPct, input));
+}
+
+export async function respondInviteAction(inviteId: string, accept: boolean): Promise<ActionResult> {
+  return run(async () => service.respondInvite(await requireUser(), inviteId, accept));
+}
+
+export async function withdrawInviteAction(inviteId: string): Promise<ActionResult> {
+  return run(async () => service.withdrawInvite(await requireUser(), inviteId));
 }
 
 export async function signOutAction(): Promise<ActionResult> {

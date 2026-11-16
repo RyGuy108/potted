@@ -1329,3 +1329,25 @@ body:has(.overlay-page) {
     gap: 4px;
   }
 }
+
+.split-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 6px 0 10px;
+}
+
+.tag-guest {
+  color: #9fc0ff;
+  border-color: rgba(42, 102, 240, 0.5);
+}
+
+.tag-cause {
+  color: var(--green);
+  border-color: rgba(53, 201, 139, 0.45);
+}
+
+.collab-fields {
+  margin-top: 4px;
+}

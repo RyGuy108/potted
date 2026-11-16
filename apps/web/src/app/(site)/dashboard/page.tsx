@@ -1,7 +1,7 @@
 import { draftTerms } from "@potted/coordinator";
 import { GAMES, formatUsd } from "@potted/core";
 import Link from "next/link";
-import { cancelAction, checkAction, recapAction, dismissSuggestionAction, lockAction, runAgainAction, simulateAction } from "@/app/actions";
+import { cancelAction, checkAction, recapAction, respondInviteAction, withdrawInviteAction, dismissSuggestionAction, lockAction, runAgainAction, simulateAction } from "@/app/actions";
 import { ActionButton } from "@/components/ActionButton";
 import { StatusPill } from "@/components/ChallengeCard";
 import { ClaimForm } from "@/components/ClaimForm";
@@ -10,7 +10,7 @@ import { AutoRefresh, CopyField, Countdown } from "@/components/Live";
 import { SettingsForm } from "@/components/SettingsForm";
 import { SignInCard } from "@/components/SignInCard";
 import { adapterStatus, gameOf } from "@/lib/format";
-import { getSuggestion, listChallenges, pendingSuggestions, settingsOf, simulatedResultsAllowed } from "@/lib/service";
+import { getSuggestion, getUser, invitesFor, listChallenges, listStreamers, pendingSuggestions, settingsOf, shareOf, simulatedResultsAllowed, stageChallenges } from "@/lib/service";
 import { currentUser } from "@/lib/session";
 
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ use?: string }> }) {
@@ -30,6 +30,9 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const { use } = await searchParams;
   const picked = use ? getSuggestion(use) : undefined;
   const seed = picked && picked.streamerId === user.id && picked.status === "pending" ? picked : undefined;
+  const invites = invitesFor(user);
+  const guesting = stageChallenges(user.id).filter((c) => c.streamerId !== user.id);
+  const partners = listStreamers().filter((s) => s.id !== user.id).map((s) => ({ handle: s.handle!, name: s.name }));
   const draft = seed ? await draftTerms({ gameId: seed.gameId, text: seed.text }) : undefined;
 
   return (
@@ -70,8 +73,63 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </section>
       )}
 
+      {(invites.incoming.length > 0 || invites.outgoing.length > 0) && (
+        <section className="card manage">
+          <h3>Collab invites</h3>
+          {invites.incoming.map((i) => (
+            <div key={i.id} className="suggestion">
+              <div>
+                <p>{i.title}</p>
+                <p className="muted small">
+                  From {getUser(i.hostId)?.name}. You get {i.guestPct}% of the pot if it is completed · goal {formatUsd(i.input.goalUsd * 1_000_000)} ·{" "}
+                  {i.input.minutes} minutes once you accept
+                </p>
+              </div>
+              <div className="row">
+                <ActionButton action={respondInviteAction.bind(null, i.id, true)}>Accept and open</ActionButton>
+                <ActionButton action={respondInviteAction.bind(null, i.id, false)} variant="ghost">
+                  Decline
+                </ActionButton>
+              </div>
+            </div>
+          ))}
+          {invites.outgoing.map((i) => (
+            <div key={i.id} className="suggestion">
+              <div>
+                <p>{i.title}</p>
+                <p className="muted small">
+                  Waiting for {getUser(i.guestId)?.name} · their share {i.guestPct}%
+                </p>
+              </div>
+              <ActionButton action={withdrawInviteAction.bind(null, i.id)} variant="ghost">
+                Withdraw
+              </ActionButton>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {guesting.length > 0 && (
+        <section className="card manage">
+          <h3>Collabs you are a guest on</h3>
+          {guesting.map((c) => (
+            <div key={c.id} className="suggestion">
+              <div>
+                <p>
+                  <Link href={`/c/${c.id}`}>{c.title}</Link>
+                </p>
+                <p className="muted small">
+                  Hosted by {getUser(c.streamerId)?.name} · your share of the current pot: <span className="mono">{formatUsd(shareOf(c, user.id))}</span>
+                </p>
+              </div>
+              <StatusPill challenge={c} />
+            </div>
+          ))}
+        </section>
+      )}
+
       <div id="new">
-        <CreateChallengeForm key={seed?.id ?? "blank"} warnings={adapterStatus()} suggestion={seed} draft={draft} />
+        <CreateChallengeForm key={seed?.id ?? "blank"} warnings={adapterStatus()} suggestion={seed} draft={draft} partners={partners} />
       </div>
 
       <SettingsForm initial={settingsOf(user)} />

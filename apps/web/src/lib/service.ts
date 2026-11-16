@@ -10,6 +10,9 @@ import {
   formatUsd,
   growthOf,
   parseCondition,
+  type Split,
+  splitPot,
+  splitsError,
   pledgeError,
   refundReason,
   toMicro,
@@ -24,6 +27,7 @@ import {
   type Role,
   type StreamEvent,
   type StreamSettings,
+  type Invite,
   type Suggestion,
   type User,
   db,
@@ -63,6 +67,18 @@ export function getChallenge(id: string): Challenge {
 /** Finds the challenge behind an on-chain account, once the ledger has given it one. */
 export function challengeByLedgerRef(ref: string): Challenge | undefined {
   return db().challenges.find((c) => c.ledgerRef === ref);
+}
+
+/** Challenges a streamer appears in: their own and those they guest on. */
+export function stageChallenges(streamerId: string): Challenge[] {
+  const live = (c: Challenge) => (c.status === "open" || c.status === "locked" ? 0 : 1);
+  return db()
+    .challenges.filter((c) => streamersOf(c).some((u) => u.id === streamerId))
+    .sort((a, b) => live(a) - live(b) || b.createdAt - a.createdAt);
+}
+
+export function listStreamers(): User[] {
+  return db().users.filter((u) => u.role === "streamer" && u.handle);
 }
 
 export function listChallenges(streamerId: string): Challenge[] {
@@ -132,8 +148,28 @@ export async function balanceOf(user: User): Promise<number> {
   return ledger().balanceOf(user.wallet);
 }
 
+/** Everyone on stage for a challenge: the host, then any guest streamers. */
+export function streamersOf(challenge: Challenge): User[] {
+  const ids = [challenge.streamerId, ...(challenge.splits ?? []).flatMap((s) => (s.kind === "guest" && s.userId ? [s.userId] : []))];
+  return ids.flatMap((id) => getUser(id) ?? []);
+}
+
+/** Names for a sentence: "Ryan", "Ryan and Kai". */
+export function namesOf(challenge: Challenge): string {
+  return streamersOf(challenge).map((u) => u.name).join(" and ");
+}
+
+/** What a streamer takes from a pot of this size: the host's remainder or the guest's share. */
+export function shareOf(challenge: Challenge, userId: string, totalMicro = challenge.totalMicro): number {
+  const { hostMicro, parts } = splitPot(totalMicro, challenge.splits);
+  if (userId === challenge.streamerId) return hostMicro;
+  const index = (challenge.splits ?? []).findIndex((s) => s.kind === "guest" && s.userId === userId);
+  return index < 0 ? 0 : parts[index]!;
+}
+
+/** A challenge's events go to every streamer on it, so each overlay shows them. */
 function emit(type: EventType, challenge: Challenge, message: string): void {
-  emitTo(getUser(challenge.streamerId)?.handle ?? "", type, challenge.id, message);
+  for (const streamer of streamersOf(challenge)) emitTo(streamer.handle ?? "", type, challenge.id, message);
 }
 
 function emitTo(handle: string, type: EventType, challengeId: string, message: string): void {
@@ -257,7 +293,8 @@ export interface NewChallenge {
   minutes: number;
 }
 
-export async function createChallenge(actor: User, input: NewChallenge): Promise<Challenge> {
+/** Checks a new challenge's terms and returns the parsed pieces. */
+function validate(actor: User, input: NewChallenge) {
   if (actor.role !== "streamer") fail("Only the streamer can create challenges");
   const game = GAMES.find((g) => g.id === input.gameId) ?? fail("Unknown game");
   const condition = parseCondition(input.condition);
@@ -265,6 +302,76 @@ export async function createChallenge(actor: User, input: NewChallenge): Promise
   if (!(input.minutes >= 1 && input.minutes <= 24 * 60)) fail("Deadline must be 1 minute to 24 hours away");
   if (!(input.goalUsd >= 1 && input.goalUsd <= 10_000)) fail("Goal must be $1 to $10,000");
   if (!(input.pledgeCapUsd >= 1 && input.pledgeCapUsd <= 1_000)) fail("Per-fan limit must be $1 to $1,000");
+  return { game, condition };
+}
+
+const MAX_PENDING_INVITES = 5;
+
+/**
+ * Offers another streamer a share of a challenge. Nothing opens until the
+ * guest accepts, so fans never pledge against a split that might change.
+ */
+export async function invite(actor: User, guestHandle: string, guestPct: number, input: NewChallenge): Promise<Invite> {
+  const { condition } = validate(actor, input);
+  const guest = getStreamer(String(guestHandle)) ?? fail("No streamer with that handle");
+  if (guest.id === actor.id) fail("Pick another streamer to collab with");
+  const split: Split = { kind: "guest", userId: guest.id, name: guest.name, pct: Number(guestPct) };
+  const problem = splitsError([split]);
+  if (problem) fail(problem);
+  if (db().invites.filter((i) => i.hostId === actor.id && i.status === "pending").length >= MAX_PENDING_INVITES) {
+    fail(`You already have ${MAX_PENDING_INVITES} invites waiting. Withdraw one first.`);
+  }
+  const record: Invite = {
+    id: newId("i"),
+    hostId: actor.id,
+    guestId: guest.id,
+    guestPct: split.pct,
+    input: { gameId: input.gameId, condition, goalUsd: input.goalUsd, pledgeCapUsd: input.pledgeCapUsd, minutes: input.minutes },
+    title: describeCondition(condition),
+    createdAt: Date.now(),
+    status: "pending",
+  };
+  db().invites.push(record);
+  save();
+  return record;
+}
+
+/** Invites waiting on this streamer, and ones they sent that are still waiting. */
+export function invitesFor(streamer: User): { incoming: Invite[]; outgoing: Invite[] } {
+  const pending = db().invites.filter((i) => i.status === "pending");
+  return { incoming: pending.filter((i) => i.guestId === streamer.id), outgoing: pending.filter((i) => i.hostId === streamer.id) };
+}
+
+/** The guest answers. Accepting opens the challenge, with the deadline counted from now. */
+export async function respondInvite(actor: User, inviteId: string, accept: boolean): Promise<Challenge | undefined> {
+  const record = db().invites.find((i) => i.id === inviteId) ?? fail("Invite not found");
+  if (record.guestId !== actor.id) fail("Only the invited streamer can answer this");
+  if (record.status !== "pending") fail("This invite was already answered");
+  if (!accept) {
+    record.status = "declined";
+    save();
+    return undefined;
+  }
+  const host = getUser(record.hostId) ?? fail("Host not found");
+  const challenge = await createChallenge(host, record.input, [{ kind: "guest", userId: actor.id, name: actor.name, pct: record.guestPct }]);
+  record.status = "accepted";
+  record.challengeId = challenge.id;
+  save();
+  return challenge;
+}
+
+export async function withdrawInvite(actor: User, inviteId: string): Promise<void> {
+  const record = db().invites.find((i) => i.id === inviteId) ?? fail("Invite not found");
+  if (record.hostId !== actor.id) fail("Only the host can withdraw this");
+  if (record.status !== "pending") fail("This invite was already answered");
+  record.status = "withdrawn";
+  save();
+}
+
+export async function createChallenge(actor: User, input: NewChallenge, splits: Split[] = []): Promise<Challenge> {
+  const { game, condition } = validate(actor, input);
+  const problem = splitsError(splits);
+  if (problem) fail(problem);
 
   const now = Date.now();
   const deadline = now + Math.round(input.minutes * 60_000);
@@ -282,13 +389,14 @@ export async function createChallenge(actor: User, input: NewChallenge): Promise
     createdAt: now,
     deadline,
     settleBy: deadline + disputeMs + SETTLE_GRACE_MS,
+    ...(splits.length > 0 ? { splits } : {}),
     txs: {},
   };
   const created = await ledger().createChallenge(challenge, actor.wallet);
   challenge.ledgerRef = created.ref;
   challenge.txs.create = created.tx;
   db().challenges.push(challenge);
-  emit("created", challenge, `New challenge: ${challenge.title}.`);
+  emit("created", challenge, splits.some((s) => s.kind === "guest") ? `New collab with ${namesOf(challenge)}: ${challenge.title}.` : `New challenge: ${challenge.title}.`);
   save();
   return challenge;
 }
@@ -340,10 +448,10 @@ const RECAP_WINDOW_MS = 12 * 60 * 60_000;
 
 /** A spoken summary of the stream so far: the last 12 hours of this streamer's challenges. */
 export function recapText(streamer: User, now = Date.now()): string {
-  const recent = db().challenges.filter((c) => c.streamerId === streamer.id && now - c.createdAt <= RECAP_WINDOW_MS);
+  const recent = stageChallenges(streamer.id).filter((c) => now - c.createdAt <= RECAP_WINDOW_MS);
   if (recent.length === 0) return "No challenges yet this stream.";
   const paid = recent.filter((c) => c.status === "paid");
-  const earned = paid.reduce((sum, c) => sum + c.totalMicro, 0);
+  const earned = paid.reduce((sum, c) => sum + shareOf(c, streamer.id), 0);
   const ids = new Set(recent.map((c) => c.id));
   const byFan = new Map<string, number>();
   let refunded = 0;
@@ -413,7 +521,7 @@ export async function cancel(actor: User, challengeId: string): Promise<Challeng
   const challenge = getChallenge(challengeId);
   requireOwner(actor, challenge);
   if (challenge.status !== "open" && challenge.status !== "locked") fail("This challenge is already settled");
-  challenge.txs.settle = await ledger().settle(challenge, false, undefined, actor.wallet);
+  challenge.txs.settle = await ledger().settle(challenge, false, undefined, []);
   challenge.status = "failed";
   challenge.settledAt = Date.now();
   challenge.verdict = { outcome: "failure", reason: "Cancelled by the streamer" };
@@ -432,6 +540,8 @@ export async function runAgain(actor: User, challengeId: string): Promise<Challe
   const previous = getChallenge(challengeId);
   requireOwner(actor, previous);
   if (previous.status !== "paid" && previous.status !== "failed") fail("Finish this challenge before running it again");
+  // A guest agreed to one run, not to every rerun.
+  if (previous.splits?.some((s) => s.kind === "guest")) fail("This was a collab. Send a new invite to run it again.");
   return createChallenge(actor, {
     gameId: previous.gameId,
     condition: previous.condition,
@@ -441,16 +551,28 @@ export async function runAgain(actor: User, challengeId: string): Promise<Challe
   });
 }
 
+/** Who receives what from a successful pot. */
+function payoutsOf(challenge: Challenge): { wallet: string; amountMicro: number }[] {
+  const host = getUser(challenge.streamerId) ?? fail("Streamer not found");
+  const { hostMicro, parts } = splitPot(challenge.totalMicro, challenge.splits);
+  const payouts = [{ wallet: host.wallet, amountMicro: hostMicro }];
+  (challenge.splits ?? []).forEach((split, index) => {
+    const wallet = split.kind === "guest" ? getUser(split.userId ?? "")?.wallet : undefined;
+    if (!wallet) fail(`No wallet on file for ${split.name}`);
+    payouts.push({ wallet, amountMicro: parts[index]! });
+  });
+  return payouts;
+}
+
 async function applyVerdict(challenge: Challenge, verdict: Verdict): Promise<void> {
   challenge.verdict = verdict;
   if (verdict.outcome === "pending") return;
-  const streamer = getUser(challenge.streamerId) ?? fail("Streamer not found");
   const success = verdict.outcome === "success";
-  challenge.txs.settle = await ledger().settle(challenge, success, verdict.evidence, streamer.wallet);
+  challenge.txs.settle = await ledger().settle(challenge, success, verdict.evidence, payoutsOf(challenge));
   challenge.settledAt = Date.now();
   if (success) {
     challenge.status = "paid";
-    emit("paid", challenge, `Challenge complete! ${streamer.name} earned ${formatUsd(challenge.totalMicro)}.`);
+    emit("paid", challenge, `Challenge complete! ${namesOf(challenge)} earned ${formatUsd(challenge.totalMicro)}.`);
   } else {
     challenge.status = "failed";
     const fans = await refundAll(challenge);

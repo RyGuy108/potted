@@ -73,3 +73,26 @@ describe("growth", () => {
     expect(growthOf(toMicro(45), goal)).toMatchObject({ stage: "clouds", ratio: 1 });
   });
 });
+
+describe("payout splits", () => {
+  it("rounds shares down and gives the host the remainder", async () => {
+    const { splitPot } = await import("../src/challenge");
+    const splits = [
+      { kind: "guest" as const, userId: "u2", name: "Kai", pct: 33 },
+      { kind: "cause" as const, name: "Fund", pct: 33 },
+    ];
+    const { hostMicro, parts } = splitPot(1_000_001, splits);
+    expect(parts).toEqual([330_000, 330_000]);
+    expect(hostMicro + parts[0]! + parts[1]!).toBe(1_000_001);
+    expect(splitPot(5_000_000)).toEqual({ hostMicro: 5_000_000, parts: [] });
+  });
+
+  it("rejects fractional shares and splits that leave the host under 10%", async () => {
+    const { splitsError } = await import("../src/challenge");
+    const guest = (pct: number) => ({ kind: "guest" as const, userId: "u2", name: "Kai", pct });
+    expect(splitsError([guest(50)])).toBeNull();
+    expect(splitsError([guest(12.5)])).toContain("whole percent");
+    expect(splitsError([guest(0)])).toContain("whole percent");
+    expect(splitsError([guest(60), guest(40)])).toContain("90%");
+  });
+});

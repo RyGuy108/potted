@@ -294,3 +294,55 @@ describe("fan garden", () => {
     expect(garden.plots.map((p) => [p.amountMicro, p.refunded]).sort()).toEqual([[toMicro(3), true], [toMicro(6), false]].sort());
   });
 });
+
+describe("collabs", () => {
+  const kai = () => service.getStreamer("kai")!;
+
+  it("opens nothing until the guest accepts, then splits a completed pot", async () => {
+    const ana = await service.signIn("Ana", "fan");
+    const sent = await service.invite(streamer(), "kai", 40, base);
+    expect(service.stageChallenges(kai().id)).toEqual([]);
+    expect(service.invitesFor(kai()).incoming).toHaveLength(1);
+    await expect(service.respondInvite(streamer(), sent.id, true)).rejects.toThrow("Only the invited streamer");
+
+    const c = (await service.respondInvite(kai(), sent.id, true))!;
+    expect(c.splits).toEqual([{ kind: "guest", userId: kai().id, name: "Kai", pct: 40 }]);
+    expect(service.stageChallenges(kai().id).map((x) => x.id)).toEqual([c.id]);
+    await expect(service.respondInvite(kai(), sent.id, true)).rejects.toThrow("already answered");
+
+    await service.pledge(ana, c.id, 5);
+    await service.lock(streamer(), c.id);
+    await expect(service.lock(kai(), c.id)).rejects.toThrow("Only this challenge's streamer");
+    await service.check(c.id, { force: true, deps: lichess("white") });
+    expect(await service.balanceOf(streamer())).toBe(toMicro(3));
+    expect(await service.balanceOf(kai())).toBe(toMicro(2));
+    // Both overlays hear about it.
+    expect(service.eventsSince("kai", 0).map((e) => e.type)).toEqual(["created", "pledged", "locked", "paid"]);
+    expect(service.eventsSince("kai", 0).at(-1)!.message).toBe("Challenge complete! Ryan and Kai earned $5.");
+    expect(service.recapText(kai())).toContain("Kai earned $2.");
+    await expect(service.runAgain(streamer(), c.id)).rejects.toThrow("Send a new invite");
+  });
+
+  it("refunds fans in full when a collab fails", async () => {
+    const ana = await service.signIn("Ana", "fan");
+    const c = (await service.respondInvite(kai(), (await service.invite(streamer(), "kai", 50, base)).id, true))!;
+    await service.pledge(ana, c.id, 5);
+    await service.cancel(streamer(), c.id);
+    expect(await service.balanceOf(ana)).toBe(toMicro(25));
+    expect(await service.balanceOf(kai())).toBe(0);
+  });
+
+  it("validates invites and lets either side back out before it opens", async () => {
+    await expect(service.invite(streamer(), "ryan", 50, base)).rejects.toThrow("another streamer");
+    await expect(service.invite(streamer(), "nobody", 50, base)).rejects.toThrow("No streamer");
+    await expect(service.invite(streamer(), "kai", 95, base)).rejects.toThrow("90%");
+    await expect(service.invite(streamer(), "kai", 50, { ...base, goalUsd: 0 })).rejects.toThrow("Goal");
+    const declined = await service.invite(streamer(), "kai", 50, base);
+    expect(await service.respondInvite(kai(), declined.id, false)).toBeUndefined();
+    const withdrawn = await service.invite(streamer(), "kai", 50, base);
+    await expect(service.withdrawInvite(kai(), withdrawn.id)).rejects.toThrow("Only the host");
+    await service.withdrawInvite(streamer(), withdrawn.id);
+    expect(service.invitesFor(kai()).incoming).toEqual([]);
+    expect(service.stageChallenges(kai().id)).toEqual([]);
+  });
+});

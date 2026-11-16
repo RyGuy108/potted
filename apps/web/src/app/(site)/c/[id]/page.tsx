@@ -1,10 +1,11 @@
+import { Fragment } from "react";
 import { type Brief, disputeBrief } from "@potted/coordinator";
-import { type Challenge, formatUsd, growthOf, toUsd } from "@potted/core";
+import { type Challenge, formatUsd, growthOf, splitPot, toUsd } from "@potted/core";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { checkAction, disputeAction, ruleAction } from "@/app/actions";
 import { ActionButton } from "@/components/ActionButton";
-import { FundingBar, StatusPill } from "@/components/ChallengeCard";
+import { FundingBar, SplitLine, StatusPill } from "@/components/ChallengeCard";
 import { AutoRefresh, CopyField, Countdown } from "@/components/Live";
 import { Beanstalk } from "@/components/Beanstalk";
 import { PledgeForm } from "@/components/PledgeForm";
@@ -64,7 +65,7 @@ function briefFor(challenge: Challenge, funders: number): Promise<Brief> | undef
   return brief;
 }
 
-function Receipt({ challenge }: { challenge: Challenge }) {
+function Receipt({ challenge, hostName }: { challenge: Challenge; hostName: string }) {
   const verdict = challenge.verdict;
   if (!verdict || verdict.outcome === "pending") return null;
   const evidence = verdict.evidence;
@@ -72,7 +73,19 @@ function Receipt({ challenge }: { challenge: Challenge }) {
   return (
     <section className={`card receipt ${paid ? "receipt-paid" : "receipt-failed"}`}>
       <p className="eyebrow">Receipt</p>
-      <h3>{paid ? `${formatUsd(challenge.totalMicro)} paid to the streamer` : "Every pledge was refunded"}</h3>
+      <h3>{paid ? `${formatUsd(challenge.totalMicro)} paid out` : "Every pledge was refunded"}</h3>
+      {paid && (
+        <dl>
+          <dt>{hostName}</dt>
+          <dd className="mono">{formatUsd(splitPot(challenge.totalMicro, challenge.splits).hostMicro)}</dd>
+          {(challenge.splits ?? []).map((s, i) => (
+            <Fragment key={`${s.kind}:${s.name}`}>
+              <dt>{s.name}</dt>
+              <dd className="mono">{formatUsd(splitPot(challenge.totalMicro, challenge.splits).parts[i]!)}</dd>
+            </Fragment>
+          ))}
+        </dl>
+      )}
       {evidence?.simulated && <p className="warn">Rehearsal result. No game data was checked for this settlement.</p>}
       <p>{verdict.reason}.</p>
       {evidence && (
@@ -139,6 +152,7 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
             <StatusPill challenge={challenge} />
           </div>
           <h1>{challenge.title}</h1>
+          <SplitLine challenge={challenge} />
           <FundingBar challenge={challenge} />
           {live && (
             <p className="muted">
@@ -209,7 +223,7 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
         </div>
       </section>
 
-      <Receipt challenge={challenge} />
+      <Receipt challenge={challenge} hostName={streamer?.name ?? "Streamer"} />
 
       <section className="card share">
         <CopyField label="Share this challenge" value={`/c/${challenge.id}`} />

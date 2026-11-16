@@ -13,9 +13,17 @@ export interface Ledger {
   createChallenge(challenge: Challenge, streamerWallet: string): Promise<{ ref: string; tx: string }>;
   pledge(challenge: Challenge, fanWallet: string, amountMicro: number): Promise<string>;
   lock(challenge: Challenge): Promise<string>;
-  /** Success pays the pot to the streamer. Failure only opens refunds. */
-  settle(challenge: Challenge, success: boolean, evidence: Evidence | undefined, streamerWallet: string): Promise<string>;
+  /**
+   * Success pays the pot out as listed; the amounts must add up to the
+   * pot. Failure pays no one and only opens refunds.
+   */
+  settle(challenge: Challenge, success: boolean, evidence: Evidence | undefined, payouts: Payout[]): Promise<string>;
   refund(challenge: Challenge, fanWallet: string, amountMicro: number): Promise<string>;
+}
+
+export interface Payout {
+  wallet: string;
+  amountMicro: number;
 }
 
 /**
@@ -62,9 +70,12 @@ class SimLedger implements Ledger {
     return newId("sim-tx");
   }
 
-  async settle(challenge: Challenge, success: boolean, _evidence: Evidence | undefined, streamerWallet: string) {
+  async settle(challenge: Challenge, success: boolean, _evidence: Evidence | undefined, payouts: Payout[]) {
+    if (!success) return newId("sim-tx");
     const pot = db().balances[this.vault(challenge)] ?? 0;
-    if (success && pot > 0) return this.move(this.vault(challenge), streamerWallet, pot);
+    const due = payouts.filter((p) => p.amountMicro > 0);
+    if (due.reduce((sum, p) => sum + p.amountMicro, 0) !== pot) throw new Error("Payouts do not add up to the pot");
+    for (const p of due) this.move(this.vault(challenge), p.wallet, p.amountMicro);
     return newId("sim-tx");
   }
 

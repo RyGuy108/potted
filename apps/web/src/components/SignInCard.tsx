@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { signInAction, useDemoStreamerAction } from "@/app/actions";
+import { signInAction, useDemoGuestAction, useDemoStreamerAction } from "@/app/actions";
 
 /** Judge-mode sign-in: pick a name and get test USDC, no wallet needed. */
 export function SignInCard({ compact = false }: { compact?: boolean }) {
@@ -52,6 +52,10 @@ export function SignInCard({ compact = false }: { compact?: boolean }) {
         Or demo another role:{" "}
         <button type="button" className="link" onClick={() => go(useDemoStreamerAction, "/dashboard")}>
           streamer
+        </button>
+        {" · "}
+        <button type="button" className="link" onClick={() => go(useDemoGuestAction, "/dashboard")}>
+          second streamer
         </button>
         {" · "}
         <button type="button" className="link" onClick={() => go(() => signInAction(name || "Moderator", "mod"))}>
