@@ -1,14 +1,30 @@
+import { GAMES } from "@potted/core";
 import Link from "next/link";
 import { ChallengeCard } from "@/components/ChallengeCard";
+import { Icon, type IconName } from "@/components/Icon";
 import { Plant } from "@/components/Plant";
 import { SignInCard } from "@/components/SignInCard";
 import { getStreamer, listChallenges } from "@/lib/service";
 import { currentUser } from "@/lib/session";
 
 const STEPS = [
-  ["Fund it", "Fans chip in toward a challenge the streamer agreed to. The pot sits in escrow, and the plant grows as it fills."],
-  ["Play it", "The streamer attempts it live before the deadline. Pledging closes when the attempt starts."],
-  ["Settle it", "Game data decides. A win pays the streamer; a miss sends every pledge back. Each result keeps a receipt."],
+  ["Fund", "Fans add to a pot for a challenge the streamer agreed to. Funds sit in escrow, and the tree grows as the pot fills."],
+  ["Play", "The streamer attempts it live before the deadline. Pledging closes the moment the attempt starts."],
+  ["Settle", "Game data decides. A win pays the streamer. A miss returns every pledge. Each result keeps a receipt."],
+] as const;
+
+const GUARANTEES: [IconName, string, string][] = [
+  ["lock", "Only the verifier can settle", "The streamer cannot withdraw early, and a challenge can be settled exactly once."],
+  ["refund", "Refunds never depend on us", "If no result arrives by the cutoff, the escrow lets anyone trigger every refund."],
+  ["receipt", "Every result has a receipt", "A game id or clip link is stored with the settlement, so funders can recheck it."],
+  ["shield", "Arranged games do not count", "Friendly matches, direct challenges and early resignations are ignored."],
+];
+
+/** Sample rows for the hero preview. Labelled as an example on the page. */
+const SAMPLE_PLEDGES = [
+  ["Maya", "+$5.00"],
+  ["Jay", "+$8.00"],
+  ["Priya", "+$2.00"],
 ] as const;
 
 export default async function Home() {
@@ -19,41 +35,122 @@ export default async function Home() {
     <>
       <section className="hero">
         <div>
-          <p className="eyebrow">Fan-funded stream challenges</p>
-          <h1>Donations give fans nothing to do. A pot does.</h1>
+          <p className="badge">
+            <Icon name="shield" size={15} /> Escrowed in USDC · settled on evidence
+          </p>
+          <h1>
+            Donations give fans nothing to do. <span className="accent">A pot does.</span>
+          </h1>
           <p className="lede">
-            Fans fund a challenge without leaving the stream. The game&apos;s own data decides the result, and the money pays
-            out or refunds itself, with proof anyone can check.
+            Fans fund a challenge without leaving the stream. The game&apos;s own data decides the result, and the money
+            pays out or refunds itself.
           </p>
           <div className="row">
-            <Link href="/s/ryan" className="btn btn-primary">
-              See the demo stream
+            <Link href="/s/ryan" className="btn btn-primary btn-lg">
+              Open the demo stream <Icon name="arrow" size={16} />
             </Link>
-            <a href="#how" className="btn btn-ghost">
+            <a href="#how" className="btn btn-ghost btn-lg">
               How it works
             </a>
           </div>
+          <ul className="trust">
+            <li>
+              <Icon name="check" size={15} /> Refunded if it fails
+            </li>
+            <li>
+              <Icon name="check" size={15} /> Checked against game data
+            </li>
+            <li>
+              <Icon name="check" size={15} /> A receipt for every payout
+            </li>
+          </ul>
         </div>
-        <div className="hero-plants" aria-hidden="true">
-          {[0, 1, 2, 3, 4].map((stage) => (
-            <Plant key={stage} stage={stage} size={56 + stage * 10} />
+
+        <div className="preview card" aria-label="Example pot">
+          <div className="preview-head">
+            <span className="label">Example pot</span>
+            <span className="pill pill-open">Open for pledges</span>
+          </div>
+          <div className="preview-main">
+            <Plant stage={3} size={84} />
+            <div>
+              <p className="preview-title">Win the next rated bullet game</p>
+              <p className="preview-amount mono">$15.00</p>
+              <p className="muted small">of $20.00 · 3 fans</p>
+            </div>
+          </div>
+          <div className="bar">
+            <span style={{ width: "75%" }} />
+          </div>
+          <ul className="ledger">
+            {SAMPLE_PLEDGES.map(([name, amount]) => (
+              <li key={name}>
+                <span>{name}</span>
+                <span className="mono up">{amount}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="preview-foot">
+            <Icon name="data" size={15} /> Result read from the public Lichess game record
+          </p>
+        </div>
+      </section>
+
+      <section id="how">
+        <p className="eyebrow">How it works</p>
+        <h2 className="section-title">Three steps, no trust required</h2>
+        <div className="steps">
+          {STEPS.map(([title, text], i) => (
+            <div key={title} className="card step">
+              <span className="step-no mono">0{i + 1}</span>
+              <h3>{title}</h3>
+              <p className="muted">{text}</p>
+            </div>
           ))}
         </div>
       </section>
 
-      <section id="how" className="steps">
-        {STEPS.map(([title, text], i) => (
-          <div key={title} className="card">
-            <span className="step-no mono">0{i + 1}</span>
-            <h3>{title}</h3>
-            <p className="muted">{text}</p>
-          </div>
-        ))}
+      <section>
+        <p className="eyebrow">Settlement rules</p>
+        <h2 className="section-title">Built so nobody has to take our word for it</h2>
+        <div className="guarantees">
+          {GUARANTEES.map(([icon, title, text]) => (
+            <div key={title} className="card guarantee">
+              <span className="icon-chip">
+                <Icon name={icon} />
+              </span>
+              <div>
+                <h3>{title}</h3>
+                <p className="muted">{text}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <p className="eyebrow">Games</p>
+        <h2 className="section-title">One escrow, a checker per game</h2>
+        <div className="games">
+          {GAMES.map((game) => (
+            <div key={game.id} className="card game">
+              <div className="meta">
+                <h3>{game.name}</h3>
+                <span className="tag tag-quiet">
+                  <Icon name={game.verifier === "optimistic" ? "clip" : "data"} size={13} />
+                  {game.verifier === "optimistic" ? "Clip + dispute" : "Game data"}
+                </span>
+              </div>
+              <p className="muted small">{game.how}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       {live.length > 0 && (
         <section>
-          <h2>On the demo stream</h2>
+          <p className="eyebrow">Live</p>
+          <h2 className="section-title">On the demo stream</h2>
           <div className="list">
             {live.map((c) => (
               <ChallengeCard key={c.id} challenge={c} />
