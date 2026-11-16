@@ -1,0 +1,17 @@
+{
+  "name": "potted",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Fan-funded stream challenges that settle on evidence. USDC escrow on Solana.",
+  "packageManager": "pnpm@10.28.0",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "pnpm --filter @potted/web dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0"
+  }
+}

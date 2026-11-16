@@ -1,0 +1,16 @@
+node_modules/
+.next/
+dist/
+target/
+.anchor/
+test-ledger/
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+# local demo data written by the file store
+apps/web/.data/
+# never commit keypairs
+*-keypair.json
+id.json
