@@ -37,7 +37,7 @@ function conditionFor(gameId: string, f: Fields): unknown {
     case "optimistic":
       return {
         kind: "optimistic",
-        game: gameId === "gta4" ? "GTA IV" : f.game,
+        game: gameId === "gta6" ? "GTA VI" : f.game,
         statement: f.statement,
         disputeWindowSecs: f.disputeWindowSecs,
       };
@@ -142,8 +142,8 @@ export function CreateChallengeForm({ warnings }: { warnings: Record<string, str
         )}
         {game.verifier === "optimistic" && (
           <>
-            {gameId !== "gta4" && input("game", "Game or activity", { placeholder: "Cooking stream", required: true })}
-            {input("statement", "Challenge", { placeholder: "Finish Three Leaf Clover without dying", required: true })}
+            {gameId !== "gta6" && input("game", "Game or activity", { placeholder: "Cooking stream", required: true })}
+            {input("statement", "Challenge", { placeholder: "Finish the first heist without getting busted", required: true })}
             {input("disputeWindowSecs", "Dispute window (seconds)", { inputMode: "numeric", required: true })}
           </>
         )}

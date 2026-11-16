@@ -30,7 +30,7 @@ background. Each private window is a separate fan.
 4. Play one rated bullet game from Lichess quick pairing.
 5. The overlay announces the result. The challenge page shows the receipt
    with a link to the game. A win pays you; a loss refunds every fan.
-6. Repeat with a GTA IV challenge: start, post a clip link, and let the
+6. Repeat with a GTA VI challenge: start, post a clip link, and let the
    dispute window run out. Use a second fan to show a dispute.
 
 ## Rehearsing without playing

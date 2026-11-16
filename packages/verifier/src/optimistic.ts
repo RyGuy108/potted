@@ -2,7 +2,7 @@ import type { OptimisticCondition, Verdict } from "@potted/core";
 import { type Adapter, pending } from "./types";
 
 /**
- * For games with no data source (GTA IV, cooking, anything). The streamer
+ * For games with no data source (GTA VI, cooking, anything). The streamer
  * claims success with a clip. If no funder disputes inside the window, the
  * claim stands. A dispute pauses settlement until a moderator rules.
  */

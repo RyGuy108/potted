@@ -105,10 +105,10 @@ describe("challenge lifecycle on the sim ledger", () => {
   });
 });
 
-describe("optimistic challenges (GTA IV)", () => {
+describe("optimistic challenges (GTA VI)", () => {
   const gta = {
-    gameId: "gta4",
-    condition: { kind: "optimistic", game: "GTA IV", statement: "Finish Three Leaf Clover without dying", disputeWindowSecs: 60 },
+    gameId: "gta6",
+    condition: { kind: "optimistic", game: "GTA VI", statement: "Finish the first heist without getting busted", disputeWindowSecs: 60 },
     goalUsd: 20,
     pledgeCapUsd: 10,
     minutes: 30,
@@ -119,7 +119,7 @@ describe("optimistic challenges (GTA IV)", () => {
     const c = await service.createChallenge(streamer(), gta);
     await service.pledge(ana, c.id, 5);
     await service.lock(streamer(), c.id);
-    await service.claim(streamer(), c.id, "https://clips.example/three-leaf-clover");
+    await service.claim(streamer(), c.id, "https://clips.example/first-heist");
     return { ana, c };
   }
 

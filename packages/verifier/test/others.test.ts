@@ -88,8 +88,8 @@ describe("fortnite adapter", () => {
 describe("optimistic adapter", () => {
   const condition = parseCondition({
     kind: "optimistic",
-    game: "GTA IV",
-    statement: "Finish Three Leaf Clover without dying",
+    game: "GTA VI",
+    statement: "Finish the first heist without getting busted",
     disputeWindowSecs: 120,
   });
   const claim = (over: Partial<OptimisticClaim> = {}): OptimisticClaim => ({

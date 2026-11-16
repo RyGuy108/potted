@@ -35,7 +35,7 @@ export interface FortniteCondition {
 
 export interface OptimisticCondition {
   kind: "optimistic";
-  /** Free-text game or activity, e.g. "GTA IV". */
+  /** Free-text game or activity, e.g. "GTA VI". */
   game: string;
   statement: string;
   /** How long funders have to dispute a claim before it settles. */
@@ -159,6 +159,6 @@ export const GAMES: GameInfo[] = [
   { id: "chess", name: "Chess", verifier: "lichess", how: "Checked against the public Lichess game record." },
   { id: "brawlstars", name: "Brawl Stars", verifier: "brawlstars", how: "Checked against the official battle log." },
   { id: "fortnite", name: "Fortnite", verifier: "fortnite", how: "Checked against public player stats." },
-  { id: "gta4", name: "GTA IV", verifier: "optimistic", how: "Streamer posts a clip; funders can dispute before it settles." },
+  { id: "gta6", name: "GTA VI", verifier: "optimistic", how: "Streamer posts a clip; funders can dispute before it settles." },
   { id: "other", name: "Anything else", verifier: "optimistic", how: "Streamer posts a clip; funders can dispute before it settles." },
 ];

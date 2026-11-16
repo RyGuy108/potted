@@ -28,7 +28,7 @@ One escrow serves every game. Only the verifier plugged into it changes.
 | Tier | How it decides | Games in this repo |
 | --- | --- | --- |
 | Data | Reads a public game API and checks a precise condition | Chess (Lichess), Brawl Stars, Fortnite |
-| Optimistic | Streamer claims with a clip; settles unless a funder disputes in time | GTA IV and any game without a data source |
+| Optimistic | Streamer claims with a clip; settles unless a funder disputes in time | GTA VI and any game without a data source |
 
 See [docs/architecture.md](docs/architecture.md) for the trust boundary and
 the anti-collusion rules.
