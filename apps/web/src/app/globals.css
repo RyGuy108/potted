@@ -2353,3 +2353,10 @@ body:has(.overlay-page) {
 .chart-col:hover .chart-bar {
   opacity: 1;
 }
+
+.connect .row input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+}

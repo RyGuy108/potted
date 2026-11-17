@@ -1,0 +1,296 @@
+:root {
+  --bg: #0a1628;
+  --ink: #eef3fb;
+  --muted: #9db0cc;
+  --blue: #2a66f0;
+  --green: #35c98b;
+  --gold: #e9bb4d;
+  --red: #ef6b6b;
+  --line: rgba(255, 255, 255, 0.11);
+  --glass: rgba(255, 255, 255, 0.055);
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.45 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(10, 22, 40, 0.94);
+  border-bottom: 1px solid var(--line);
+}
+
+header strong {
+  font-size: 16px;
+  flex: 1;
+}
+
+.mark {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(53, 201, 139, 0.12);
+  border: 1px solid rgba(53, 201, 139, 0.45);
+}
+
+#account {
+  color: var(--muted);
+  font-size: 13px;
+  text-align: right;
+}
+
+#account b {
+  color: var(--green);
+  font-variant-numeric: tabular-nums;
+}
+
+main {
+  padding: 14px;
+  display: grid;
+  gap: 14px;
+}
+
+h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.eyebrow {
+  margin: 0 0 2px;
+  color: #7da2ff;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.card {
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 12px;
+}
+
+.mono {
+  font-family: ui-monospace, "JetBrains Mono", Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+input,
+select {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--ink);
+  font: inherit;
+}
+
+input:focus,
+select:focus,
+button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+
+button {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:hover {
+  background: rgba(255, 255, 255, 0.13);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+button.primary {
+  background: var(--blue);
+  border-color: var(--blue);
+}
+
+button.primary:hover {
+  background: #3b76ff;
+}
+
+button.danger {
+  color: var(--red);
+}
+
+button.link {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #9fc0ff;
+  font-weight: 500;
+  text-decoration: underline;
+}
+
+.title {
+  margin: 0;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.pill {
+  display: inline-block;
+  padding: 1px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.pill.open {
+  color: var(--green);
+  border-color: rgba(53, 201, 139, 0.5);
+}
+
+.pill.locked {
+  color: var(--gold);
+  border-color: rgba(233, 187, 77, 0.5);
+}
+
+.pill.paid {
+  color: var(--green);
+}
+
+.pill.failed {
+  color: var(--muted);
+}
+
+.bar {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.bar span {
+  display: block;
+  height: 100%;
+  background: var(--green);
+  border-radius: 4px;
+}
+
+.pot {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.pot .mono {
+  font-size: 18px;
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.tabs button[aria-selected="true"] {
+  border-color: var(--blue);
+  background: rgba(42, 102, 240, 0.22);
+}
+
+#notice {
+  margin: 10px 14px 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(239, 107, 107, 0.5);
+  color: #ffb4b4;
+}
+
+#notice.good {
+  border-color: rgba(53, 201, 139, 0.5);
+  color: var(--green);
+}
+
+footer {
+  padding: 4px 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+}
+
+details summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}

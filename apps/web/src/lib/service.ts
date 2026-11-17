@@ -60,6 +60,13 @@ export function getStreamer(handle: string): User | undefined {
   return db().users.find((u) => u.role === "streamer" && u.handle === handle.toLowerCase());
 }
 
+/** The climber who linked this Twitch or YouTube channel in their settings. */
+export function streamerByChannel(platform: "twitch" | "youtube", name: string): User | undefined {
+  const clean = name.trim().toLowerCase().replace(/^@/, "");
+  if (!clean) return undefined;
+  return listStreamers().find((s) => settingsOf(s)[platform === "twitch" ? "twitchChannel" : "youtubeChannel"] === clean);
+}
+
 export function getChallenge(id: string): Challenge {
   return db().challenges.find((c) => c.id === id) ?? fail("Challenge not found");
 }
@@ -235,7 +242,24 @@ export async function updateSettings(actor: User, input: Partial<Record<keyof St
     const problem = splitsError([{ kind: "cause", name: causeName, pct: causePct }]);
     if (problem) fail(problem);
   }
+  const channel = (value: unknown, fallback: string): string => {
+    if (value === undefined) return fallback;
+    const clean = String(value).trim().toLowerCase().replace(/^@/, "");
+    if (clean && !/^[a-z0-9_.-]{2,40}$/.test(clean)) fail("Channel names use letters, numbers, dots, dashes and underscores");
+    return clean;
+  };
+  const twitchChannel = channel(input.twitchChannel, current.twitchChannel);
+  const youtubeChannel = channel(input.youtubeChannel, current.youtubeChannel);
+  for (const other of listStreamers()) {
+    if (other.id === actor.id) continue;
+    const theirs = settingsOf(other);
+    if ((twitchChannel && theirs.twitchChannel === twitchChannel) || (youtubeChannel && theirs.youtubeChannel === youtubeChannel)) {
+      fail("Another climber has already linked that channel");
+    }
+  }
   actor.settings = {
+    twitchChannel,
+    youtubeChannel,
     causeOn,
     causeName,
     causeUrl,
@@ -1117,7 +1141,8 @@ export function climberStats(streamer: User): ClimberStats {
       .map(([gameId, row]) => ({ gameId, name: GAMES.find((g) => g.id === gameId)?.name ?? gameId, ...row }))
       .sort((a, b) => b.earnedMicro - a.earnedMicro || b.challenges - a.challenges),
     history: [...settled]
-      .sort((a, b) => (a.settledAt ?? a.createdAt) - (b.settledAt ?? b.createdAt))
+      // Two challenges can settle in the same millisecond; the order they were created in breaks the tie.
+      .sort((a, b) => (a.settledAt ?? a.createdAt) - (b.settledAt ?? b.createdAt) || db().challenges.indexOf(a) - db().challenges.indexOf(b))
       .slice(-12)
       .map((c) => ({ id: c.id, title: c.title, potMicro: c.totalMicro, paid: c.status === "paid" })),
   };

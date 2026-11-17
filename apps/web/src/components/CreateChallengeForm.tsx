@@ -1,5 +1,6 @@
 "use client";
 
+import { conditionFromFields } from "@/lib/terms";
 import { GAMES } from "@potted/core";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -31,28 +32,7 @@ const DEFAULTS: Fields = {
   minutes: "30",
 };
 
-function conditionFor(gameId: string, f: Fields): unknown {
-  const game = GAMES.find((g) => g.id === gameId)!;
-  switch (game.verifier) {
-    case "lichess":
-      return { kind: "lichess", username: f.username, speed: f.speed, minOpponentRating: f.minOpponentRating };
-    case "brawlstars":
-      return { kind: "brawlstars", playerTag: f.playerTag, wins: f.wins, battles: f.battles };
-    case "fortnite":
-      return { kind: "fortnite", accountName: f.accountName, goal: f.goal, count: f.count };
-    case "optimistic":
-      return {
-        kind: "optimistic",
-        // Only "Anything else" asks what the activity is; the rest are named by their type.
-        game: gameId === "other" ? f.game : game.name,
-        statement: f.statement,
-        disputeWindowSecs: f.disputeWindowSecs,
-        proof: f.proof,
-      };
-    case "steam":
-      return { kind: "steam", steamId: f.steamId, appId: f.appId, gameName: f.gameName, achievement: f.achievement, achievementTitle: f.achievementTitle };
-  }
-}
+const conditionFor = (gameId: string, f: Fields): unknown => conditionFromFields(gameId, f);
 
 export interface SuggestionSeed {
   id: string;

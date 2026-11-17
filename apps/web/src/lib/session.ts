@@ -28,6 +28,28 @@ export function readSessionToken(token: string | undefined): string | undefined 
   return given.length === expected.length && timingSafeEqual(given, expected) ? userId : undefined;
 }
 
+const EXT_TOKEN_DAYS = 30;
+
+/**
+ * A token the browser extension sends with each request in place of a
+ * cookie. It names the user and an expiry, and is signed like a session.
+ */
+export function extToken(userId: string, now = Date.now()): string {
+  const body = `ext.${userId}.${now + EXT_TOKEN_DAYS * 24 * 60 * 60_000}`;
+  return `${body}.${sign(body)}`;
+}
+
+export function readExtToken(token: string | undefined | null, now = Date.now()): string | undefined {
+  if (!token) return undefined;
+  const dot = token.lastIndexOf(".");
+  const body = token.slice(0, dot);
+  const [kind, userId, expires] = body.split(".");
+  if (kind !== "ext" || !userId || !(Number(expires) > now)) return undefined;
+  const given = Buffer.from(token.slice(dot + 1));
+  const expected = Buffer.from(sign(body));
+  return given.length === expected.length && timingSafeEqual(given, expected) ? userId : undefined;
+}
+
 export async function currentUser(): Promise<User | undefined> {
   return getUser(readSessionToken((await cookies()).get(COOKIE)?.value));
 }

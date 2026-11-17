@@ -28,6 +28,9 @@ export interface StreamSettings {
   overlayCards: 1 | 2;
   /** Show a QR code to the fan page on the overlay. */
   overlayQr: boolean;
+  /** The streamer's Twitch login and YouTube handle, so the extension can match a tab to this stream. */
+  twitchChannel: string;
+  youtubeChannel: string;
   /** Charity stream: while on, every new challenge sends a share of a completed pot to the cause. */
   causeOn: boolean;
   causeName: string;
@@ -47,6 +50,8 @@ export const DEFAULT_SETTINGS: StreamSettings = {
   overlayPosition: "bottom-left",
   overlayCards: 2,
   overlayQr: true,
+  twitchChannel: "",
+  youtubeChannel: "",
   causeOn: false,
   causeName: "",
   causeUrl: "",

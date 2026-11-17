@@ -92,6 +92,18 @@ export function SettingsForm({ initial }: { initial: StreamSettings }) {
           </select>
         </label>
       </div>
+      <h3 className="settings-sub">Browser extension</h3>
+      <p className="muted small">Link your channel so the Potted extension shows your challenges beside your stream.</p>
+      <div className="grid">
+        <label className="field">
+          <span>Twitch channel</span>
+          <input value={settings.twitchChannel} onChange={(e) => setSettings({ ...settings, twitchChannel: e.target.value })} placeholder="yourname" />
+        </label>
+        <label className="field">
+          <span>YouTube handle</span>
+          <input value={settings.youtubeChannel} onChange={(e) => setSettings({ ...settings, youtubeChannel: e.target.value })} placeholder="@yourname" />
+        </label>
+      </div>
       <h3 className="settings-sub">Charity stream</h3>
       <p className="muted small">
         While this is on, every new challenge sends a share of its pot to the cause when it is completed. Missed challenges still refund
