@@ -19,6 +19,8 @@ export function Marquee({ children, label, pxPerSecond = 45 }: { children: React
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let paused = false;
     let drag: { x: number; left: number; moved: boolean } | null = null;
+    // A drag ends with a click on whatever tile is under the cursor; that click must not open it.
+    let justDragged = false;
     let position = el.scrollLeft;
     let last = performance.now();
     let frame = 0;
@@ -47,14 +49,20 @@ export function Marquee({ children, label, pxPerSecond = 45 }: { children: React
     const down = (e: PointerEvent) => {
       // Touch already scrolls natively; dragging is for the mouse.
       if (e.pointerType !== "mouse" || e.button !== 0) return;
+      justDragged = false;
       drag = { x: e.clientX, left: el.scrollLeft, moved: false };
-      el.setPointerCapture(e.pointerId);
-      el.classList.add("dragging");
     };
     const move = (e: PointerEvent) => {
       if (!drag) return;
       const dx = e.clientX - drag.x;
-      if (Math.abs(dx) > 3) drag.moved = true;
+      if (!drag.moved && Math.abs(dx) > 3) {
+        drag.moved = true;
+        // Capture only once it is clearly a drag: capturing on press would
+        // send the click to this strip and the tile's link would never open.
+        el.setPointerCapture(e.pointerId);
+        el.classList.add("dragging");
+      }
+      if (!drag.moved) return;
       el.scrollLeft = drag.left - dx;
       const before = el.scrollLeft;
       wrap();
@@ -63,10 +71,17 @@ export function Marquee({ children, label, pxPerSecond = 45 }: { children: React
     };
     const up = (e: PointerEvent) => {
       if (!drag) return;
+      justDragged = drag.moved;
       drag = null;
       position = el.scrollLeft;
-      el.releasePointerCapture(e.pointerId);
+      if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
       el.classList.remove("dragging");
+    };
+    const click = (e: MouseEvent) => {
+      if (!justDragged) return;
+      justDragged = false;
+      e.preventDefault();
+      e.stopPropagation();
     };
     const pause = () => (paused = true);
     const resume = () => {
@@ -78,6 +93,7 @@ export function Marquee({ children, label, pxPerSecond = 45 }: { children: React
     el.addEventListener("pointermove", move);
     el.addEventListener("pointerup", up);
     el.addEventListener("pointercancel", up);
+    el.addEventListener("click", click, true);
     el.addEventListener("pointerenter", pause);
     el.addEventListener("pointerleave", resume);
     el.addEventListener("focusin", pause);
@@ -89,6 +105,7 @@ export function Marquee({ children, label, pxPerSecond = 45 }: { children: React
       el.removeEventListener("pointermove", move);
       el.removeEventListener("pointerup", up);
       el.removeEventListener("pointercancel", up);
+      el.removeEventListener("click", click, true);
       el.removeEventListener("pointerenter", pause);
       el.removeEventListener("pointerleave", resume);
       el.removeEventListener("focusin", pause);

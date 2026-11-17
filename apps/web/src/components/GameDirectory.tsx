@@ -1,11 +1,12 @@
 import { GAMES, type GameInfo } from "@potted/core";
+import Link from "next/link";
 import { GameArt } from "./GameArt";
 import { Icon } from "./Icon";
 import { Marquee } from "./Marquee";
 
 function Tile({ game }: { game: GameInfo }) {
   return (
-    <div className="card game">
+    <Link href={`/g/${game.id}`} className="card game" draggable={false}>
       <GameArt id={game.id} name={game.name} />
       <div className="game-text">
         <div className="meta">
@@ -17,8 +18,9 @@ function Tile({ game }: { game: GameInfo }) {
         </div>
         <p className="muted">{game.how}</p>
         {game.example && <p className="game-example">&ldquo;{game.example}&rdquo;</p>}
+        <span className="game-go">See who is live</span>
       </div>
-    </div>
+    </Link>
   );
 }
 

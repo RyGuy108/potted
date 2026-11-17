@@ -15,16 +15,21 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
     <>
       <header className="site-header">
         <Link href="/" className="brand">
-          <Beanstalk stage={3} size={30} label="Potted" />
+          <span className="brand-mark">
+            <Beanstalk stage={3} size={36} label="Potted" />
+          </span>
           <span>Potted</span>
         </Link>
         <nav>
-          <Link href="/s/ryan">Demo stream</Link>
+          <Link href="/browse">Browse</Link>
           {user?.role === "streamer" && <Link href="/dashboard">Dashboard</Link>}
           {user?.role === "fan" && <Link href="/garden">My garden</Link>}
           <Link href="/activity">Activity</Link>
           {user && <Link href="/about">How it works</Link>}
         </nav>
+        <form className="search" action="/search" role="search">
+          <input type="search" name="q" placeholder="Search streams or climbers" aria-label="Search streams or climbers" maxLength={60} />
+        </form>
         <div className="session">
           {user ? (
             <>
@@ -41,7 +46,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
             </>
           ) : (
             <Link href="/login" className="btn btn-primary">
-              Sign in
+              Log in / Sign up
             </Link>
           )}
         </div>

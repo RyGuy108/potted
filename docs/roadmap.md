@@ -22,6 +22,7 @@ request shows one change. Merge from the top of the list down.
 | 13 | `feat/stream-directory` | More stream types behind "Show more" | Done |
 | 14 | `feat/any-game` | Steam achievement checker, proof rules on clips, fan-named games | Done; Steam untested live (needs a key) |
 | 15 | `feat/accounts-and-home` | Google, Twitch and Discord sign-in, planter and climber roles, a signed-in home, a gamified garden, the games marquee | Done; providers untested live (need keys) |
+| 16a | `feat/browse-and-polish` | A page per game listing who is live, browse, header search, more badges, tiles for previous challenges, logo and log-in button | Done |
 | 15b | `feat/bounty-board` | Fans put money on an idea before the streamer accepts; refunded if it expires | Next |
 | 16 | `feat/solana-ledger` | Real devnet transactions, sponsored fees, explorer links on receipts | Needs the deployed program |
 | 17 | `feat/program-splits` | Guest and cause shares paid by the escrow program itself | After 16, touches the program |

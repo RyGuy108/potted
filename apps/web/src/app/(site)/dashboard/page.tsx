@@ -3,14 +3,15 @@ import { GAMES, formatUsd } from "@potted/core";
 import Link from "next/link";
 import { cancelAction, checkAction, recapAction, respondInviteAction, withdrawInviteAction, dismissSuggestionAction, lockAction, runAgainAction, simulateAction } from "@/app/actions";
 import { ActionButton } from "@/components/ActionButton";
-import { StatusPill } from "@/components/ChallengeCard";
+import { SplitLine, StatusPill } from "@/components/ChallengeCard";
+import { GameArt } from "@/components/GameArt";
 import { ClaimForm } from "@/components/ClaimForm";
 import { CreateChallengeForm } from "@/components/CreateChallengeForm";
 import { AutoRefresh, CopyField, Countdown } from "@/components/Live";
 import { SettingsForm } from "@/components/SettingsForm";
 import { SignInPanel } from "@/components/SignInPanel";
 import { adapterStatus, gameOf } from "@/lib/format";
-import { getSuggestion, getUser, invitesFor, listChallenges, listStreamers, pendingSuggestions, settingsOf, shareOf, simulatedResultsAllowed, stageChallenges } from "@/lib/service";
+import { challengeStats, getSuggestion, getUser, invitesFor, listChallenges, listStreamers, pendingSuggestions, settingsOf, shareOf, simulatedResultsAllowed, stageChallenges } from "@/lib/service";
 import { currentUser } from "@/lib/session";
 
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ use?: string }> }) {
@@ -30,6 +31,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const { use } = await searchParams;
   const picked = use ? getSuggestion(use) : undefined;
   const seed = picked && picked.streamerId === user.id && picked.status === "pending" ? picked : undefined;
+  const past = challenges.filter((c) => c.status === "paid" || c.status === "failed");
   const invites = invitesFor(user);
   const guesting = stageChallenges(user.id).filter((c) => c.streamerId !== user.id);
   const partners = listStreamers().filter((s) => s.id !== user.id).map((s) => ({ handle: s.handle!, name: s.name }));
@@ -143,8 +145,9 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         )}
       </div>
       {challenges.length === 0 && <p className="empty">Nothing yet. Create your first challenge above.</p>}
+      {challenges.length > 0 && past.length === challenges.length && <p className="empty">Nothing live. Open a challenge above, or rerun one below.</p>}
       <div className="list">
-        {challenges.map((c) => (
+        {challenges.filter((c) => c.status === "open" || c.status === "locked").map((c) => (
           <section key={c.id} className="card manage">
             <div className="meta">
               <span className="tag">{gameOf(c).name}</span>
@@ -197,17 +200,66 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               </>
             )}
 
-            {(c.status === "paid" || c.status === "failed") && (
-              <>
-                <p className="muted small">{c.verdict?.reason}</p>
-                <ActionButton action={runAgainAction.bind(null, c.id)} variant="ghost">
-                  Run it again
-                </ActionButton>
-              </>
-            )}
           </section>
         ))}
       </div>
+
+      {past.length > 0 && (
+        <>
+          <h2>Previous challenges</h2>
+          <div className="past-grid">
+            {past.map((c) => {
+              const stats = challengeStats(c, user.id);
+              const paid = c.status === "paid";
+              return (
+                <article key={c.id} className="card past-tile">
+                  <div className="past-art">
+                    <GameArt id={c.gameId} name={gameOf(c).name} />
+                    <span className={paid ? "past-result past-paid" : "past-result"}>{paid ? "Completed" : "Refunded"}</span>
+                  </div>
+                  <div className="past-body">
+                    <span className="tag">{gameOf(c).name}</span>
+                    <h3>
+                      <Link href={`/c/${c.id}`}>{c.title}</Link>
+                    </h3>
+                    <p className="muted small">{c.verdict?.reason}</p>
+                    <dl className="past-stats">
+                      <div>
+                        <dt>Pot</dt>
+                        <dd className="mono">{formatUsd(c.totalMicro)}</dd>
+                      </div>
+                      <div>
+                        <dt>Of goal</dt>
+                        <dd className="mono">{stats.pctOfGoal}%</dd>
+                      </div>
+                      <div>
+                        <dt>Planters</dt>
+                        <dd className="mono">{stats.planters}</dd>
+                      </div>
+                      <div>
+                        <dt>You earned</dt>
+                        <dd className="mono">{formatUsd(paid ? stats.shareMicro : 0)}</dd>
+                      </div>
+                      <div>
+                        <dt>Biggest pledge</dt>
+                        <dd className="mono">{formatUsd(stats.biggestMicro)}</dd>
+                      </div>
+                      <div>
+                        <dt>Ran for</dt>
+                        <dd className="mono">{stats.minutes} min</dd>
+                      </div>
+                    </dl>
+                    <SplitLine challenge={c} />
+                    <ActionButton action={runAgainAction.bind(null, c.id)} variant="ghost">
+                      Run it again
+                    </ActionButton>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </>
+      )}
     </>
   );
 }

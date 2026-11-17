@@ -118,7 +118,7 @@ describe("planter stats", () => {
     const stats = service.planterStats(ana);
     // 3 backed (30) + 3 completed (45) + 3 first in (15)
     expect(stats).toMatchObject({ xp: 90, backed: 3, grown: 3, streakDays: 1, level: { name: "Vine tender", next: { name: "Green thumb", at: 200 } } });
-    expect(stats.badges.filter((b) => b.earned).map((b) => b.id)).toEqual(["first-bean", "early-bird", "good-harvest", "wide-garden"]);
+    expect(stats.badges.filter((b) => b.earned).map((b) => b.id)).toEqual(["first-bean", "early-bird", "good-harvest", "wide-garden", "hat-trick"]);
     // Two days later with no pledge, the streak is over.
     expect(service.planterStats(ana, Date.now() + 2 * 24 * 60 * 60_000).streakDays).toBe(0);
     // Refunded money does not count toward the leaderboard.
@@ -126,5 +126,80 @@ describe("planter stats", () => {
     await service.pledge(ana, miss.id, 5);
     await service.cancel(streamer(), miss.id);
     expect(service.topPlanters(streamer().id)[0]).toMatchObject({ name: "Ana", challenges: 3 });
+  });
+});
+
+describe("browsing and search", () => {
+  const streamer = () => service.getUser(DEMO_STREAMER_ID)!;
+  const clip = (gameId: string, game: string, statement: string) => ({
+    gameId,
+    condition: { kind: "optimistic", game, statement, disputeWindowSecs: 60 },
+    goalUsd: 10,
+    pledgeCapUsd: 10,
+    minutes: 30,
+  });
+
+  it("lists who is live per game, biggest pots first, and drops them when they settle", async () => {
+    const kai = service.getStreamer("kai")!;
+    const ana = await service.signIn("Ana", "fan");
+    const a = await service.createChallenge(streamer(), clip("gta6", "GTA VI", "Finish the first heist clean"));
+    await service.createChallenge(streamer(), clip("gta6", "GTA VI", "Win a street race"));
+    const b = await service.createChallenge(kai, clip("gta6", "GTA VI", "Escape five stars"));
+    await service.createChallenge(kai, clip("cooking", "Cooking", "Bake bread on stream"));
+    await service.pledge(ana, a.id, 3);
+    await service.pledge(ana, b.id, 7);
+
+    const gta = service.liveStreams("gta6");
+    expect(gta.map((l) => [l.streamer.name, l.liveCount, l.potMicro / 1e6, l.planters, l.headline.title])).toEqual([
+      ["Kai", 1, 7, 1, "GTA VI: Escape five stars"],
+      ["Ryan", 2, 3, 1, "GTA VI: Finish the first heist clean"],
+    ]);
+    expect(service.liveStreams("chess")).toEqual([]);
+    expect(service.liveCountsByGame()).toEqual({ gta6: 2, cooking: 1 });
+
+    await service.cancel(kai, b.id);
+    expect(service.liveStreams("gta6").map((l) => l.streamer.name)).toEqual(["Ryan"]);
+    expect(service.recentResults("gta6").map((c) => c.id)).toEqual([b.id]);
+  });
+
+  it("finds climbers who have run challenges, games, and challenges by title", async () => {
+    const kira = await service.signInWith("twitch", { subject: "t-1", name: "Kira" });
+    await service.chooseRole(kira, "streamer", "kira_live");
+    await service.createChallenge(streamer(), clip("cooking", "Cooking", "Bake sourdough on stream"));
+
+    expect(service.search("rya").streamers.map((r) => r.streamer.handle)).toEqual(["ryan"]);
+    // Kira has an account but has never set up a challenge.
+    expect(service.search("kira").streamers).toEqual([]);
+    expect(service.search("@RYAN").streamers).toHaveLength(1);
+    expect(service.search("sourdough").challenges.map((c) => c.title)).toEqual(["Cooking: Bake sourdough on stream"]);
+    const byGame = service.search("cook");
+    expect(byGame.games.map((g) => g.id)).toEqual(["cooking"]);
+    expect(byGame.challenges).toHaveLength(1);
+    expect(service.search("x")).toEqual({ games: [], streamers: [], challenges: [] });
+  });
+
+  it("summarises a finished challenge for the climber's tile", async () => {
+    const ana = await service.signIn("Ana", "fan");
+    const ben = await service.signIn("Ben", "fan");
+    const c = await service.createChallenge(streamer(), clip("gta6", "GTA VI", "Finish the first heist clean"));
+    await service.pledge(ana, c.id, 6);
+    await service.pledge(ben, c.id, 2);
+    await service.lock(streamer(), c.id);
+    process.env.POTTED_ALLOW_SIMULATED_RESULTS = "true";
+    await service.simulateResult(streamer(), c.id, true);
+    delete process.env.POTTED_ALLOW_SIMULATED_RESULTS;
+    expect(service.challengeStats(c, streamer().id)).toMatchObject({ planters: 2, pctOfGoal: 80, biggestMicro: 6_000_000, shareMicro: 8_000_000 });
+  });
+
+  it("has sixteen badges, including ones for refunds and used suggestions", async () => {
+    const ana = await service.signIn("Ana", "fan");
+    const idea = await service.suggest(ana, "ryan", "gta6", "Finish the first heist clean");
+    const c = await service.createChallenge(streamer(), clip("gta6", "GTA VI", "Finish the first heist clean"));
+    await service.resolveSuggestion(streamer(), idea.id, "used");
+    await service.pledge(ana, c.id, 2);
+    await service.cancel(streamer(), c.id);
+    const badges = service.planterStats(ana).badges;
+    expect(badges).toHaveLength(16);
+    expect(badges.filter((b) => b.earned).map((b) => b.id)).toEqual(["first-bean", "early-bird", "money-back", "idea-planter"]);
   });
 });

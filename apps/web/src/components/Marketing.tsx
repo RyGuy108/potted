@@ -64,8 +64,8 @@ export async function Marketing() {
                 <a href="#signin" className="btn btn-primary btn-lg">
                   Start planting <Icon name="arrow" size={16} />
                 </a>
-                <Link href="/s/ryan" className="btn btn-ghost btn-lg">
-                  Watch the demo stream
+                <Link href="/browse" className="btn btn-ghost btn-lg">
+                  Browse live streams
                 </Link>
               </>
             )}

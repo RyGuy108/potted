@@ -4,6 +4,7 @@ import { Beanstalk } from "@/components/Beanstalk";
 import { StatusPill } from "@/components/ChallengeCard";
 import { SignInPanel } from "@/components/SignInPanel";
 import { gameOf } from "@/lib/format";
+import { BadgeGrid } from "@/components/BadgeGrid";
 import { LevelCard } from "@/components/LevelCard";
 import { gardenOf, planterStats } from "@/lib/service";
 import { currentUser } from "@/lib/session";
@@ -82,15 +83,7 @@ export default async function Garden() {
       <h2>
         Badges <span className="muted small">{earned} of {stats.badges.length}</span>
       </h2>
-      <div className="badges">
-        {stats.badges.map((badge) => (
-          <div key={badge.id} className={badge.earned ? "card badge-tile badge-earned" : "card badge-tile"}>
-            <strong>{badge.name}</strong>
-            <span className="muted small">{badge.how}</span>
-            <span className="tag tag-quiet">{badge.earned ? "Earned" : "Locked"}</span>
-          </div>
-        ))}
-      </div>
+      <BadgeGrid badges={stats.badges} />
 
       <h2>Your plots</h2>
       {garden.plots.length === 0 ? (

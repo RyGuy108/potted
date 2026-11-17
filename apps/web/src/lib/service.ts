@@ -894,6 +894,14 @@ export function planterStats(fan: User, now = Date.now()): PlanterStats {
     { id: "good-cause", name: "Good cause", how: "Back a charity stream challenge", earned: causes >= 1 },
     { id: "matchmaker", name: "Matchmaker", how: "Back a collab between two climbers", earned: collabs >= 1 },
     { id: "regular", name: "Regular", how: "Pledge three days in a row", earned: streakDays >= 3 },
+    { id: "money-back", name: "Money back", how: "Get a pledge refunded after a missed challenge", earned: mine.some((p) => p.refunded) },
+    { id: "idea-planter", name: "Idea planter", how: "Have a climber open a challenge you suggested", earned: db().suggestions.some((s) => s.userId === fan.id && s.status === "used") },
+    { id: "talent-scout", name: "Talent scout", how: "Back 3 different climbers", earned: streamersBacked >= 3 },
+    { id: "hat-trick", name: "Hat-trick", how: "Be the first to back 3 challenges", earned: firstIn >= 3 },
+    { id: "skyline", name: "Skyline", how: "Take 3 pots to their goal", earned: cloudPushes >= 3 },
+    { id: "seasoned", name: "Seasoned", how: "Back 10 challenges", earned: challenges.length >= 10 },
+    { id: "bumper-crop", name: "Bumper crop", how: "Back 10 challenges that were completed", earned: grown >= 10 },
+    { id: "evergreen", name: "Evergreen", how: "Pledge seven days in a row", earned: streakDays >= 7 },
   ];
 
   return {
@@ -937,4 +945,103 @@ export function liveEverywhere(limit = 6): Challenge[] {
 /** Disputed clips that still need a keeper's ruling. */
 export function disputesWaiting(): Challenge[] {
   return db().challenges.filter((c) => c.status === "locked" && (c.claim?.disputedBy.length ?? 0) > 0 && !c.claim?.ruling);
+}
+
+// ---------------------------------------------------------------------------
+// Browsing and search
+// ---------------------------------------------------------------------------
+
+/** One streamer's presence in a directory: what they have live and how much is riding on it. */
+export interface StreamListing {
+  streamer: User;
+  /** The fullest live challenge, used as the card's headline. */
+  headline: Challenge;
+  liveCount: number;
+  potMicro: number;
+  planters: number;
+  charity: boolean;
+  collab: boolean;
+}
+
+const isLive = (c: Challenge) => c.status === "open" || c.status === "locked";
+
+/** Streamers with something live, biggest pots first. Pass a game id to narrow it to one game. */
+export function liveStreams(gameId?: string): StreamListing[] {
+  const byStreamer = new Map<string, Challenge[]>();
+  for (const c of db().challenges) {
+    if (!isLive(c) || (gameId && c.gameId !== gameId)) continue;
+    byStreamer.set(c.streamerId, [...(byStreamer.get(c.streamerId) ?? []), c]);
+  }
+  const listings: StreamListing[] = [];
+  for (const [streamerId, challenges] of byStreamer) {
+    const streamer = getUser(streamerId);
+    if (!streamer?.handle) continue;
+    const ids = new Set(challenges.map((c) => c.id));
+    listings.push({
+      streamer,
+      headline: [...challenges].sort((a, b) => b.totalMicro - a.totalMicro || b.createdAt - a.createdAt)[0]!,
+      liveCount: challenges.length,
+      potMicro: challenges.reduce((sum, c) => sum + c.totalMicro, 0),
+      planters: new Set(db().pledges.filter((p) => ids.has(p.challengeId)).map((p) => p.userId)).size,
+      charity: challenges.some((c) => c.splits?.some((s) => s.kind === "cause")),
+      collab: challenges.some((c) => c.splits?.some((s) => s.kind === "guest")),
+    });
+  }
+  return listings.sort((a, b) => b.potMicro - a.potMicro || b.planters - a.planters);
+}
+
+/** Finished challenges, newest first, optionally for one game. */
+export function recentResults(gameId?: string, limit = 8): Challenge[] {
+  return db()
+    .challenges.filter((c) => !isLive(c) && (!gameId || c.gameId === gameId))
+    .sort((a, b) => (b.settledAt ?? b.createdAt) - (a.settledAt ?? a.createdAt))
+    .slice(0, limit);
+}
+
+/** How many streamers are live in each game. */
+export function liveCountsByGame(): Record<string, number> {
+  const counts: Record<string, Set<string>> = {};
+  for (const c of db().challenges) if (isLive(c)) (counts[c.gameId] ??= new Set()).add(c.streamerId);
+  return Object.fromEntries(Object.entries(counts).map(([id, set]) => [id, set.size]));
+}
+
+export interface SearchResults {
+  games: (typeof GAMES)[number][];
+  /** Streamers who have set up at least one challenge. */
+  streamers: { streamer: User; challenges: number; live: number }[];
+  challenges: Challenge[];
+}
+
+/** Finds games, streamers who have run challenges, and the challenges themselves. */
+export function search(query: string, limit = 12): SearchResults {
+  const q = query.trim().toLowerCase().replace(/^@/, "");
+  if (q.length < 2) return { games: [], streamers: [], challenges: [] };
+  const games = GAMES.filter((g) => g.name.toLowerCase().includes(q) || g.id.includes(q));
+  const gameIds = new Set(games.map((g) => g.id));
+  const streamers = listStreamers()
+    .map((streamer) => {
+      const own = db().challenges.filter((c) => c.streamerId === streamer.id);
+      return { streamer, challenges: own.length, live: own.filter(isLive).length };
+    })
+    .filter((row) => row.challenges > 0 && (row.streamer.name.toLowerCase().includes(q) || row.streamer.handle!.includes(q)))
+    .sort((a, b) => b.live - a.live || b.challenges - a.challenges);
+  const challenges = db()
+    .challenges.filter((c) => c.title.toLowerCase().includes(q) || gameIds.has(c.gameId))
+    .sort((a, b) => Number(isLive(b)) - Number(isLive(a)) || b.createdAt - a.createdAt)
+    .slice(0, limit);
+  return { games, streamers: streamers.slice(0, limit), challenges };
+}
+
+/** Numbers for a challenge's tile on the climber's dashboard. */
+export function challengeStats(challenge: Challenge, viewerId: string) {
+  const funders = fundersOf(challenge.id);
+  const end = challenge.settledAt ?? Date.now();
+  return {
+    planters: funders.length,
+    pctOfGoal: Math.round((challenge.totalMicro / challenge.goalMicro) * 100),
+    biggestMicro: funders[0]?.amountMicro ?? 0,
+    /** What this streamer took home, or would at the current pot. */
+    shareMicro: shareOf(challenge, viewerId),
+    minutes: Math.max(1, Math.round((end - challenge.createdAt) / 60_000)),
+  };
 }
