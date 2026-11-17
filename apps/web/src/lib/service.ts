@@ -734,6 +734,8 @@ export async function rule(actor: User, challengeId: string, upheld: boolean): P
   const current = challenge.claim ?? fail("There is no claim to rule on");
   if (current.disputedBy.length === 0) fail("Nobody has disputed this claim");
   current.ruling = upheld ? "upheld" : "rejected";
+  current.ruledBy = actor.id;
+  current.ruledAt = Date.now();
   save();
   return check(challengeId, { force: true });
 }
@@ -1044,4 +1046,116 @@ export function challengeStats(challenge: Challenge, viewerId: string) {
     shareMicro: shareOf(challenge, viewerId),
     minutes: Math.max(1, Math.round((end - challenge.createdAt) / 60_000)),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Climber and keeper analytics
+// ---------------------------------------------------------------------------
+
+export interface ClimberStats {
+  total: number;
+  live: number;
+  completed: number;
+  missed: number;
+  /** Completed as a share of settled challenges, 0 to 100. */
+  completionPct: number;
+  earnedMicro: number;
+  refundedMicro: number;
+  raisedMicro: number;
+  planters: number;
+  /** Planters who backed more than one of this climber's challenges. */
+  returning: number;
+  averagePotMicro: number;
+  byGame: { gameId: string; name: string; challenges: number; completed: number; earnedMicro: number }[];
+  /** Settled challenges, oldest first, for the pot chart. */
+  history: { id: string; title: string; potMicro: number; paid: boolean }[];
+}
+
+export function climberStats(streamer: User): ClimberStats {
+  const all = stageChallenges(streamer.id);
+  const settled = all.filter((c) => !isLive(c));
+  const paid = settled.filter((c) => c.status === "paid");
+  const ids = new Set(all.map((c) => c.id));
+  const perPlanter = new Map<string, Set<string>>();
+  let refundedMicro = 0;
+  for (const p of db().pledges) {
+    if (!ids.has(p.challengeId)) continue;
+    if (p.refunded) refundedMicro += p.amountMicro;
+    perPlanter.set(p.userId, (perPlanter.get(p.userId) ?? new Set()).add(p.challengeId));
+  }
+  let raisedMicro = 0;
+  for (const c of paid) {
+    const { parts } = splitPot(c.totalMicro, c.splits);
+    (c.splits ?? []).forEach((s, i) => {
+      if (s.kind === "cause") raisedMicro += parts[i]!;
+    });
+  }
+  const games = new Map<string, { challenges: number; completed: number; earnedMicro: number }>();
+  for (const c of all) {
+    const row = games.get(c.gameId) ?? { challenges: 0, completed: 0, earnedMicro: 0 };
+    row.challenges++;
+    if (c.status === "paid") {
+      row.completed++;
+      row.earnedMicro += shareOf(c, streamer.id);
+    }
+    games.set(c.gameId, row);
+  }
+  const funded = all.filter((c) => c.totalMicro > 0);
+  return {
+    total: all.length,
+    live: all.length - settled.length,
+    completed: paid.length,
+    missed: settled.length - paid.length,
+    completionPct: settled.length === 0 ? 0 : Math.round((paid.length / settled.length) * 100),
+    earnedMicro: paid.reduce((sum, c) => sum + shareOf(c, streamer.id), 0),
+    refundedMicro,
+    raisedMicro,
+    planters: perPlanter.size,
+    returning: [...perPlanter.values()].filter((set) => set.size > 1).length,
+    averagePotMicro: funded.length === 0 ? 0 : Math.round(funded.reduce((sum, c) => sum + c.totalMicro, 0) / funded.length),
+    byGame: [...games.entries()]
+      .map(([gameId, row]) => ({ gameId, name: GAMES.find((g) => g.id === gameId)?.name ?? gameId, ...row }))
+      .sort((a, b) => b.earnedMicro - a.earnedMicro || b.challenges - a.challenges),
+    history: [...settled]
+      .sort((a, b) => (a.settledAt ?? a.createdAt) - (b.settledAt ?? b.createdAt))
+      .slice(-12)
+      .map((c) => ({ id: c.id, title: c.title, potMicro: c.totalMicro, paid: c.status === "paid" })),
+  };
+}
+
+/** What a keeper has ruled on, newest first, and the money those rulings decided. */
+export function keeperStats(keeper: User) {
+  const ruled = db()
+    .challenges.filter((c) => c.claim?.ruledBy === keeper.id)
+    .sort((a, b) => (b.claim?.ruledAt ?? 0) - (a.claim?.ruledAt ?? 0));
+  const upheld = ruled.filter((c) => c.claim?.ruling === "upheld");
+  return {
+    waiting: disputesWaiting(),
+    ruled,
+    upheld: upheld.length,
+    rejected: ruled.length - upheld.length,
+    paidOutMicro: upheld.reduce((sum, c) => sum + c.totalMicro, 0),
+    refundedMicro: ruled.filter((c) => c.claim?.ruling === "rejected").reduce((sum, c) => sum + c.totalMicro, 0),
+  };
+}
+
+/** A planter's own recent money movements, newest first. */
+export function planterActivity(fan: User, limit = 12): { at: number; challenge: Challenge; text: string; kind: "pledged" | "refunded" | "paid" }[] {
+  const rows: { at: number; challenge: Challenge; text: string; kind: "pledged" | "refunded" | "paid" }[] = [];
+  const seenOutcome = new Set<string>();
+  for (const p of db().pledges) {
+    if (p.userId !== fan.id) continue;
+    const challenge = db().challenges.find((c) => c.id === p.challengeId);
+    if (!challenge) continue;
+    rows.push({ at: p.createdAt, challenge, kind: "pledged", text: `You pledged ${formatUsd(p.amountMicro)}` });
+    if (challenge.settledAt && !seenOutcome.has(challenge.id)) {
+      seenOutcome.add(challenge.id);
+      rows.push(
+        challenge.status === "paid"
+          ? { at: challenge.settledAt, challenge, kind: "paid", text: "Completed: your pledge went to the climber" }
+          : { at: challenge.settledAt, challenge, kind: "refunded", text: "Missed: your pledge came back" },
+      );
+    }
+  }
+  return rows.sort((a, b) => b.at - a.at).slice(0, limit);
 }

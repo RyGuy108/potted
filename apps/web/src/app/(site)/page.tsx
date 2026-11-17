@@ -5,6 +5,7 @@ import { ChallengeCard } from "@/components/ChallengeCard";
 import { Icon } from "@/components/Icon";
 import { LevelCard } from "@/components/LevelCard";
 import { Marketing } from "@/components/Marketing";
+import { Wallet } from "@/components/Wallet";
 import { ROLES } from "@/lib/roles";
 import { disputesWaiting, gardenOf, listStreamers, liveEverywhere, planterStats, stageChallenges } from "@/lib/service";
 import { currentUser } from "@/lib/session";
@@ -52,7 +53,10 @@ export default async function Home() {
   const garden = gardenOf(user);
   return (
     <>
-      <p className="eyebrow">Welcome back</p>
+      <div className="row between">
+        <p className="eyebrow">Welcome back</p>
+        <Wallet user={user} />
+      </div>
       <h1>{stats.backed === 0 ? `Ready to plant, ${user.name}?` : `Your garden is growing, ${user.name}`}</h1>
 
       <div className="home-top">

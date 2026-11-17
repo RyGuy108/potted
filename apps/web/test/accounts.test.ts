@@ -203,3 +203,54 @@ describe("browsing and search", () => {
     expect(badges.filter((b) => b.earned).map((b) => b.id)).toEqual(["first-bean", "early-bird", "money-back", "idea-planter"]);
   });
 });
+
+describe("analytics by account type", () => {
+  const streamer = () => service.getUser(DEMO_STREAMER_ID)!;
+  const clip = (gameId: string, game: string) => ({
+    gameId,
+    condition: { kind: "optimistic", game, statement: "Do the thing on stream", disputeWindowSecs: 60 },
+    goalUsd: 10,
+    pledgeCapUsd: 10,
+    minutes: 30,
+  });
+
+  it("gives a climber earnings, completion rate, returning planters and a per-game split", async () => {
+    const ana = await service.signIn("Ana", "fan");
+    const ben = await service.signIn("Ben", "fan");
+    process.env.POTTED_ALLOW_SIMULATED_RESULTS = "true";
+    const won = await service.createChallenge(streamer(), clip("gta6", "GTA VI"));
+    await service.pledge(ana, won.id, 6);
+    await service.pledge(ben, won.id, 2);
+    await service.lock(streamer(), won.id);
+    await service.simulateResult(streamer(), won.id, true);
+    const lost = await service.createChallenge(streamer(), clip("cooking", "Cooking"));
+    await service.pledge(ana, lost.id, 4);
+    await service.lock(streamer(), lost.id);
+    await service.simulateResult(streamer(), lost.id, false);
+    delete process.env.POTTED_ALLOW_SIMULATED_RESULTS;
+    await service.createChallenge(streamer(), clip("gta6", "GTA VI"));
+
+    expect(service.climberStats(streamer())).toMatchObject({
+      total: 3, live: 1, completed: 1, missed: 1, completionPct: 50,
+      earnedMicro: 8_000_000, refundedMicro: 4_000_000, planters: 2, returning: 1, averagePotMicro: 6_000_000,
+      byGame: [{ gameId: "gta6", challenges: 2, completed: 1, earnedMicro: 8_000_000 }, { gameId: "cooking", challenges: 1, completed: 0, earnedMicro: 0 }],
+    });
+    expect(service.climberStats(streamer()).history.map((h) => [h.potMicro, h.paid])).toEqual([[8_000_000, true], [4_000_000, false]]);
+    expect(service.planterActivity(ana).map((r) => r.kind).sort()).toEqual(["paid", "pledged", "pledged", "refunded"]);
+  });
+
+  it("records which keeper ruled and what the ruling decided", async () => {
+    const ana = await service.signIn("Ana", "fan");
+    const sam = await service.signIn("Sam", "mod");
+    const other = await service.signIn("Other", "mod");
+    const c = await service.createChallenge(streamer(), { ...clip("gta6", "GTA VI"), condition: { kind: "optimistic", game: "GTA VI", statement: "Do the thing on stream", disputeWindowSecs: 600 } });
+    await service.pledge(ana, c.id, 5);
+    await service.lock(streamer(), c.id);
+    await service.claim(streamer(), c.id, "https://clips.example.com/a");
+    await service.dispute(ana, c.id);
+    expect(service.keeperStats(sam).waiting.map((x) => x.id)).toEqual([c.id]);
+    await service.rule(sam, c.id, false);
+    expect(service.keeperStats(sam)).toMatchObject({ waiting: [], upheld: 0, rejected: 1, refundedMicro: 5_000_000 });
+    expect(service.keeperStats(other).ruled).toEqual([]);
+  });
+});

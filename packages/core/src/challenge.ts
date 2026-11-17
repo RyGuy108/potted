@@ -31,6 +31,9 @@ export interface OptimisticClaim {
   /** User ids of funders who disputed. */
   disputedBy: string[];
   ruling?: "upheld" | "rejected";
+  /** The keeper who ruled, and when. */
+  ruledBy?: string;
+  ruledAt?: number;
 }
 
 export interface Challenge {

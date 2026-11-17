@@ -8,6 +8,7 @@ import { GameArt } from "@/components/GameArt";
 import { ClaimForm } from "@/components/ClaimForm";
 import { CreateChallengeForm } from "@/components/CreateChallengeForm";
 import { AutoRefresh, CopyField, Countdown } from "@/components/Live";
+import { Wallet } from "@/components/Wallet";
 import { SettingsForm } from "@/components/SettingsForm";
 import { SignInPanel } from "@/components/SignInPanel";
 import { adapterStatus, gameOf } from "@/lib/format";
@@ -19,7 +20,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   if (user?.role !== "streamer") {
     return (
       <>
-        <h1>Streamer dashboard</h1>
+        <h1>Climber dashboard</h1>
         <p className="lede">Sign in as the demo streamer to create challenges and run an attempt.</p>
         <SignInPanel />
       </>
@@ -40,7 +41,10 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   return (
     <>
       <AutoRefresh pollIds={challenges.filter((c) => c.status === "locked").map((c) => c.id)} />
-      <p className="eyebrow">Dashboard</p>
+      <div className="row between">
+        <p className="eyebrow">Dashboard</p>
+        <Wallet user={user} />
+      </div>
       <h1>Run your challenges</h1>
 
       <section className="card links">

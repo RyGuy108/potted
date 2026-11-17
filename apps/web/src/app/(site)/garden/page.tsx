@@ -6,7 +6,8 @@ import { SignInPanel } from "@/components/SignInPanel";
 import { gameOf } from "@/lib/format";
 import { BadgeGrid } from "@/components/BadgeGrid";
 import { LevelCard } from "@/components/LevelCard";
-import { gardenOf, planterStats } from "@/lib/service";
+import { Wallet } from "@/components/Wallet";
+import { gardenOf, planterActivity, planterStats } from "@/lib/service";
 import { currentUser } from "@/lib/session";
 
 /** Every beanstalk a fan has helped grow, across all streamers. */
@@ -26,9 +27,13 @@ export default async function Garden() {
   const earned = stats.badges.filter((b) => b.earned).length;
   // The nearest thing to aim for, so the page always suggests a next step.
   const nextBadge = stats.badges.find((b) => !b.earned);
+  const activity = planterActivity(user);
   return (
     <>
-      <p className="eyebrow">Your garden</p>
+      <div className="row between">
+        <p className="eyebrow">Your garden</p>
+        <Wallet user={user} />
+      </div>
       <h1>{garden.plots.length === 0 ? "Nothing planted yet" : `${garden.plots.length} planted, ${garden.grown} grown`}</h1>
 
       <div className="home-top">
@@ -84,6 +89,20 @@ export default async function Garden() {
         Badges <span className="muted small">{earned} of {stats.badges.length}</span>
       </h2>
       <BadgeGrid badges={stats.badges} />
+
+      {activity.length > 0 && (
+        <>
+          <h2>Recent activity</h2>
+          <div className="card table">
+            {activity.map((row, i) => (
+              <div key={i} className="table-row table-activity">
+                <span className={row.kind === "paid" ? "success" : row.kind === "refunded" ? "warn" : undefined}>{row.text}</span>
+                <Link href={`/c/${row.challenge.id}`}>{row.challenge.title}</Link>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       <h2>Your plots</h2>
       {garden.plots.length === 0 ? (

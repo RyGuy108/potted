@@ -9,6 +9,7 @@ import { FundingBar, SplitLine, StatusPill } from "@/components/ChallengeCard";
 import { AutoRefresh, CopyField, Countdown } from "@/components/Live";
 import { Beanstalk } from "@/components/Beanstalk";
 import { PledgeForm } from "@/components/PledgeForm";
+import { Wallet } from "@/components/Wallet";
 import { SignInPanel } from "@/components/SignInPanel";
 import { clock, gameOf, tierLabel } from "@/lib/format";
 import { isSimTx } from "@/lib/ledger";
@@ -170,6 +171,7 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
           {challenge.status === "open" && !user && <SignInPanel />}
           {challenge.status === "open" && user?.role === "fan" && (
             <>
+              <Wallet user={user} />
               <PledgeForm challengeId={challenge.id} remainingUsd={toUsd(challenge.pledgeCapMicro - mine)} />
               {mine > 0 && <p className="muted small">You have {formatUsd(mine)} in this pot.</p>}
             </>
