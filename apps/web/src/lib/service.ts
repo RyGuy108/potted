@@ -217,6 +217,17 @@ export async function signIn(name: string, role: Role): Promise<User> {
   return user;
 }
 
+/** Judge mode for climbers: a new stream with its own address, no password. */
+export async function signUpClimber(name: string, handle: string): Promise<User> {
+  const clean = name.trim().slice(0, 24);
+  if (clean.length < 2) fail("Pick a name with at least 2 characters");
+  const id = newId("u");
+  const user: User = { id, name: clean, role: "streamer", handle: claimableHandle(handle), wallet: ledger().newWallet(id), createdAt: Date.now() };
+  db().users.push(user);
+  save();
+  return user;
+}
+
 export function settingsOf(streamer: User): StreamSettings {
   return { ...DEFAULT_SETTINGS, ...streamer.settings };
 }
@@ -892,14 +903,19 @@ export async function signInWith(provider: string, profile: { subject: string; n
 const RESERVED_HANDLES = new Set(["ryan", "kai", "admin", "potted", "api", "login", "welcome", "dashboard", "garden", "activity", "about"]);
 
 /** A new account picks what it is here to do. Climbers also claim their stream's address. */
+/** Checks a stream address and returns it cleaned, or throws. */
+function claimableHandle(handle: string): string {
+  const clean = handle.trim().toLowerCase().replace(/^@/, "");
+  if (!/^[a-z0-9_]{3,20}$/.test(clean)) fail("Pick a stream address of 3 to 20 letters, numbers or underscores");
+  if (RESERVED_HANDLES.has(clean) || db().users.some((u) => u.handle === clean)) fail("That stream address is taken");
+  return clean;
+}
+
 export async function chooseRole(actor: User, role: "fan" | "streamer", handle = ""): Promise<User> {
   if (actor.onboarded !== false) fail("This account has already chosen");
   if (role === "streamer") {
-    const clean = handle.trim().toLowerCase();
-    if (!/^[a-z0-9_]{3,20}$/.test(clean)) fail("Pick a stream address of 3 to 20 letters, numbers or underscores");
-    if (RESERVED_HANDLES.has(clean) || db().users.some((u) => u.handle === clean)) fail("That stream address is taken");
+    actor.handle = claimableHandle(handle);
     actor.role = "streamer";
-    actor.handle = clean;
   }
   actor.onboarded = true;
   save();

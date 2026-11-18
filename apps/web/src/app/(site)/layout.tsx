@@ -36,9 +36,14 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
               </ActionButton>
             </>
           ) : (
-            <Link href="/login" className="btn btn-primary">
-              Log in / Sign up
-            </Link>
+            <>
+              <Link href="/login" className="btn btn-ghost">
+                Log in
+              </Link>
+              <Link href="/signup" className="btn btn-primary">
+                Sign up
+              </Link>
+            </>
           )}
         </div>
       </header>

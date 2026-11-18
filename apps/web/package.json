@@ -9,7 +9,8 @@
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json",
     "solana:setup": "node --env-file-if-exists=.env.local scripts/solana-setup.mjs",
-    "test:solana": "SOLANA_TEST_RPC=http://127.0.0.1:8899 vitest run test/solana.integration.test.ts"
+    "test:solana": "SOLANA_TEST_RPC=http://127.0.0.1:8899 vitest run test/solana.integration.test.ts",
+    "sample": "node --env-file-if-exists=.env.local --import tsx scripts/sample-data.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "0.32.1",
@@ -32,6 +33,7 @@
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.0",
     "vitest": "^3.2.0"
   }

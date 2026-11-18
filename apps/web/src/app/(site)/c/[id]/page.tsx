@@ -100,6 +100,7 @@ function Receipt({ challenge, hostName }: { challenge: Challenge; hostName: stri
         </dl>
       )}
       {evidence?.simulated && <p className="warn">Rehearsal result. No game data was checked for this settlement.</p>}
+      {evidence?.sample && <p className="muted small"><span className="tag tag-quiet">sample history</span> Added for the demo. No game data was checked.</p>}
       <p>{verdict.reason}.</p>
       {evidence && (
         <dl>

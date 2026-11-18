@@ -156,6 +156,8 @@ export interface Db {
   /** Sim ledger balances in micro-USDC, by wallet. */
   balances: Record<string, number>;
   seq: number;
+  /** Set while the demo sample is loaded: live challenges it opened, so it can be removed again. */
+  sample?: { challengeIds: string[]; addedAt: number };
 }
 
 export const DEMO_STREAMER_ID = "u_demo_streamer";

@@ -10,9 +10,9 @@ interface RoleText {
   blurb: string;
 }
 
-export function RoleChoice({ planter, climber }: { planter: RoleText; climber: RoleText }) {
+export function RoleChoice({ planter, climber, only }: { planter: RoleText; climber: RoleText; /** Skip the choice: the person already picked on the sign-up page. */ only?: "fan" | "streamer" }) {
   const router = useRouter();
-  const [role, setRole] = useState<"fan" | "streamer">("fan");
+  const [role, setRole] = useState<"fan" | "streamer">(only ?? "fan");
   const [handle, setHandle] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -39,10 +39,10 @@ export function RoleChoice({ planter, climber }: { planter: RoleText; climber: R
         });
       }}
     >
-      <div className="roles" role="radiogroup" aria-label="Account type">
+      {!only && <div className="roles" role="radiogroup" aria-label="Account type">
         {option("fan", planter, 1, "Pledge to challenges, earn levels and badges, get refunded on a miss.")}
         {option("streamer", climber, 4, "Open challenges, share your page and overlay, get paid when you deliver.")}
-      </div>
+      </div>}
       {role === "streamer" && (
         <label className="field">
           <span>Your stream address</span>

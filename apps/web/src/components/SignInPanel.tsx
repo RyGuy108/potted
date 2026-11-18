@@ -1,11 +1,12 @@
-import { PROVIDERS, PROVIDER_IDS, isConfigured } from "@/lib/oauth";
-import { DemoSignIn } from "./DemoSignIn";
+import Link from "next/link";
+import { DemoSignUp } from "./DemoSignUp";
+import { ProviderButtons } from "./ProviderButtons";
 
 /**
- * The one way in, used everywhere a visitor can sign in: an account they
- * already have, or the demo with test money.
+ * The join prompt shown on pages a signed-out visitor lands on. It signs
+ * people up as planters; climbers and keepers have their own sign-up pages.
  */
-export function SignInPanel({ title = "Sign in to start planting", redirectTo }: { title?: string; /** Where to go after a demo sign-in. Stays on the page when omitted. */ redirectTo?: string }) {
+export function SignInPanel({ title = "Sign up to start planting", redirectTo }: { title?: string; /** Where to go after a demo sign-up. Stays on the page when omitted. */ redirectTo?: string }) {
   return (
     <section className="card signin-panel" id="signin">
       <div className="signin-pitch">
@@ -16,26 +17,16 @@ export function SignInPanel({ title = "Sign in to start planting", redirectTo }:
           <li>Missed challenges refund your pledge, less any up-front share shown before you pledge</li>
           <li>Earn levels and badges as your garden grows</li>
         </ul>
+        <p className="muted small signin-links">
+          Have an account? <Link href="/login">Log in</Link> · Run a stream? <Link href="/signup/climber">Sign up as a climber</Link>
+        </p>
       </div>
       <div className="signin-ways">
-        <div className="providers">
-          {PROVIDER_IDS.map((id) =>
-            isConfigured(id) ? (
-              <a key={id} className={`btn provider provider-${id}`} href={`/api/auth/${id}/start`}>
-                Continue with {PROVIDERS[id].label}
-              </a>
-            ) : (
-              <span key={id} className={`btn provider provider-${id} provider-off`} aria-disabled="true" title="Not connected on this server">
-                Continue with {PROVIDERS[id].label}
-                <span className="tag tag-quiet">not connected</span>
-              </span>
-            ),
-          )}
-        </div>
+        <ProviderButtons as="fan" />
         <div className="divider">
           <span>or try the demo with test money</span>
         </div>
-        <DemoSignIn redirectTo={redirectTo} />
+        <DemoSignUp role="fan" redirectTo={redirectTo} />
       </div>
     </section>
   );

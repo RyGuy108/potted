@@ -4,10 +4,21 @@ import { ROLES } from "@/lib/roles";
 import { currentUser } from "@/lib/session";
 
 /** A new account says what it is here to do. */
-export default async function Welcome() {
+export default async function Welcome({ searchParams }: { searchParams: Promise<{ as?: string }> }) {
   const user = await currentUser();
   if (!user) redirect("/login");
   if (user.onboarded !== false) redirect("/");
+  const climber = (await searchParams).as === "streamer";
+  if (climber) {
+    return (
+      <div className="login">
+        <p className="eyebrow">Welcome, {user.name}</p>
+        <h1>Claim your stream address</h1>
+        <p className="lede">This is the page you share with your viewers.</p>
+        <RoleChoice planter={ROLES.fan} climber={ROLES.streamer} only="streamer" />
+      </div>
+    );
+  }
   return (
     <div className="login">
       <p className="eyebrow">Welcome, {user.name}</p>

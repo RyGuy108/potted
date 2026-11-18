@@ -84,6 +84,12 @@ export function isConfigured(id: ProviderId, env: Deps["env"] = process.env): bo
   return credentials(id, env) !== undefined;
 }
 
+const ASK_EVERY_TIME: Record<ProviderId, Record<string, string>> = {
+  google: { prompt: "select_account" },
+  twitch: { force_verify: "true" },
+  discord: { prompt: "consent" },
+};
+
 /** Where to send the browser to start signing in. */
 export function authorizeUrl(id: ProviderId, redirectUri: string, state: string, env: Deps["env"] = process.env): string {
   const creds = credentials(id, env);
@@ -95,6 +101,9 @@ export function authorizeUrl(id: ProviderId, redirectUri: string, state: string,
     scope: PROVIDERS[id].scope,
     state,
   });
+  // Always show the provider's account picker, so a remembered approval
+  // never signs someone in without a click on their part.
+  for (const [key, value] of Object.entries(ASK_EVERY_TIME[id])) params.set(key, value);
   return `${PROVIDERS[id].authorize}?${params}`;
 }
 

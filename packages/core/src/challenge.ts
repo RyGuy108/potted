@@ -17,6 +17,8 @@ export interface Evidence {
   summary: string;
   /** True when a rehearsal tool forced the result. Never shown as real. */
   simulated?: boolean;
+  /** True for the sample history added for demos. No game data was checked. */
+  sample?: boolean;
 }
 
 export interface Verdict {

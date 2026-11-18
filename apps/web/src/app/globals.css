@@ -2414,3 +2414,53 @@ body:has(.overlay-page) {
 .upfront-field {
   margin-top: 6px;
 }
+
+.sample-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.sample-account {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  padding: 10px 12px;
+  height: auto;
+}
+
+.demo-accounts {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.demo-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.demo .row + .row {
+  margin-top: 10px;
+}
+
+.signin-links {
+  margin-top: 18px;
+}
+
+.roles-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+a.card.role {
+  text-decoration: none;
+}
+
+@media (max-width: 820px) {
+  .roles-3 {
+    grid-template-columns: 1fr;
+  }
+}

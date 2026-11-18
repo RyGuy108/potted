@@ -11,7 +11,6 @@ import { CreateChallengeForm } from "@/components/CreateChallengeForm";
 import { AutoRefresh, CopyField, Countdown } from "@/components/Live";
 import { Wallet } from "@/components/Wallet";
 import { SettingsForm } from "@/components/SettingsForm";
-import { SignInPanel } from "@/components/SignInPanel";
 import { adapterStatus, gameOf } from "@/lib/format";
 import { backersOf, bountiesSupported, bountyTotal, challengeStats, expireBounties, openBounties, getSuggestion, getUser, invitesFor, listChallenges, listStreamers, pendingSuggestions, settingsOf, shareOf, simulatedResultsAllowed, stageChallenges } from "@/lib/service";
 import { currentUser } from "@/lib/session";
@@ -20,11 +19,29 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const user = await currentUser();
   if (user?.role !== "streamer") {
     return (
-      <>
+      <div className="login">
         <h1>Climber dashboard</h1>
-        <p className="lede">Sign in as the demo streamer to create challenges and run an attempt.</p>
-        <SignInPanel />
-      </>
+        {user ? (
+          <>
+            <p className="lede">This page is for climbers. Your account is for {user.role === "mod" ? "reviewing disputed clips" : "backing challenges"}.</p>
+            <Link href={user.role === "mod" ? "/reviews" : "/"} className="btn btn-primary">
+              {user.role === "mod" ? "Go to reviews" : "Go to my home"}
+            </Link>
+          </>
+        ) : (
+          <>
+            <p className="lede">Log in to your climber account to open challenges and run attempts.</p>
+            <div className="row">
+              <Link href="/login" className="btn btn-primary">
+                Log in
+              </Link>
+              <Link href="/signup/climber" className="btn btn-ghost">
+                Sign up as a climber
+              </Link>
+            </div>
+          </>
+        )}
+      </div>
     );
   }
   const challenges = listChallenges(user.id);

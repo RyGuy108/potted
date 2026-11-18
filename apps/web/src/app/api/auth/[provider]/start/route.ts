@@ -7,13 +7,16 @@ import { publicBase } from "@/lib/url";
 export const dynamic = "force-dynamic";
 
 /** Sends the browser to the provider's sign-in page. */
-export async function GET(_request: Request, { params }: { params: Promise<{ provider: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ provider: string }> }) {
   const { provider } = await params;
   const base = await publicBase();
   if (!isProvider(provider) || !isConfigured(provider)) return NextResponse.redirect(`${base}/login?error=not-set-up`);
   // The state value comes back on the callback; matching it to this cookie
   // proves the callback belongs to a sign-in this browser started.
   const state = randomBytes(16).toString("hex");
-  (await cookies()).set("potted_oauth", `${provider}:${state}`, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 600 });
+  // Which sign-up page they came from, so a new account skips the role question.
+  const as = new URL(request.url).searchParams.get("as");
+  const intent = as === "fan" || as === "streamer" ? as : "";
+  (await cookies()).set("potted_oauth", `${provider}:${state}:${intent}`, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 600 });
   return NextResponse.redirect(authorizeUrl(provider, `${base}/api/auth/${provider}/callback`, state));
 }
