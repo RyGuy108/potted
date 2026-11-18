@@ -2,29 +2,16 @@ import Link from "next/link";
 import type { User } from "@/lib/store";
 import { Wallet } from "./Wallet";
 
-const TABS = [
-  { id: "challenges", href: "/dashboard", label: "Challenges", note: "While you're live" },
-  { id: "channel", href: "/dashboard/channel", label: "Channel", note: "Setup, money and history" },
-] as const;
-
-/** The two halves of the climber dashboard, with the wallet. */
-export function DashHead({ user, tab, title, lede }: { user: User; tab: (typeof TABS)[number]["id"]; title: string; lede: string }) {
+/** The heading of a climber page (Challenges or Channel), with the wallet. */
+export function DashHead({ user, label, title, lede }: { user: User; label: string; title: string; lede: string }) {
   return (
     <header className="dash-head">
       <div className="row between">
-        <p className="eyebrow">Dashboard</p>
+        <p className="eyebrow">{label}</p>
         <Wallet user={user} />
       </div>
       <h1>{title}</h1>
       <p className="muted">{lede}</p>
-      <nav className="dash-tabs" aria-label="Dashboard pages">
-        {TABS.map((t) => (
-          <Link key={t.id} href={t.href} className={t.id === tab ? "on" : undefined} aria-current={t.id === tab ? "page" : undefined}>
-            <span>{t.label}</span>
-            <span className="small muted">{t.note}</span>
-          </Link>
-        ))}
-      </nav>
     </header>
   );
 }

@@ -243,7 +243,7 @@ export function onInviteAnswered(hostId: string, guestName: string, accepted: bo
 }
 
 export function onRedeemed(r: Redemption, fanName: string): void {
-  notify(r.streamerId, "points", `${fanName} redeemed ${r.title}`, r.input ? `"${r.input}"` : `${r.cost.toLocaleString()} points`, "/dashboard#points");
+  notify(r.streamerId, "points", `${fanName} redeemed ${r.title}`, r.input ? `"${r.input}"` : `${r.cost.toLocaleString()} points`, "/dashboard/channel#points");
 }
 
 export function onRedemptionAnswered(r: Redemption, streamerName: string, handle: string): void {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { signOutAction } from "@/app/actions";
+import { NavLink } from "@/components/NavLink";
 import { NotificationBell } from "@/components/NotificationBell";
 import { unreadCount } from "@/lib/notifications";
 import { ActionButton } from "@/components/ActionButton";
@@ -20,7 +21,8 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         </Link>
         <nav>
           <Link href="/browse">Browse</Link>
-          {user?.role === "streamer" && <Link href="/dashboard">Dashboard</Link>}
+          {user?.role === "streamer" && <NavLink href="/dashboard" exact>Challenges</NavLink>}
+          {user?.role === "streamer" && <NavLink href="/dashboard/channel">Channel</NavLink>}
           {user?.role === "streamer" && <Link href="/analytics">Analytics</Link>}
           {user?.role === "fan" && <Link href="/garden">My garden</Link>}
           {user?.role === "mod" && <Link href="/reviews">Reviews</Link>}

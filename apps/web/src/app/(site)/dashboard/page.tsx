@@ -9,7 +9,6 @@ import { CreateChallengeForm, type SuggestionSeed } from "@/components/CreateCha
 import { DashHead, NotAClimber } from "@/components/DashHead";
 import { AutoRefresh, Countdown } from "@/components/Live";
 import { PastTile } from "@/components/PastTile";
-import { PointsPanel } from "@/components/PointsPanel";
 import { ScoutPanel } from "@/components/ScoutPanel";
 import { ApprovalQueue } from "@/components/StreamerPanels";
 import { adapterStatus, gameOf } from "@/lib/format";
@@ -19,7 +18,7 @@ import { backersOf, bountiesSupported, bountyTotal, expireBounties, getSuggestio
 import { currentUser } from "@/lib/session";
 import { publicBase } from "@/lib/url";
 
-/** The climber's live page: running challenges, everything waiting on them, and a new challenge. Setup and history are on /dashboard/channel. */
+/** The climber's Challenges page: running challenges, everything waiting on them, a new challenge, and past ones to run again. Setup, money and rewards are on /dashboard/channel. */
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ use?: string; bounty?: string; pitch?: string }> }) {
   const user = await currentUser();
   if (user?.role !== "streamer") return <NotAClimber user={user} />;
@@ -48,8 +47,6 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       : undefined;
   const live = challenges.filter((c) => c.status === "open" || c.status === "locked");
   const past = challenges.filter((c) => c.status === "paid" || c.status === "failed");
-  // Results from this stream stay here, so a win (or a miss) can be run again straight away. Older ones are on Channel.
-  const justFinished = past.filter((c) => Date.now() - (c.settledAt ?? c.createdAt) < 6 * 60 * 60_000).slice(0, 6);
   const invites = invitesFor(user);
   const guesting = stageChallenges(user.id).filter((c) => c.streamerId !== user.id);
   const partners = listStreamers().filter((s) => s.id !== user.id).map((s) => ({ handle: s.handle!, name: s.name }));
@@ -64,7 +61,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   return (
     <>
       <AutoRefresh pollIds={challenges.filter((c) => c.status === "locked").map((c) => c.id)} />
-      <DashHead user={user} tab="challenges" title="Run your challenges" lede="Everything you need while you're live: what's running, what's waiting on you, and a new challenge." />
+      <DashHead user={user} label="Challenges" title="Run your challenges" lede="What's running, what's waiting on you, a new challenge, and past ones to run again." />
 
       <div className="dash-stack">
         <ApprovalQueue
@@ -72,7 +69,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
             { label: ["fan idea to review", "fan ideas to review"], count: suggestions.length, href: "#ideas" },
             { label: ["bounty with money on it", "bounties with money on them"], count: bounties.length, href: "#bounties" },
             { label: ["invite to collab", "invites to collab"], count: invites.incoming.length, href: "#invites" },
-            { label: ["reward redemption to fulfil", "reward redemptions to fulfil"], count: redemptions.filter((r) => r.status === "pending").length, href: "#points" },
+            { label: ["reward redemption to fulfil", "reward redemptions to fulfil"], count: redemptions.filter((r) => r.status === "pending").length, href: "/dashboard/channel#points" },
             { label: ["scout pitch not opened yet", "scout pitches not opened yet"], count: scoutRun ? scoutRun.pitches.filter((_, i) => !scoutRun.opened[i]).length : 0, href: "#scout" },
           ]}
         />
@@ -87,7 +84,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         )}
       </div>
       {challenges.length === 0 && <p className="empty">Nothing yet. Create your first challenge below.</p>}
-      {challenges.length > 0 && past.length === challenges.length && <p className="empty">Nothing live. Open a challenge below, or rerun one from <Link href="/dashboard/channel#history">Channel</Link>.</p>}
+      {challenges.length > 0 && past.length === challenges.length && <p className="empty">Nothing live. Open a challenge below, or rerun one from <a href="#history">your previous challenges</a>.</p>}
       <div className="list">
         {live.map((c) => (
           <section key={c.id} className="card manage">
@@ -146,16 +143,6 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         ))}
       </div>
 
-          {justFinished.length > 0 && (
-            <>
-              <h3 className="just-finished">Just finished</h3>
-              <div className="past-grid">
-                {justFinished.map((c) => (
-                  <PastTile key={c.id} challenge={c} userId={user.id} />
-                ))}
-              </div>
-            </>
-          )}
         </section>
 
       {bounties.length > 0 && (
@@ -267,14 +254,24 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </section>
       )}
 
-      <PointsPanel config={pointsConfig(user.id)} redemptions={redemptions} mode="queue" />
-
       <ScoutPanel run={scoutRun} settings={settingsOf(user)} fanPage={fanPage} grok={usesGrok()} />
 
       <div id="new">
         <CreateChallengeForm key={seed?.id ?? (pickedPitch ? `pitch-${pitchParam}-${scoutRun?.at}` : "blank")} warnings={adapterStatus()} suggestion={seed} draft={draft} partners={partners} />
       </div>
 
+        <section id="history">
+          <h2>Previous challenges</h2>
+          {past.length === 0 ? (
+            <p className="empty">Nothing settled yet. Finished challenges collect here, ready to run again.</p>
+          ) : (
+            <div className="past-grid">
+              {past.map((c) => (
+                <PastTile key={c.id} challenge={c} userId={user.id} />
+              ))}
+            </div>
+          )}
+        </section>
       </div>
     </>
   );
