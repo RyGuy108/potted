@@ -9,6 +9,8 @@ import { useEffect, useRef, useState } from "react";
  */
 
 const EASE_OUT = (t: number) => 1 - Math.pow(1 - t, 4);
+/** Gentler for money trickling into a pot: keeps moving for longer before it settles. */
+const EASE_TRICKLE = (t: number) => 1 - Math.pow(1 - t, 2.2);
 
 function reducedMotion(): boolean {
   return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -50,7 +52,22 @@ function show(value: number, format: Format): string {
  * rest of the app and shown in dollars. When the value changes later (a new
  * pledge), it runs from the old value to the new one.
  */
-export function CountUp({ value, format = "int", micro = false, duration = 1100, className }: { value: number; format?: Format; micro?: boolean; duration?: number; className?: string }) {
+export function CountUp({
+  value,
+  format = "int",
+  micro = false,
+  duration = 1100,
+  trickle = false,
+  className,
+}: {
+  value: number;
+  format?: Format;
+  micro?: boolean;
+  duration?: number;
+  /** A slower, steadier run, for money landing in a pot. */
+  trickle?: boolean;
+  className?: string;
+}) {
   const target = micro ? value / 1_000_000 : value;
   const [ref, seen] = useInView<HTMLSpanElement>();
   const [shown, setShown] = useState<number | null>(null);
@@ -63,7 +80,7 @@ export function CountUp({ value, format = "int", micro = false, duration = 1100,
     let frame = 0;
     const step = (now: number) => {
       const t = Math.min(1, (now - start) / duration);
-      const v = begin + (target - begin) * EASE_OUT(t);
+      const v = begin + (target - begin) * (trickle ? EASE_TRICKLE(t) : EASE_OUT(t));
       // Money settles on whole cents; counts on whole numbers.
       setShown(format === "usd" ? Math.round(v * 100) / 100 : v);
       if (t < 1) frame = requestAnimationFrame(step);
@@ -71,7 +88,7 @@ export function CountUp({ value, format = "int", micro = false, duration = 1100,
     };
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
-  }, [seen, target, duration, format]);
+  }, [seen, target, duration, format, trickle]);
   return (
     <span ref={ref} className={`count-up${className ? ` ${className}` : ""}`}>
       {/* Before it runs, the real value is there for screen readers and no-JS. */}
@@ -117,5 +134,41 @@ export function GrowBar({ pct, className = "bar", label }: { pct: number; classN
     <div ref={ref} className={`${className} grow-bar`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(clamped)} aria-label={label}>
       <span style={{ width: seen ? `${clamped}%` : "0%" }} />
     </div>
+  );
+}
+
+const GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789$#%&*+";
+
+/**
+ * Text that shuffles through random characters and settles, left to right,
+ * on what it says. The real text is rendered first, for screen readers and
+ * search; the shuffle only plays once it scrolls into view.
+ */
+export function Scramble({ text, duration = 750, className }: { text: string; duration?: number; className?: string }) {
+  const [ref, seen] = useInView<HTMLSpanElement>();
+  const [shown, setShown] = useState(text);
+  useEffect(() => {
+    if (!seen || reducedMotion()) return setShown(text);
+    const chars = [...text];
+    const start = performance.now();
+    let last = 0;
+    let frame = 0;
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      // About 30 changes a second: fast enough to read as a shuffle, not a flicker.
+      if (now - last > 33 || t === 1) {
+        last = now;
+        const settled = Math.floor(EASE_OUT(t) * chars.length);
+        setShown(chars.map((ch, i) => (i < settled || ch === " " ? ch : GLYPHS[Math.floor(Math.random() * GLYPHS.length)])).join(""));
+      }
+      if (t < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [seen, text, duration]);
+  return (
+    <span ref={ref} className={`scramble${className ? ` ${className}` : ""}`} aria-label={text}>
+      <span aria-hidden="true">{shown}</span>
+    </span>
   );
 }

@@ -50,6 +50,16 @@ export function livePlans(minutes: number): Plan[] {
       pledges: [[p("ezra"), 5], [p("junpark"), 4], [p("nia"), 6]],
     },
     {
+      host: "u_t_climber1",
+      input: { gameId: "minecraft", condition: clip("Minecraft", "Find diamonds in under 20 minutes on a fresh seed", 120), goalUsd: 30, pledgeCapUsd: 15, minutes, upfrontPct: 25 },
+      pledges: [[p("benji"), 6], [p("Zara"), 4], [p("kofi"), 5]],
+    },
+    {
+      host: "u_t_climber2",
+      input: { gameId: "cooking", condition: clip("Cooking", "Plate a three-course dinner in 45 minutes", 120), goalUsd: 40, pledgeCapUsd: 20, minutes },
+      pledges: [[p("hana"), 8], [p("Lena"), 5]],
+    },
+    {
       host: DEMO_GUEST_ID,
       input: { gameId: "fortnite", condition: { kind: "fortnite", accountName: "KaiOnTheKeys", goal: "wins", count: 1 }, goalUsd: 30, pledgeCapUsd: 15, minutes },
       pledges: [[p("felix_f"), 5], [p("Zara"), 5]],
@@ -87,7 +97,8 @@ export async function addSampleLive({ minutes, log = () => {} }: LiveOptions): P
   const user = (id: string) => service.getUser(id) ?? (() => { throw new Error(`Missing sample account ${id}`); })();
 
   // Fund the planters who take part. On Solana this also gives each a wallet and token account.
-  const plans = livePlans(minutes);
+  // Plans for test climbers only run when those accounts exist.
+  const plans = livePlans(minutes).filter((plan) => service.getUser(plan.host));
   const needs = new Map<string, number>();
   for (const plan of plans) for (const [fan, amount] of plan.pledges) needs.set(fan, (needs.get(fan) ?? 0) + amount);
   for (const fan of [p("noor"), p("benji"), p("chloe.mp4"), p("samwise"), p("tess"), p("omar.gg")]) needs.set(fan, (needs.get(fan) ?? 0) + 20);

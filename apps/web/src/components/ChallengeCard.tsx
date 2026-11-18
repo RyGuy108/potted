@@ -12,7 +12,7 @@ export function FundingBar({ challenge }: { challenge: Challenge }) {
       <GrowBar pct={growth.ratio * 100} label="Pot toward its goal" />
       <div className="funding-row">
         <strong className="mono money-up">
-          <CountUp value={challenge.totalMicro} micro format="usd" />
+          <CountUp value={challenge.totalMicro} micro format="usd" trickle duration={2600} />
         </strong>
         <span className="muted">in the pot · reaches the clouds at {formatUsd(challenge.goalMicro)}</span>
       </div>

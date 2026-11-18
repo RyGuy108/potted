@@ -62,6 +62,17 @@ export const SAMPLE_STREAMERS: StreamerSpec[] = [
   { id: "u_s_ash", name: "Ash", handle: "ashsketches", games: ["art", "music"], sessions: 4 },
 ];
 
+/** The test climbers get a past too, so their analytics and pages have something in them. */
+const TEST_CLIMBERS: StreamerSpec[] = [
+  { id: "u_t_climber1", name: "Test Climber", handle: "testclimber", games: ["fortnite", "minecraft", "gta6"], sessions: 5, fortnite: "TestClimberTTV" },
+  { id: "u_t_climber2", name: "Test Climber Two", handle: "testclimber2", games: ["chess", "cooking", "speedrun"], sessions: 4, lichess: "testclimber_two" },
+];
+const TEST_PLANTERS = ["u_t_planter1", "u_t_planter2"];
+const TEST_KEEPERS = [
+  { id: "u_t_keeper1", name: "Keeper Test" },
+  { id: "u_t_keeper2", name: "Keeper Test Two" },
+];
+
 /** The two built-in demo climbers get a past too. */
 const HOSTS: StreamerSpec[] = [
   { id: DEMO_STREAMER_ID, name: "Ryan", handle: "ryan", games: ["gta6", "steam", "gta6"], sessions: 7, steamId: "76561198000001108" },
@@ -123,6 +134,23 @@ const SAMPLE_POINTS: Record<string, { perUsd: number; when: PointsConfig["when"]
     rewards: [
       ["Pick my brawler", 500, "I play your pick for the next match.", true],
       ["1v1 me", 2500, "A friendly 1v1 on stream.", true],
+    ],
+  },
+  u_t_climber1: {
+    perUsd: 100,
+    when: "pledged",
+    rewards: [
+      ["Shoutout", 300, "Your name read out with a thank-you.", false],
+      ["Pick my drop spot", 500, "Name where I land next match.", true],
+      ["Squad up with me", 2500, "Join my squad for a match on stream.", true],
+    ],
+  },
+  u_t_climber2: {
+    perUsd: 80,
+    when: "completed",
+    rewards: [
+      ["Pick my opening", 400, "I play your opening next game.", true],
+      ["Pick tonight's recipe", 900, "Send a recipe and I'll cook it next stream.", true],
     ],
   },
   u_s_ash: {
@@ -244,8 +272,13 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
 
   const everyone = [...existing, ...users];
   const nameOf = (uid: string) => everyone.find((u) => u.id === uid)?.name ?? "A climber";
-  const specs = [...HOSTS, ...SAMPLE_STREAMERS];
-  const fans = PLANTERS.map(planterId);
+  // Test accounts join in when they exist (they are made when the app first starts).
+  const has = (id: string) => existing.some((u) => u.id === id);
+  const testClimbers = TEST_CLIMBERS.filter((t) => has(t.id));
+  const testPlanters = TEST_PLANTERS.filter(has);
+  const testKeepers = TEST_KEEPERS.filter((k) => has(k.id));
+  const specs = [...HOSTS, ...SAMPLE_STREAMERS, ...testClimbers];
+  const fans = [...PLANTERS.map(planterId), ...testPlanters];
   // Each climber has regulars who show up most streams.
   const regulars = new Map(specs.map((s) => [s.id, Array.from({ length: 6 }, () => r.pick(fans.filter((f) => f !== "u_s_maya")))]));
 
@@ -318,7 +351,7 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
   }
 
   /** Keeper rulings so far, so the work is spread with Hazel doing most. */
-  const keeperPick = () => (r.chance(0.55) ? KEEPERS[0]! : r.pick(KEEPERS.slice(1)));
+  const keeperPick = () => (r.chance(0.45) ? KEEPERS[0]! : r.pick([...KEEPERS.slice(1), ...testKeepers, ...testKeepers]));
 
   function addChallenge(spec: StreamerSpec, start: number, opts: { guest?: StreamerSpec; gameId?: string; extraFans?: string[] } = {}) {
     const gameId = opts.gameId ?? r.pick(spec.games);
@@ -357,6 +390,8 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
     const target = usd(goalUsd * (0.35 + r.next() * 1.15));
     const pool = [...new Set([...(opts.extraFans ?? []), ...regulars.get(spec.id)!, ...(opts.guest ? regulars.get(opts.guest.id)! : []), ...Array.from({ length: 6 }, () => r.pick(fans))])];
     if (r.chance(0.17)) pool.splice(r.int(0, 2), 0, "u_s_maya");
+    // The test planters back plenty, so they have badges and history to look at.
+    for (const tester of testPlanters) if (r.chance(spec.id.startsWith("u_t_") ? 0.5 : 0.1)) pool.splice(r.int(0, 3), 0, tester);
     const lockAt = created + Math.round(minutes * (0.35 + r.next() * 0.25)) * MIN;
     let t = created + r.int(1, 4) * MIN;
     for (const fan of pool) {
@@ -463,7 +498,11 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
 
   // Past streams: one to three challenges each, spread over the last six weeks.
   const partner = (spec: StreamerSpec) =>
-    spec.id === DEMO_STREAMER_ID ? HOSTS[1] : spec.id === DEMO_GUEST_ID ? HOSTS[0] : spec.id === "u_s_juniper" ? SAMPLE_STREAMERS[4] : spec.id === "u_s_wren" ? SAMPLE_STREAMERS[0] : undefined;
+    spec.id === "u_t_climber1"
+      ? testClimbers[1]
+      : spec.id === "u_t_climber2"
+        ? testClimbers[0]
+        : spec.id === DEMO_STREAMER_ID ? HOSTS[1] : spec.id === DEMO_GUEST_ID ? HOSTS[0] : spec.id === "u_s_juniper" ? SAMPLE_STREAMERS[4] : spec.id === "u_s_wren" ? SAMPLE_STREAMERS[0] : undefined;
   for (const spec of specs) {
     const days = new Set<number>();
     while (days.size < spec.sessions) days.add(r.int(1, 42));
@@ -533,6 +572,7 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
   // Channel points: each sample climber's setup, and what planters spent so far.
   const points: Record<string, PointsConfig> = {};
   for (const [streamerId, spec] of Object.entries(SAMPLE_POINTS)) {
+    if (streamerId.startsWith("u_t_") && !has(streamerId)) continue;
     points[streamerId] = {
       on: true,
       perUsd: spec.perUsd,
@@ -584,6 +624,7 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
   const follows: { fanId: string; streamerId: string; at: number }[] = [];
   for (const [streamerId, list] of regulars) for (const fan of new Set(list)) if (r.chance(0.6)) follows.push({ fanId: fan, streamerId, at: now - r.int(2, 40) * DAY });
   for (const fav of [DEMO_STREAMER_ID, "u_s_juniper", "u_s_sol"]) follows.push({ fanId: "u_s_maya", streamerId: fav, at: now - r.int(5, 40) * DAY });
+  for (const tester of testPlanters) for (const fav of [...testClimbers.map((t) => t.id), DEMO_STREAMER_ID, "u_s_juniper"]) follows.push({ fanId: tester, streamerId: fav, at: now - r.int(3, 30) * DAY });
 
   return { users, challenges, pledges, suggestions, invites, events, points, redemptions, follows, balances };
 }
@@ -625,7 +666,10 @@ export function addSampleHistory(state: Db, now = Date.now()): SampleHistory {
   Object.assign(state.balances, history.balances);
   Object.assign((state.points ??= {}), history.points);
   (state.redemptions ??= []).push(...history.redemptions);
-  (state.follows ??= []).push(...history.follows);
+  const followed = new Set((state.follows ?? []).map((f) => `${f.fanId}>${f.streamerId}`));
+  (state.follows ??= []).push(...history.follows.filter((f) => !followed.has(`${f.fanId}>${f.streamerId}`)));
+  // The test accounts' awards are recounted quietly, so their new history doesn't arrive as a flood of notifications.
+  for (const u of state.users) if (u.id.startsWith("u_t_")) delete u.awarded;
   state.sample = { challengeIds: [], addedAt: now };
   return history;
 }

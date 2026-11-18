@@ -1,6 +1,6 @@
 import { formatUsd, growthOf } from "@potted/core";
 import Link from "next/link";
-import { CountUp } from "@/components/Motion";
+import { CountUp, Scramble } from "@/components/Motion";
 import { Beanstalk } from "@/components/Beanstalk";
 import { StatusPill } from "@/components/ChallengeCard";
 import { SignInPanel } from "@/components/SignInPanel";
@@ -18,7 +18,9 @@ export default async function Garden() {
   if (!user) {
     return (
       <>
-        <p className="eyebrow">Your garden</p>
+        <p className="eyebrow">
+          <Scramble text="Your garden" />
+        </p>
         <h1>Sign in to see what you have grown</h1>
         <SignInPanel />
       </>
@@ -36,23 +38,33 @@ export default async function Garden() {
   return (
     <>
       <div className="row between">
-        <p className="eyebrow">Your garden</p>
+        <p className="eyebrow">
+          <Scramble text="Your garden" />
+        </p>
         <Wallet user={user} />
       </div>
-      <h1>{garden.plots.length === 0 ? "Nothing planted yet" : `${garden.plots.length} planted, ${garden.grown} grown`}</h1>
+      <h1>
+        <Scramble text={garden.plots.length === 0 ? "Nothing planted yet" : `${garden.plots.length} planted, ${garden.grown} grown`} duration={900} />
+      </h1>
 
       <div className="home-top">
-        <LevelCard stats={stats} />
+        <LevelCard stats={stats} lively />
         <div className="card next-up">
-          <p className="eyebrow">Next up</p>
+          <p className="eyebrow">
+            <Scramble text="Next up" />
+          </p>
           {nextBadge ? (
             <>
-              <h3>{nextBadge.name}</h3>
+              <h3>
+                <Scramble text={nextBadge.name} />
+              </h3>
               <p className="muted">{nextBadge.how}.</p>
             </>
           ) : (
             <>
-              <h3>Every badge earned</h3>
+              <h3>
+                <Scramble text="Every badge earned" />
+              </h3>
               <p className="muted">Keep the streak going.</p>
             </>
           )}
@@ -65,27 +77,37 @@ export default async function Garden() {
 
       <section className="stats">
         <div className="card stat">
-          <span className="mono"><CountUp value={stats.backed} /></span>
-          <span className="muted small">challenges backed</span>
+          <span className="mono"><CountUp value={stats.backed} duration={650} /></span>
+          <span className="muted small">
+            <Scramble text="challenges backed" />
+          </span>
         </div>
         <div className="card stat">
-          <span className="mono"><CountUp value={stats.grown} /></span>
-          <span className="muted small">completed by the climber</span>
+          <span className="mono"><CountUp value={stats.grown} duration={650} /></span>
+          <span className="muted small">
+            <Scramble text="completed by the climber" />
+          </span>
         </div>
         <div className="card stat">
-          <span className="mono"><CountUp value={stats.firstIn} /></span>
-          <span className="muted small">times first to back</span>
+          <span className="mono"><CountUp value={stats.firstIn} duration={650} /></span>
+          <span className="muted small">
+            <Scramble text="times first to back" />
+          </span>
         </div>
         <div className="card stat">
-          <span className="mono"><CountUp value={stats.cloudPushes} /></span>
-          <span className="muted small">pots you took to the clouds</span>
+          <span className="mono"><CountUp value={stats.cloudPushes} duration={650} /></span>
+          <span className="muted small">
+            <Scramble text="pots you took to the clouds" />
+          </span>
         </div>
         <div className="card stat">
-          <span className="mono"><CountUp value={stats.streamersBacked} /></span>
-          <span className="muted small">climbers backed</span>
+          <span className="mono"><CountUp value={stats.streamersBacked} duration={650} /></span>
+          <span className="muted small">
+            <Scramble text="climbers backed" />
+          </span>
         </div>
         <div className="card stat">
-          <span className="mono"><CountUp value={garden.pledgedMicro} micro format="usd" /></span>
+          <span className="mono"><CountUp value={garden.pledgedMicro} micro format="usd" duration={650} /></span>
           <span className="muted small">pledged · {formatUsd(garden.returnedMicro)} returned</span>
         </div>
       </section>
@@ -97,12 +119,18 @@ export default async function Garden() {
 
       {myPoints.length > 0 && (
         <>
-          <h2>Channel points</h2>
+          <h2>
+            <Scramble text="Channel points" />
+          </h2>
           <div className="points-list">
             {myPoints.map((p) => (
               <Link key={p.streamer.id} href={`/s/${p.streamer.handle}#points`} className="card points-chip">
-                <strong>{p.streamer.name}</strong>
-                <span className="mono">{p.balance.toLocaleString()}</span>
+                <strong>
+                  <Scramble text={p.streamer.name} />
+                </strong>
+                <span className="mono">
+                  <CountUp value={p.balance} duration={650} />
+                </span>
                 <span className="muted small">points to spend · {p.earned.toLocaleString()} earned</span>
               </Link>
             ))}
@@ -112,7 +140,9 @@ export default async function Garden() {
 
       {activity.length > 0 && (
         <>
-          <h2>Recent activity</h2>
+          <h2>
+            <Scramble text="Recent activity" />
+          </h2>
           <div className="card table">
             {activity.map((row, i) => (
               <div key={i} className="table-row table-activity">
@@ -126,7 +156,9 @@ export default async function Garden() {
 
       {bounties.length > 0 && (
         <>
-          <h2>Your bounties</h2>
+          <h2>
+            <Scramble text="Your bounties" />
+          </h2>
           <div className="card table">
             {bounties.map(({ bounty, mineMicro, totalMicro, streamerName }) => (
               <div key={bounty.id} className="table-row table-activity">
@@ -135,7 +167,7 @@ export default async function Garden() {
                   <span className="muted small"> · for {streamerName}</span>
                 </span>
                 <span>
-                  <span className="mono"><CountUp value={mineMicro} micro format="usd" /></span> of <span className="mono"><CountUp value={totalMicro} micro format="usd" /></span> ·{" "}
+                  <span className="mono"><CountUp value={mineMicro} micro format="usd" duration={650} /></span> of <span className="mono"><CountUp value={totalMicro} micro format="usd" duration={650} /></span> ·{" "}
                   {bounty.status === "open" ? (
                     <span className="warn">waiting for {streamerName}</span>
                   ) : bounty.status === "accepted" ? (
@@ -169,7 +201,7 @@ export default async function Garden() {
                 </div>
                 <p className="plot-title">{challenge.title}</p>
                 <p className="muted small">
-                  {streamerName} · you put in <span className="mono"><CountUp value={amountMicro} micro format="usd" /></span>
+                  {streamerName} · you put in <span className="mono"><CountUp value={amountMicro} micro format="usd" duration={650} /></span>
                   {refunded ? " and got it back" : ""}
                 </p>
               </div>

@@ -3276,3 +3276,51 @@ a.card:hover,
   border-color: rgba(53, 201, 139, 0.5);
   color: #5fe0a8;
 }
+
+.viewer-count {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  font-size: 0.78rem;
+}
+
+.browse-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin: -6px 0 18px;
+  color: var(--muted, #9db0cc);
+}
+
+.browse-stats strong {
+  color: var(--ink, #eef3fb);
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes live-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(233, 25, 22, 0.6); }
+  70% { box-shadow: 0 0 0 7px rgba(233, 25, 22, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(233, 25, 22, 0); }
+}
+
+.live-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: #e91916;
+  vertical-align: 1px;
+  animation: live-pulse 1.8s infinite;
+}
+
+/* Pages that opt out of the entrance (a game's page, opened from Browse). */
+main:has(> .no-enter) > *,
+main:has(> .no-enter) .list > *,
+main:has(> .no-enter) .stats > * {
+  animation: none;
+}

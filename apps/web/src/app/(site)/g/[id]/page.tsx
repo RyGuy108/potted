@@ -16,6 +16,8 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
   const recent = recentResults(game.id);
   return (
     <>
+      {/* Opened from Browse, which already animated in; this page just appears. */}
+      <span className="no-enter" hidden />
       <AutoRefresh everyMs={5000} />
       <div className="game-head">
         <div className="game-cover">

@@ -10,6 +10,7 @@
  */
 import { addSampleHistory, removeSample } from "../src/lib/sample-data";
 import { addSampleLive } from "../src/lib/sample-live";
+import { ledger } from "../src/lib/ledger";
 import { db, save } from "../src/lib/store";
 
 const args = process.argv.slice(2);
@@ -26,6 +27,8 @@ async function main() {
   }
   if (!(hours > 0 && hours <= 24)) throw new Error("--hours must be between 1 and 24");
 
+  // Makes the test accounts if this data folder doesn't have them yet, so they get a history too.
+  ledger();
   const history = addSampleHistory(state);
   save();
   console.log(
