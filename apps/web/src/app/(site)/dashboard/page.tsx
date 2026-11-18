@@ -1,3 +1,4 @@
+import type { Challenge } from "@potted/core";
 import { draftTerms, usesGrok } from "@potted/coordinator";
 import { GAMES, formatUsd } from "@potted/core";
 import Link from "next/link";
@@ -8,10 +9,11 @@ import { ClaimForm } from "@/components/ClaimForm";
 import { CreateChallengeForm, type SuggestionSeed } from "@/components/CreateChallengeForm";
 import { DashHead, NotAClimber } from "@/components/DashHead";
 import { AutoRefresh, Countdown } from "@/components/Live";
+import { GroupedByGame } from "@/components/GroupedByGame";
 import { PastTile } from "@/components/PastTile";
 import { ScoutPanel } from "@/components/ScoutPanel";
 import { ApprovalQueue } from "@/components/StreamerPanels";
-import { adapterStatus, gameOf } from "@/lib/format";
+import { adapterStatus, gameOf, groupByGame } from "@/lib/format";
 import { pointsConfig, redemptionsFor } from "@/lib/points";
 import { pitchFields, scoutOf } from "@/lib/scout";
 import { backersOf, bountiesSupported, bountyTotal, expireBounties, getSuggestion, getUser, invitesFor, listChallenges, listStreamers, openBounties, pendingSuggestions, settingsOf, shareOf, simulatedResultsAllowed, stageChallenges } from "@/lib/service";
@@ -265,14 +267,23 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           {past.length === 0 ? (
             <p className="empty">Nothing settled yet. Finished challenges collect here, ready to run again.</p>
           ) : (
-            <div className="past-grid">
-              {past.map((c) => (
-                <PastTile key={c.id} challenge={c} userId={user.id} />
-              ))}
-            </div>
+            <GroupedByGame
+              all={<PastGrid list={past} userId={user.id} />}
+              groups={groupByGame(past).map(([label, list]) => ({ label, count: list.length, node: <PastGrid list={list} userId={user.id} /> }))}
+            />
           )}
         </section>
       </div>
     </>
+  );
+}
+
+function PastGrid({ list, userId }: { list: Challenge[]; userId: string }) {
+  return (
+    <div className="past-grid">
+      {list.map((c) => (
+        <PastTile key={c.id} challenge={c} userId={userId} />
+      ))}
+    </div>
   );
 }

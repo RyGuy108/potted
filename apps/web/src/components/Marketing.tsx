@@ -1,16 +1,15 @@
 import Link from "next/link";
-import { ChallengeCard } from "@/components/ChallengeCard";
 import { GameDirectory } from "@/components/GameDirectory";
 import { Icon, type IconName } from "@/components/Icon";
 import { Beanstalk } from "@/components/Beanstalk";
-import { getStreamer, listChallenges } from "@/lib/service";
+import { Wordmark } from "@/components/Wordmark";
 import { currentUser } from "@/lib/session";
 
 const STEPS = [
-  ["Ask", "A fan suggests the challenge they want to see, and can put money behind the request. Others in chat add to it."],
-  ["Answer", "The streamer takes it on and sets the exact terms, or passes. If they pass, every fan gets their money back."],
-  ["Back", "Anyone can back the attempt. That money only pays if the streamer actually pulls it off."],
-  ["Play it live", "Request money goes to the streamer when they start. The game's data or a clip decides the rest, and a miss refunds every backer."],
+  ["Ask", "A fan suggests a challenge and can fund the request."],
+  ["Answer", "The streamer takes it on or passes. A pass refunds everyone."],
+  ["Back", "Anyone can back the attempt. It pays only if they pull it off."],
+  ["Play it live", "Game data or a clip decides. A miss refunds every backer."],
 ] as const;
 
 /** The three kinds of money, and exactly when each one pays. */
@@ -21,19 +20,19 @@ const WAYS: [string, string, string, string][] = [
 ];
 
 const GUARANTEES: [IconName, string, string][] = [
-  ["lock", "Only the verifier can settle", "The streamer cannot withdraw early, and a challenge can be settled exactly once."],
-  ["refund", "Refunds never depend on us", "If no result arrives by the cutoff, the escrow lets anyone trigger every refund."],
-  ["receipt", "Every result has a receipt", "A game id or clip link is stored with the settlement, so funders can recheck it."],
-  ["shield", "Arranged games do not count", "Friendly matches, direct challenges and early resignations are ignored."],
+  ["lock", "Only the verifier can settle", "No early withdrawals, and each challenge settles once."],
+  ["refund", "Refunds never depend on us", "Past the deadline, anyone can trigger the refunds."],
+  ["receipt", "Every result has a receipt", "The game id or clip is stored with the payout."],
+  ["shield", "Arranged games don't count", "Friendlies and early resignations are ignored."],
 ];
 
-const GROWTH = [
-  ["Bean", "Empty pot"],
-  ["Sprout", "First pledge"],
-  ["Vine", "A third of the way"],
-  ["Beanstalk", "Two thirds"],
-  ["Clouds", "Goal reached"],
-] as const;
+/** Where a dollar goes, in four stops. */
+const MONEY: [string, string][] = [
+  ["Your wallet", "USDC: a digital dollar, always worth $1"],
+  ["Escrow", "Held by a program on Solana that nobody at Potted can spend from"],
+  ["The result", "Game data or a clip says whether it happened"],
+  ["Paid or refunded", "To the streamer if they did it, back to you if not"],
+];
 
 /** Sample rows for the hero preview. Labelled as an example on the page. */
 const SAMPLE_PLEDGES = [
@@ -45,18 +44,14 @@ const SAMPLE_PLEDGES = [
 /** The explanation of Potted, shown to visitors who are not signed in and on /about. */
 export async function Marketing() {
   const user = await currentUser();
-  const demo = getStreamer("ryan");
-  const live = demo ? listChallenges(demo.id).slice(0, 3) : [];
   return (
     <div className="marketing">
+      <Wordmark />
       <section className="hero">
         <div className="hero-copy">
           <p className="eyebrow">Stream challenges, chosen by chat</p>
           <h1>Donations give fans nothing to do. Potted gives them a say.</h1>
-          <p className="lede">
-            Fans ask for the challenge they want to see and put money behind it. The streamer takes it on or passes, and a pass sends the money back.
-            Every dollar turns into a moment on stream that chat helped make.
-          </p>
+          <p className="lede">Fans ask for the challenge they want to see and back it. The streamer takes it on or passes, and a pass sends the money back.</p>
           <div className="row hero-actions">
             {user ? (
               <Link href="/s/ryan" className="btn btn-primary btn-lg">
@@ -172,25 +167,10 @@ export async function Marketing() {
         </div>
       </section>
 
-      <section>
-        <p className="eyebrow">The pot</p>
-        <h2 className="section-title">The beanstalk climbs as the pot fills</h2>
-        <div className="growth">
-          {GROWTH.map(([name, when], stage) => (
-            <div key={name} className="growth-stage">
-              <Beanstalk stage={stage} size={78} />
-              <strong>{name}</strong>
-              <span className="muted small">{when}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
       <section className="split">
         <div>
           <p className="eyebrow">Settlement rules</p>
           <h2 className="section-title">Built so nobody has to take our word for it</h2>
-          <p className="muted">Each rule is enforced by the escrow program or the verifier, not by a person.</p>
         </div>
         <div className="accordion">
           {GUARANTEES.map(([, title, text], i) => (
@@ -206,29 +186,31 @@ export async function Marketing() {
         </div>
       </section>
 
+      <section className="money">
+        <p className="eyebrow">Where the money goes</p>
+        <h2 className="section-title">Real dollars, held by code instead of a company</h2>
+        <ol className="money-flow">
+          {MONEY.map(([title, text], i) => (
+            <li key={title}>
+              <span className="money-step mono">0{i + 1}</span>
+              <strong>{title}</strong>
+              <span className="muted small">{text}</span>
+            </li>
+          ))}
+        </ol>
+        <p className="muted money-note">Every move is a public Solana transaction, so anyone can check where a pledge went.</p>
+      </section>
+
       <section>
         <p className="eyebrow">Games and streams</p>
         <h2 className="section-title">Any kind of stream</h2>
-        <p className="lede">Games with public results are checked against the data. Everything else settles by clip, with a window for fans to dispute.</p>
         <GameDirectory />
       </section>
-
-      {live.length > 0 && (
-        <section>
-          <p className="eyebrow">Live</p>
-          <h2 className="section-title">On the demo stream</h2>
-          <div className="list">
-            {live.map((c) => (
-              <ChallengeCard key={c.id} challenge={c} />
-            ))}
-          </div>
-        </section>
-      )}
 
       {!user && (
         <section id="try" className="closing">
           <h2 className="section-title">Ask for your first challenge</h2>
-          <p className="muted">Sign up with an account you already have, or try it with test money first.</p>
+          <p className="muted">Sign up free, or try it with test money first.</p>
           <div className="row">
             <Link href="/signup" className="btn btn-primary btn-lg">
               Sign up free <Icon name="arrow" size={16} />

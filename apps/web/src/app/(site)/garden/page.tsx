@@ -1,6 +1,7 @@
 import { formatUsd, growthOf } from "@potted/core";
 import Link from "next/link";
 import { CountUp, Scramble } from "@/components/Motion";
+import { GroupedByGame } from "@/components/GroupedByGame";
 import { Beanstalk } from "@/components/Beanstalk";
 import { StatusPill } from "@/components/ChallengeCard";
 import { SignInPanel } from "@/components/SignInPanel";
@@ -190,25 +191,46 @@ export default async function Garden() {
           Back a challenge on the <Link href="/s/ryan">demo stream</Link> and it shows up here.
         </p>
       ) : (
-        <div className="garden">
-          {garden.plots.map(({ challenge, streamerName, amountMicro, refunded }) => (
-            <Link key={challenge.id} href={`/c/${challenge.id}`} className="card plot">
-              <Beanstalk stage={growthOf(challenge.totalMicro, challenge.goalMicro).index} size={72} />
-              <div>
-                <div className="meta">
-                  <span className="tag">{gameOf(challenge).name}</span>
-                  <StatusPill challenge={challenge} />
-                </div>
-                <p className="plot-title">{challenge.title}</p>
-                <p className="muted small">
-                  {streamerName} · you put in <span className="mono"><CountUp value={amountMicro} micro format="usd" duration={650} /></span>
-                  {refunded ? " and got it back" : ""}
-                </p>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <GroupedByGame
+          all={<Plots plots={garden.plots} showGame />}
+          groups={byGame(garden.plots).map(([label, plots]) => ({ label, count: plots.length, node: <Plots plots={plots} /> }))}
+        />
       )}
     </>
+  );
+}
+
+type Plot = ReturnType<typeof gardenOf>["plots"][number];
+
+/** Plots grouped by game, biggest group first. */
+function byGame(plots: Plot[]): [string, Plot[]][] {
+  const groups = new Map<string, Plot[]>();
+  for (const p of plots) {
+    const name = gameOf(p.challenge).name;
+    groups.set(name, [...(groups.get(name) ?? []), p]);
+  }
+  return [...groups.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+}
+
+function Plots({ plots, showGame = false }: { plots: Plot[]; showGame?: boolean }) {
+  return (
+    <div className="garden">
+      {plots.map(({ challenge, streamerName, amountMicro, refunded }) => (
+        <Link key={challenge.id} href={`/c/${challenge.id}`} className="card plot">
+          <Beanstalk stage={growthOf(challenge.totalMicro, challenge.goalMicro).index} size={64} />
+          <div>
+            <div className="meta">
+              {showGame && <span className="tag">{gameOf(challenge).name}</span>}
+              <StatusPill challenge={challenge} />
+            </div>
+            <p className="plot-title">{challenge.title}</p>
+            <p className="muted small">
+              {streamerName} · <span className="mono">{formatUsd(amountMicro)}</span>
+              {refunded ? " back" : ""}
+            </p>
+          </div>
+        </Link>
+      ))}
+    </div>
   );
 }

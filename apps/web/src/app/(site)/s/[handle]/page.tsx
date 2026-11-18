@@ -1,3 +1,4 @@
+import type { Challenge } from "@potted/core";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChallengeCard } from "@/components/ChallengeCard";
@@ -9,7 +10,7 @@ import { formatUsd } from "@potted/core";
 import { activeCampaign, bountiesSupported, campaignStats, expireBounties, getStreamer, openBounties, raisedFor, settingsOf, stageChallenges, topPlanters } from "@/lib/service";
 import { GrowBar } from "@/components/Motion";
 import { currentUser } from "@/lib/session";
-import { pointsConfig, pointsOf, redemptionsFor } from "@/lib/points";
+import { pointsConfig, pointsOf } from "@/lib/points";
 import { twitchCategoryUrl, twitchChannel } from "@/lib/twitch";
 import { gameNameOf } from "@/lib/format";
 import { ChannelPoints } from "@/components/ChannelPoints";
@@ -17,7 +18,8 @@ import { CountUp } from "@/components/Motion";
 import { FollowButton } from "@/components/FollowButton";
 import { GiveForm } from "@/components/GiveForm";
 import { WinnerStrip } from "@/components/Podium";
-import { giftTotals, giftsTo } from "@/lib/gifts";
+import { GroupedByGame } from "@/components/GroupedByGame";
+import { groupByGame } from "@/lib/format";
 import { followersOf, isFollowing } from "@/lib/notifications";
 import { CategoryPreview, StreamHeader, StreamPreview } from "@/components/StreamHeader";
 
@@ -42,8 +44,6 @@ export default async function StreamerPage({ params, searchParams }: { params: P
   const raised = raisedFor(streamer, cause.causeName);
   const twitch = cause.twitchChannel ? await twitchChannel(cause.twitchChannel) : null;
   const pointsSetup = pointsConfig(streamer.id);
-  const gifted = giftTotals(streamer.id);
-  const recentGifts = giftsTo(streamer.id, 5);
   // Without a Twitch channel, the preview points at the game the climber is playing now, or played last.
   const featured = live[0] ?? past[0];
   const featuredName = featured ? gameNameOf(featured) : undefined;
@@ -163,34 +163,11 @@ export default async function StreamerPage({ params, searchParams }: { params: P
             <div>
               <p className="eyebrow">Tip</p>
               <h3>Support {streamer.name} directly</h3>
-              <p className="muted small">
-                No challenge attached: it goes straight to {streamer.name}
-                {pointsSetup.on ? " and earns channel points like a pledge" : ""}. Tips can't be refunded.
-              </p>
+              <p className="muted small">Goes straight to {streamer.name}. Not refundable.</p>
             </div>
-            {gifted.count > 0 && (
-              <div className="give-total">
-                <span className="mono">
-                  <CountUp value={gifted.totalMicro} micro format="usd" />
-                </span>
-                <span className="muted small">
-                  given by {gifted.givers} {gifted.givers === 1 ? "planter" : "planters"}
-                </span>
-              </div>
-            )}
-          </div>
+            </div>
           {user?.role === "fan" ? <GiveForm handle={streamer.handle!} name={streamer.name} minUsd={cause.minPledgeUsd} /> : <p className="muted small">Sign in as a planter to give.</p>}
-          {recentGifts.length > 0 && (
-            <ul className="gift-list">
-              {recentGifts.map((g) => (
-                <li key={g.id}>
-                  <strong>{g.fanName}</strong> gave <span className="mono">{formatUsd(g.amountMicro)}</span>
-                  {g.note && <span className="muted"> · &ldquo;{g.note}&rdquo;</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+          </section>
       </div>
 
       {pointsSetup.on && (
@@ -199,7 +176,6 @@ export default async function StreamerPage({ params, searchParams }: { params: P
           handle={streamer.handle!}
           config={pointsSetup}
           mine={user?.role === "fan" ? pointsOf(user, streamer.id) : undefined}
-          recent={redemptionsFor(streamer.id, 4).map((r) => ({ fanName: r.fanName, title: r.title, at: r.at }))}
           canRedeem={user?.role === "fan"}
         />
       )}
@@ -227,13 +203,22 @@ export default async function StreamerPage({ params, searchParams }: { params: P
       {past.length > 0 && (
         <>
           <h2>Settled</h2>
-          <div className="list">
-            {past.map((c) => (
-              <ChallengeCard key={c.id} challenge={c} />
-            ))}
-          </div>
+          <GroupedByGame
+            all={<Cards list={past} />}
+            groups={groupByGame(past).map(([label, list]) => ({ label, count: list.length, node: <Cards list={list} /> }))}
+          />
         </>
       )}
     </>
+  );
+}
+
+function Cards({ list }: { list: Challenge[] }) {
+  return (
+    <div className="list">
+      {list.map((c) => (
+        <ChallengeCard key={c.id} challenge={c} />
+      ))}
+    </div>
   );
 }

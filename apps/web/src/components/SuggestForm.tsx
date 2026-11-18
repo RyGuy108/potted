@@ -68,11 +68,6 @@ export function SuggestForm({
           </button>
         </div>
       )}
-      <p className="muted small">
-        {withMoney
-          ? `Your money goes to ${streamerName} when they take this on and start the attempt, whether or not they pull it off. If they pass, or never start, it comes back. Other fans can add to it.`
-          : `Nothing is charged for an idea. If ${streamerName} opens it, fans can back it, and that money pays only if it's completed.`}
-      </p>
       <label className="field">
         <span>Game</span>
         <select value={gameId} onChange={(e) => setGameId(e.target.value)}>

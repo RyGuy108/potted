@@ -222,7 +222,7 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
                   : "went back to them, since the attempt never started."}
             </p>
           ) : null}
-                    {challenge.status === "open" && user?.role === "fan" && (
+          {challenge.status === "open" && user?.role === "fan" && (
             <>
               <Wallet user={user} />
               <p className="back-note">
@@ -285,15 +285,13 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
               )}
             </div>
           )}
+          <div className="detail-share">
+            <CopyField label="Share" value={`/c/${challenge.id}`} />
+          </div>
         </div>
       </section>
 
       <Receipt challenge={challenge} hostName={streamer?.name ?? "Streamer"} />
-
-      <section className="card share">
-        <CopyField label="Share this challenge" value={`/c/${challenge.id}`} />
-        <p className="muted small">The link unfurls as a card with the beanstalk, the pot and the result.</p>
-      </section>
 
       <div className="two-col">
         <section className="card">

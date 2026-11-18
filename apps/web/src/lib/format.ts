@@ -37,3 +37,13 @@ export function adapterStatus(): Record<string, string | null> {
     optimistic: null,
   };
 }
+
+/** Challenges grouped by game name, biggest group first. */
+export function groupByGame(list: Challenge[]): [string, Challenge[]][] {
+  const groups = new Map<string, Challenge[]>();
+  for (const c of list) {
+    const name = gameOf(c).name;
+    groups.set(name, [...(groups.get(name) ?? []), c]);
+  }
+  return [...groups.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+}
