@@ -254,8 +254,11 @@ export function sessionSecret(): string {
 export function save(): void {
   const file = dataFile();
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(`${file}.tmp`, JSON.stringify(db()));
-  fs.renameSync(`${file}.tmp`, file);
+  // A temp file per write, so two writers (two requests, or two test
+  // workers) never rename each other's half-written file.
+  const tmp = `${file}.${process.pid}.${crypto.randomUUID().slice(0, 8)}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(db()));
+  fs.renameSync(tmp, file);
 }
 
 /** Test hook: start from a clean in-memory database that is never written. */
