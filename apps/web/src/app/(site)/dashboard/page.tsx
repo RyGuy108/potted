@@ -13,7 +13,7 @@ import { Wallet } from "@/components/Wallet";
 import { SettingsForm } from "@/components/SettingsForm";
 import { SignInPanel } from "@/components/SignInPanel";
 import { adapterStatus, gameOf } from "@/lib/format";
-import { backersOf, bountyTotal, challengeStats, expireBounties, openBounties, getSuggestion, getUser, invitesFor, listChallenges, listStreamers, pendingSuggestions, settingsOf, shareOf, simulatedResultsAllowed, stageChallenges } from "@/lib/service";
+import { backersOf, bountiesSupported, bountyTotal, challengeStats, expireBounties, openBounties, getSuggestion, getUser, invitesFor, listChallenges, listStreamers, pendingSuggestions, settingsOf, shareOf, simulatedResultsAllowed, stageChallenges } from "@/lib/service";
 import { currentUser } from "@/lib/session";
 
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ use?: string; bounty?: string }> }) {
@@ -32,7 +32,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const suggestions = pendingSuggestions(user.id);
   const { use, bounty: bountyParam } = await searchParams;
   await expireBounties();
-  const bounties = openBounties(user.id);
+  const bounties = bountiesSupported() ? openBounties(user.id) : [];
   const picked = use ? getSuggestion(use) : undefined;
   const pickedBounty = bountyParam ? bounties.find((b) => b.id === bountyParam) : undefined;
   const seed: SuggestionSeed | undefined = pickedBounty
@@ -184,7 +184,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <CreateChallengeForm key={seed?.id ?? "blank"} warnings={adapterStatus()} suggestion={seed} draft={draft} partners={partners} />
       </div>
 
-      <SettingsForm initial={settingsOf(user)} />
+      <SettingsForm initial={settingsOf(user)} bounties={bountiesSupported()} />
 
       <div className="row between">
         <h2>Your challenges</h2>

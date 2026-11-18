@@ -1453,3 +1453,12 @@ export function bountiesBackedBy(fan: User): { bounty: Bounty; mineMicro: number
       streamerName: getUser(bounty.streamerId)?.name ?? "A climber",
     }));
 }
+
+/**
+ * Bounties need somewhere to hold money before a climber accepts. The
+ * simulated ledger has that; the escrow program does not yet, so on Solana
+ * the bounty option is hidden and ideas are free suggestions only.
+ */
+export function bountiesSupported(): boolean {
+  return ledger().kind === "sim";
+}

@@ -5,7 +5,7 @@ import { SignInPanel } from "@/components/SignInPanel";
 import { BountyBoard } from "@/components/BountyBoard";
 import { SuggestForm } from "@/components/SuggestForm";
 import { formatUsd } from "@potted/core";
-import { expireBounties, getStreamer, openBounties, raisedFor, settingsOf, stageChallenges, topPlanters } from "@/lib/service";
+import { bountiesSupported, expireBounties, getStreamer, openBounties, raisedFor, settingsOf, stageChallenges, topPlanters } from "@/lib/service";
 import { currentUser } from "@/lib/session";
 
 export default async function StreamerPage({ params }: { params: Promise<{ handle: string }> }) {
@@ -20,7 +20,8 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
   const planters = topPlanters(streamer.id);
   const cause = settingsOf(streamer);
   await expireBounties();
-  const bounties = openBounties(streamer.id);
+  const takesBounties = bountiesSupported() && cause.acceptingBounties;
+  const bounties = bountiesSupported() ? openBounties(streamer.id) : [];
   const raised = raisedFor(streamer, cause.causeName);
   return (
     <>
@@ -68,12 +69,12 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
         </div>
       )}
 
-      {(bounties.length > 0 || (user?.role === "fan" && (cause.acceptingBounties || cause.acceptingSuggestions))) && (
+      {(bounties.length > 0 || (user?.role === "fan" && (takesBounties || cause.acceptingSuggestions))) && (
         <>
-          <h2>Bounties and ideas</h2>
+          <h2>{takesBounties || bounties.length > 0 ? "Bounties and ideas" : "Got an idea?"}</h2>
           {bounties.length > 0 && <BountyBoard bounties={bounties} canBack={user?.role === "fan"} minUsd={cause.minPledgeUsd} />}
-          {user?.role === "fan" && streamer.handle && (cause.acceptingBounties || cause.acceptingSuggestions) && (
-            <SuggestForm handle={streamer.handle} streamerName={streamer.name} bounties={cause.acceptingBounties} ideas={cause.acceptingSuggestions} />
+          {user?.role === "fan" && streamer.handle && (takesBounties || cause.acceptingSuggestions) && (
+            <SuggestForm handle={streamer.handle} streamerName={streamer.name} bounties={takesBounties} ideas={cause.acceptingSuggestions} />
           )}
         </>
       )}

@@ -14,7 +14,7 @@ const POSITIONS: [StreamSettings["overlayPosition"], string][] = [
 ];
 
 /** The streamer's controls for pledges, suggestions and the overlay. */
-export function SettingsForm({ initial }: { initial: StreamSettings }) {
+export function SettingsForm({ initial, bounties = true }: { initial: StreamSettings; /** Whether this ledger can hold bounty money. */ bounties?: boolean }) {
   const router = useRouter();
   const [settings, setSettings] = useState(initial);
   const [blocked, setBlocked] = useState(initial.blockedWords.join(", "));
@@ -50,7 +50,7 @@ export function SettingsForm({ initial }: { initial: StreamSettings }) {
       <h3>Stream settings</h3>
       <div className="grid">
         {toggle("acceptingSuggestions", "Let fans suggest challenges")}
-        {toggle("acceptingBounties", "Let fans post bounties (ideas with money on them)")}
+        {bounties && toggle("acceptingBounties", "Let fans post bounties (ideas with money on them)")}
         {toggle("announcer", "Read events aloud on stream")}
         {toggle("overlayQr", "Show a QR code on the overlay")}
       </div>
