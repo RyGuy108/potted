@@ -4,6 +4,7 @@ import { gameOf } from "@/lib/format";
 import type { StreamListing } from "@/lib/service";
 import { compact, mockActivityOn, mockViewers } from "@/lib/mock-activity";
 import { GameArt } from "./GameArt";
+import { type CarouselStream, LiveCarousel } from "./LiveCarousel";
 
 /**
  * A stream in a directory, laid out the way stream sites list channels:
@@ -55,4 +56,24 @@ export function StreamGrid({ listings, empty, ranked = false }: { listings: (Str
       ))}
     </div>
   );
+}
+
+/**
+ * A browse row: streams on a carousel when there are enough to make a ring
+ * (three or more), otherwise the plain grid.
+ */
+export function StreamRow({ listings, empty, label, ranked = false }: { listings: (StreamListing & { reason?: string })[]; empty: string; label: string; ranked?: boolean }) {
+  if (listings.length < 3) return <StreamGrid listings={listings} empty={empty} ranked={ranked} />;
+  const streams: CarouselStream[] = listings.map((l) => ({
+    handle: l.streamer.handle!,
+    src: `/api/stream-card/${l.streamer.handle}?v=${l.potMicro}-${l.planters}-${l.headline.id}-${l.headline.status}`,
+    title: l.headline.title,
+    streamer: l.streamer.name,
+    game: gameOf(l.headline).name,
+    pot: formatUsd(l.potMicro),
+    planters: l.planters,
+    status: l.headline.status === "locked" ? "locked" : "open",
+    ...(l.reason ? { reason: l.reason } : {}),
+  }));
+  return <LiveCarousel streams={streams} label={label} ranked={ranked} />;
 }

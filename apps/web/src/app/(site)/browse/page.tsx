@@ -3,7 +3,7 @@ import { compact, mockActivityOn, mockGame, mockTotals } from "@/lib/mock-activi
 import Link from "next/link";
 import { GameArt } from "@/components/GameArt";
 import { AutoRefresh } from "@/components/Live";
-import { StreamGrid } from "@/components/StreamCard";
+import { StreamRow } from "@/components/StreamCard";
 import { forYou, trending } from "@/lib/discover";
 import { liveCountsByGame, liveStreams } from "@/lib/service";
 import { currentUser } from "@/lib/session";
@@ -47,7 +47,7 @@ export default async function Browse() {
             <h2>For you</h2>
             <span className="muted small">From the climbers you follow and back, and the games you play along with</span>
           </div>
-          <StreamGrid listings={picks} empty="Follow or back a few climbers and streams picked for you show up here." />
+          <StreamRow listings={picks} label="Streams for you" empty="Follow or back a few climbers and streams picked for you show up here." />
         </section>
       )}
 
@@ -57,7 +57,7 @@ export default async function Browse() {
             <h2>Trending</h2>
             <span className="muted small">Most pledges and new planters in the last hour</span>
           </div>
-          <StreamGrid listings={hot} empty="" ranked />
+          <StreamRow listings={hot} label="Trending streams" empty="" ranked />
         </section>
       )}
 
@@ -66,7 +66,7 @@ export default async function Browse() {
           <h2>All live streams</h2>
           <span className="muted small">{live.length} with a live challenge</span>
         </div>
-        <StreamGrid listings={live} empty="No challenges are live right now. Streams appear here the moment a climber opens one." />
+        <StreamRow listings={live} label="All live streams" empty="No challenges are live right now. Streams appear here the moment a climber opens one." />
       </section>
 
       <h2>Games and stream types</h2>

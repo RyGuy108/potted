@@ -26,6 +26,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           {user?.role === "streamer" && <Link href="/analytics">Analytics</Link>}
           {user?.role === "fan" && <Link href="/garden">My garden</Link>}
           {user?.role === "mod" && <Link href="/reviews">Reviews</Link>}
+          <NavLink href="/leaderboard">Leaderboard</NavLink>
           {user && <Link href="/about">How it works</Link>}
         </nav>
         <form className="search" action="/search" role="search">

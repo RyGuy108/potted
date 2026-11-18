@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { markNoticesReadAction, noticesAction } from "@/app/actions";
@@ -40,6 +41,9 @@ export function NotificationBell({ initialUnread }: { initialUnread: number }) {
   const [unread, setUnread] = useState(initialUnread);
   const [items, setItems] = useState<Item[]>([]);
   const [toast, setToast] = useState<Item | null>(null);
+  // The header blurs what is behind it, which would pin a fixed toast to the header; the toast goes on the page body instead.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const newest = useRef<string | null>(null);
   const box = useRef<HTMLDivElement>(null);
 
@@ -131,7 +135,9 @@ export function NotificationBell({ initialUnread }: { initialUnread: number }) {
         </div>
       )}
 
-      {toast && !open && (
+      {toast && !open && mounted &&
+        createPortal(
+
         <Link href={toast.href} className={`bell-toast kind-${toast.kind}`} onClick={() => setToast(null)}>
           <span className={`bell-icon kind-${toast.kind}`} aria-hidden="true">
             {ICON[toast.kind] ?? "•"}
@@ -140,8 +146,9 @@ export function NotificationBell({ initialUnread }: { initialUnread: number }) {
             <strong>{toast.title}</strong>
             {toast.body && <span className="muted small">{toast.body}</span>}
           </span>
-        </Link>
-      )}
+        </Link>,
+          document.body,
+        )}
     </div>
   );
 }

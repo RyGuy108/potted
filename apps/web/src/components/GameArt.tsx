@@ -164,10 +164,19 @@ export function GameArt({ id, name }: { id: string; name: string }) {
   }
   return (
     <svg className="game-art" viewBox="0 0 420 180" preserveAspectRatio="xMidYMid slice" role="img" aria-label={`${name} illustration`}>
+      <ArtLayers id={id} />
+    </svg>
+  );
+}
+
+/** The illustration's shapes, in a 420 by 180 box. Also drawn into the stream-card images. */
+export function ArtLayers({ id }: { id: string }) {
+  return (
+    <>
       <rect width="420" height="180" fill="#151515" />
       <circle cx="340" cy="20" r="120" fill={B} opacity="0.16" />
       <circle cx="60" cy="180" r="100" fill={G} opacity="0.1" />
       {ART[id] ?? ART.other}
-    </svg>
+    </>
   );
 }

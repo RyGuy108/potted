@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChallengeCard } from "@/components/ChallengeCard";
 import { AutoRefresh } from "@/components/Live";
@@ -15,6 +16,7 @@ import { ChannelPoints } from "@/components/ChannelPoints";
 import { CountUp } from "@/components/Motion";
 import { FollowButton } from "@/components/FollowButton";
 import { GiveForm } from "@/components/GiveForm";
+import { WinnerStrip } from "@/components/Podium";
 import { giftTotals, giftsTo } from "@/lib/gifts";
 import { followersOf, isFollowing } from "@/lib/notifications";
 import { CategoryPreview, StreamHeader, StreamPreview } from "@/components/StreamHeader";
@@ -34,6 +36,7 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
   const campaignNow = campaign ? campaignStats(campaign) : undefined;
   await expireBounties();
   const takesBounties = bountiesSupported() && cause.acceptingBounties;
+  const canSuggest = Boolean(user?.role === "fan" && streamer.handle && (takesBounties || cause.acceptingSuggestions));
   const bounties = bountiesSupported() ? openBounties(streamer.id) : [];
   const raised = raisedFor(streamer, cause.causeName);
   const twitch = cause.twitchChannel ? await twitchChannel(cause.twitchChannel) : null;
@@ -131,49 +134,53 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
         </div>
       )}
 
-      {(bounties.length > 0 || (user?.role === "fan" && (takesBounties || cause.acceptingSuggestions))) && (
+      {(bounties.length > 0 || canSuggest) && (
         <>
           <h2>{takesBounties || bounties.length > 0 ? "Bounties and ideas" : "Got an idea?"}</h2>
           {bounties.length > 0 && <BountyBoard bounties={bounties} canBack={user?.role === "fan"} minUsd={cause.minPledgeUsd} />}
-          {user?.role === "fan" && streamer.handle && (takesBounties || cause.acceptingSuggestions) && (
-            <SuggestForm handle={streamer.handle} streamerName={streamer.name} bounties={takesBounties} ideas={cause.acceptingSuggestions} games={cause.acceptedGames} />
-          )}
         </>
       )}
 
-      <section className="card give-card" id="give">
-        <div className="row between wrap">
-          <div>
-            <p className="eyebrow">Just give</p>
-            <h3>Support {streamer.name} directly</h3>
-            <p className="muted small">
-              No challenge, nothing to complete: it goes straight to {streamer.name}
-              {pointsSetup.on ? " and earns channel points like a pledge" : ""}. Gifts can't be refunded.
-            </p>
+      <div className={canSuggest ? "idea-give" : undefined}>
+        {canSuggest && (
+          <div className="idea-col">
+            <SuggestForm handle={streamer.handle!} streamerName={streamer.name} bounties={takesBounties} ideas={cause.acceptingSuggestions} games={cause.acceptedGames} />
           </div>
-          {gifted.count > 0 && (
-            <div className="give-total">
-              <span className="mono">
-                <CountUp value={gifted.totalMicro} micro format="usd" />
-              </span>
-              <span className="muted small">
-                given by {gifted.givers} {gifted.givers === 1 ? "planter" : "planters"}
-              </span>
-            </div>
-          )}
-        </div>
-        {user?.role === "fan" ? <GiveForm handle={streamer.handle!} name={streamer.name} minUsd={cause.minPledgeUsd} /> : <p className="muted small">Sign in as a planter to give.</p>}
-        {recentGifts.length > 0 && (
-          <ul className="gift-list">
-            {recentGifts.map((g) => (
-              <li key={g.id}>
-                <strong>{g.fanName}</strong> gave <span className="mono">{formatUsd(g.amountMicro)}</span>
-                {g.note && <span className="muted"> · &ldquo;{g.note}&rdquo;</span>}
-              </li>
-            ))}
-          </ul>
         )}
-      </section>
+        <section className="card give-card" id="give">
+          <div className="row between wrap">
+            <div>
+              <p className="eyebrow">Just give</p>
+              <h3>Support {streamer.name} directly</h3>
+              <p className="muted small">
+                No challenge, nothing to complete: it goes straight to {streamer.name}
+                {pointsSetup.on ? " and earns channel points like a pledge" : ""}. Gifts can't be refunded.
+              </p>
+            </div>
+            {gifted.count > 0 && (
+              <div className="give-total">
+                <span className="mono">
+                  <CountUp value={gifted.totalMicro} micro format="usd" />
+                </span>
+                <span className="muted small">
+                  given by {gifted.givers} {gifted.givers === 1 ? "planter" : "planters"}
+                </span>
+              </div>
+            )}
+          </div>
+          {user?.role === "fan" ? <GiveForm handle={streamer.handle!} name={streamer.name} minUsd={cause.minPledgeUsd} /> : <p className="muted small">Sign in as a planter to give.</p>}
+          {recentGifts.length > 0 && (
+            <ul className="gift-list">
+              {recentGifts.map((g) => (
+                <li key={g.id}>
+                  <strong>{g.fanName}</strong> gave <span className="mono">{formatUsd(g.amountMicro)}</span>
+                  {g.note && <span className="muted"> · &ldquo;{g.note}&rdquo;</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
 
       {pointsSetup.on && (
         <ChannelPoints
@@ -188,19 +195,21 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
 
       {planters.length > 0 && (
         <>
-          <h2>Top planters</h2>
-          <ol className="card leaderboard">
-            {planters.map((p, i) => (
-              <li key={p.userId} className={p.userId === user?.id ? "me" : undefined}>
-                <span className="mono rank">{i + 1}</span>
-                <span>{p.name}</span>
-                <span className="muted small">
-                  {p.challenges} {p.challenges === 1 ? "challenge" : "challenges"}
-                </span>
-                <span className="mono">{formatUsd(p.amountMicro)}</span>
-              </li>
-            ))}
-          </ol>
+          <div className="row between wrap">
+            <h2>Top planters</h2>
+            <Link href="/leaderboard" className="muted small">Full leaderboard</Link>
+          </div>
+          <WinnerStrip
+            tags={["Head gardener", "Green thumb"]}
+            entries={planters.map((p, i) => ({
+              id: p.userId,
+              rank: i + 1,
+              name: p.name,
+              value: formatUsd(p.amountMicro),
+              lines: [`${p.challenges} ${p.challenges === 1 ? "challenge" : "challenges"} backed`],
+              me: p.userId === user?.id,
+            }))}
+          />
         </>
       )}
 
