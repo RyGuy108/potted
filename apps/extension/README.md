@@ -1,9 +1,18 @@
 # Potted browser extension
 
-A side panel that sits beside a stream. Planters fund the challenges of
-the channel they are watching; climbers open and run challenges without
-leaving their stream. It is a thin client: every action is a call to the
-Potted server's `/api/ext` endpoints, which enforce all the rules.
+A side panel for planters that sits beside a stream, the way the Claude
+extension sits beside a page. It follows the tab you are watching:
+
+- **Stream:** back the live challenges of the climber you're watching
+  (quick amounts or your own), watch a posted clip and dispute it, and
+  suggest a challenge. On a channel that hasn't linked Potted, pick any
+  live stream from the list and back it from the panel.
+- **My garden:** your balance, level, streak, badges and recent pledges,
+  completions and refunds.
+
+Climbers and keepers do their work on the website; if one connects, the
+panel points them there. It is a thin client: every action is a call to
+the Potted server's `/api/ext` endpoints, which enforce all the rules.
 
 ## Load it in Chrome
 
@@ -22,8 +31,9 @@ the extension's card in `chrome://extensions`.
   in there, the extension picks up a token from that tab and closes it.
 - **Paste a connection code** does the same by hand, with the code the
   connect page shows.
-- **Demo** accounts work with no sign-in: a planter with test money, or
-  the two demo climbers.
+- **Demo** planters work with no sign-in: a new one with $25 of test
+  money, or the ready-made ones (Maya, Tester One, Tester Two) when the
+  demo sample is loaded.
 
 The token lasts 30 days and is kept in the extension's own storage.
 **Disconnect** deletes it.

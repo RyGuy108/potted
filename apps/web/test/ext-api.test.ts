@@ -88,3 +88,27 @@ describe("extension API", () => {
     await expect(service.updateSettings(kai, { ...service.settingsOf(kai), twitchChannel: "ryanplays" })).rejects.toThrow("already linked");
   });
 });
+
+describe("extension API for planters", () => {
+  it("shows the garden, takes ideas and disputes a clip the planter funded", async () => {
+    const ryan = (await call("POST", "demo", { as: "ryan" })).json as { token: string };
+    const fan = (await call("POST", "demo", { as: "planter", name: "Pia" })).json as { token: string };
+    const c = (await call("POST", "challenges", { gameId: "gta6", fields: { statement: "Finish the heist", disputeWindowSecs: "600", goalUsd: "10", pledgeCapUsd: "10", minutes: "30", upfrontPct: "0" } }, ryan.token)).json as { id: string };
+    await call("POST", `challenges/${c.id}/pledge`, { amountUsd: 4 }, fan.token);
+
+    const garden = (await call("GET", "garden", {}, fan.token)).json as { backed: number; badges: { earned: boolean }[]; activity: unknown[] };
+    expect(garden.backed).toBe(1);
+    expect(garden.badges.some((b) => b.earned)).toBe(true);
+    expect(garden.activity).toHaveLength(1);
+    expect((await call("GET", "garden", {}, ryan.token)).status).toBe(403);
+
+    expect((await call("POST", "ideas", { handle: "ryan", gameId: "gta6", text: "Win a race without hitting a wall" }, fan.token)).status).toBe(200);
+
+    await call("POST", `challenges/${c.id}/lock`, {}, ryan.token);
+    let view = (await call("POST", `challenges/${c.id}/claim`, { clipUrl: "https://clips.example.com/x" }, ryan.token)).json as { canDispute: boolean };
+    const stream = (await call("GET", "stream", {}, fan.token, new URLSearchParams("handle=ryan"))).json as { challenges: { canDispute: boolean; clipUrl: string }[] };
+    expect(stream.challenges[0]).toMatchObject({ canDispute: true, clipUrl: "https://clips.example.com/x" });
+    view = (await call("POST", `challenges/${c.id}/dispute`, {}, fan.token)).json as { canDispute: boolean; disputedByMe: boolean };
+    expect(view).toMatchObject({ canDispute: false, disputedByMe: true });
+  });
+});

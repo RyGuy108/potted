@@ -2,6 +2,7 @@ import { type Challenge, GAMES, toUsd } from "@potted/core";
 import { gameOf } from "./format";
 import * as service from "./service";
 import { extToken, readExtToken } from "./session";
+import { SAMPLE_SIGN_INS } from "./sample-data";
 import { DEMO_GUEST_ID, DEMO_STREAMER_ID, type User } from "./store";
 import { POT_FIELDS, conditionFromFields, termFields } from "./terms";
 
@@ -46,6 +47,12 @@ function viewOf(challenge: Challenge, viewer: User | undefined) {
     /** The streamer still has to post a clip for this one to settle. */
     needsClip: clip && challenge.status === "locked" && !challenge.claim,
     clipPosted: Boolean(challenge.claim),
+    clipUrl: challenge.claim?.clipUrl ?? null,
+    /** When an undisputed clip settles. */
+    disputeEndsAt: challenge.claim && challenge.condition.kind === "optimistic" ? challenge.claim.claimedAt + challenge.condition.disputeWindowSecs * 1000 : null,
+    disputedByMe: Boolean(viewer && challenge.claim?.disputedBy.includes(viewer.id)),
+    /** A funder can dispute a posted clip until a keeper rules. */
+    canDispute: Boolean(mine > 0 && challenge.status === "locked" && challenge.claim && !challenge.claim.ruling && !challenge.claim.disputedBy.includes(viewer!.id)),
     note: challenge.verdict?.reason ?? null,
     splits: [
       ...(challenge.splits ?? []).map((s) => `${s.kind === "guest" ? "Collab with" : "For"} ${s.name} · ${s.pct}%`),
@@ -79,13 +86,23 @@ async function route(method: string, path: string[], query: URLSearchParams, bod
         games: GAMES.map((g) => ({ id: g.id, name: g.name, how: g.how, featured: Boolean(g.featured), fields: termFields(g.id) })),
         potFields: POT_FIELDS,
         rehearsal: service.simulatedResultsAllowed(),
+        // Ready-made planters from the demo sample, when it is loaded.
+        samples: SAMPLE_SIGN_INS.filter((s) => s.role === "fan" && service.getUser(s.id)).map((s) => ({ id: s.id, label: s.label, note: s.note })),
       });
 
     case "POST demo": {
       // The same ready-made accounts the website's demo sign-in offers.
       const as = String(body.as);
       const who =
-        as === "ryan" ? service.getUser(DEMO_STREAMER_ID) : as === "kai" ? service.getUser(DEMO_GUEST_ID) : as === "planter" ? await service.signIn(String(body.name ?? ""), "fan") : undefined;
+        as === "ryan"
+          ? service.getUser(DEMO_STREAMER_ID)
+          : as === "kai"
+            ? service.getUser(DEMO_GUEST_ID)
+            : as === "planter"
+              ? await service.signIn(String(body.name ?? ""), "fan")
+              : SAMPLE_SIGN_INS.some((s) => s.id === as && s.role === "fan")
+                ? service.getUser(as)
+                : undefined;
       if (!who) fail(400, "Unknown demo account");
       return ok({ token: extToken(who.id), user: userView(who) });
     }
@@ -109,6 +126,9 @@ async function route(method: string, path: string[], query: URLSearchParams, bod
       return ok({
         streamer: { name: streamer.name, handle: streamer.handle },
         minPledgeUsd: settings.minPledgeUsd,
+        acceptingIdeas: settings.acceptingSuggestions,
+        // Games this climber has run, so an idea starts on something they play.
+        games: [...new Set(service.listChallenges(streamer.id).map((c) => c.gameId))].slice(0, 6),
         cause: settings.causeOn ? { name: settings.causeName, pct: settings.causePct } : null,
         challenges: service
           .stageChallenges(streamer.id)
@@ -128,6 +148,35 @@ async function route(method: string, path: string[], query: URLSearchParams, bod
           planters: l.planters,
         })),
       });
+
+    case "GET garden": {
+      const me = need();
+      if (me.role !== "fan") fail(403, "The garden is for planters");
+      const stats = service.planterStats(me);
+      const garden = service.gardenOf(me);
+      return ok({
+        balanceMicro: await service.balanceOf(me),
+        level: stats.level,
+        xp: stats.xp,
+        streakDays: stats.streakDays,
+        backed: stats.backed,
+        grown: stats.grown,
+        streamersBacked: stats.streamersBacked,
+        pledgedMicro: garden.pledgedMicro,
+        returnedMicro: garden.returnedMicro,
+        badges: stats.badges,
+        activity: service.planterActivity(me, 8).map((a) => ({ at: a.at, kind: a.kind, text: a.text, title: a.challenge.title, id: a.challenge.id })),
+      });
+    }
+
+    case "POST challenges/:id/dispute":
+      return ok(viewOf(await service.dispute(need(), id!), user));
+
+    case "POST ideas": {
+      const me = need();
+      const idea = await service.suggest(me, String(body.handle ?? ""), String(body.gameId ?? ""), String(body.text ?? ""), String(body.customGame ?? ""));
+      return ok({ id: idea.id });
+    }
 
     case "GET mine": {
       const me = need();

@@ -1,9 +1,13 @@
 import { DEFAULT_BASE, getSettings, streamFromUrl } from "./shared.js";
 
 /**
- * The side panel. It holds no rules of its own: every action is a call to
- * the Potted server, which decides what is allowed. The panel only shows
- * the result.
+ * The side panel, for planters. It follows the tab you are watching: on a
+ * linked Twitch or YouTube channel (or a Potted stream page) it shows that
+ * climber's live challenges so you can back them without leaving the
+ * stream. Climbers and keepers do their work on the website.
+ *
+ * The panel holds no rules of its own: every action is a call to the
+ * Potted server, which decides what is allowed.
  */
 
 const $ = (id) => document.getElementById(id);
@@ -12,9 +16,18 @@ const usd = (micro) => {
   const dollars = micro / 1_000_000;
   return `$${Number.isInteger(dollars) ? dollars : dollars.toFixed(2)}`;
 };
-const minutesLeft = (deadline) => {
-  const mins = Math.max(0, Math.round((deadline - Date.now()) / 60_000));
-  return mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m left` : `${mins}m left`;
+const timeLeft = (until) => {
+  const secs = Math.max(0, Math.round((until - Date.now()) / 1000));
+  if (secs < 120) return `${secs}s`;
+  const mins = Math.round(secs / 60);
+  return mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+};
+const ago = (at) => {
+  const mins = Math.round((Date.now() - at) / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  return hours < 24 ? `${hours}h ago` : `${Math.round(hours / 24)}d ago`;
 };
 
 const state = {
@@ -23,10 +36,16 @@ const state = {
   me: null,
   balanceMicro: 0,
   config: null,
+  /** "stream" or "garden". */
+  view: "stream",
   /** Which stream the watched tab shows, or null. */
   tab: null,
-  climberTab: "run",
-  gameId: "chess",
+  /** A stream picked from the live list, shown instead of the tab's. */
+  picked: null,
+  /** Whether the idea form is open. */
+  ideaOpen: false,
+  /** The handle of the stream on screen, for ideas. */
+  streamHandle: null,
   /** Last data drawn, so an unchanged poll does not redraw and wipe what someone is typing. */
   drawn: "",
 };
@@ -70,92 +89,72 @@ async function watchedTab() {
 
 // --- Drawing ---------------------------------------------------------------
 
-function challengeCard(c, controls) {
+const STATUS = { open: "Open for pledges", locked: "Attempt in progress", paid: "Completed", failed: "Refunded" };
+
+function challengeCard(c, minPledgeUsd) {
   const pct = Math.min(100, Math.round((c.totalMicro / c.goalMicro) * 100));
+  const room = (c.pledgeCapMicro - c.mineMicro) / 1_000_000;
+  const amounts = [1, 5, 10].filter((a) => a >= minPledgeUsd && a <= room);
+  let controls = "";
+  if (c.status === "open") {
+    controls = `
+      <div class="row">
+        ${amounts.map((a) => `<button class="primary" data-action="pledge" data-amount="${a}">Add $${a}</button>`).join("")}
+        ${room >= minPledgeUsd ? `<input class="amount" data-other inputmode="decimal" placeholder="$" aria-label="Other amount" /><button data-action="pledge-other">Add</button>` : ""}
+      </div>
+      ${room < minPledgeUsd ? `<span class="muted small">You have reached this pot's limit for one planter.</span>` : `<span class="muted small">Up to ${usd(c.pledgeCapMicro)} per planter.</span>`}`;
+  } else if (c.status === "locked") {
+    if (c.clipPosted) {
+      controls = `
+        <div class="clip">
+          <a href="${esc(c.clipUrl)}" target="_blank" rel="noreferrer">Watch the clip</a>
+          ${c.disputedByMe ? `<span class="muted small">You disputed it. A keeper will review it.</span>` : c.disputeEndsAt && c.disputeEndsAt > Date.now() ? `<span class="muted small">Settles in ${timeLeft(c.disputeEndsAt)} unless a funder disputes.</span>` : `<span class="muted small">Waiting to settle.</span>`}
+          ${c.canDispute ? `<button class="danger" data-action="dispute">Dispute this clip</button>` : ""}
+        </div>`;
+    } else {
+      controls = `<span class="muted small">The attempt is on. Pledging is closed.</span>`;
+    }
+  }
   return `
     <article class="card" data-challenge="${esc(c.id)}">
-      <div class="row">
-        <span class="pill ${esc(c.status)}">${{ open: "Open for pledges", locked: "Attempt in progress", paid: "Completed", failed: "Refunded" }[c.status]}</span>
-        ${c.status === "open" || c.status === "locked" ? `<span class="muted small">${minutesLeft(c.deadline)}</span>` : ""}
+      <div class="row between">
+        <span class="pill ${esc(c.status)}">${STATUS[c.status]}</span>
+        ${c.status === "open" ? `<span class="muted small">${timeLeft(c.deadline)} left</span>` : ""}
       </div>
       <p class="title">${esc(c.title)}</p>
+      <span class="muted small">${esc(c.game)}</span>
       ${c.splits.map((s) => `<span class="muted small">${esc(s)}</span>`).join("")}
       <div class="pot"><span class="mono">${usd(c.totalMicro)}</span><span class="muted small">of ${usd(c.goalMicro)} · ${c.planters} ${c.planters === 1 ? "planter" : "planters"}</span></div>
       <div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div>
-      ${c.note && c.status !== "open" && !c.clipPosted ? `<span class="muted small">${esc(c.note)}</span>` : ""}
-      ${controls(c)}
+      ${c.mineMicro > 0 ? `<span class="mine">You have ${usd(c.mineMicro)} in this pot.</span>` : ""}
+      ${controls}
     </article>`;
 }
 
-function planterControls(minPledgeUsd) {
-  return (c) => {
-    if (c.status !== "open") return c.mineMicro > 0 ? `<span class="muted small">You have ${usd(c.mineMicro)} in this pot.</span>` : "";
-    const room = (c.pledgeCapMicro - c.mineMicro) / 1_000_000;
-    const amounts = [1, 5, 10].filter((a) => a >= minPledgeUsd && a <= room);
-    return `
-      ${c.mineMicro > 0 ? `<span class="muted small">You have ${usd(c.mineMicro)} in this pot.</span>` : ""}
-      <div class="row">
-        ${amounts.map((a) => `<button class="primary" data-action="pledge" data-amount="${a}">Add $${a}</button>`).join("")}
-        ${amounts.length === 0 ? `<span class="muted small">${room <= 0 ? "You have reached this pot's limit for one fan." : `Pledges here are $${minPledgeUsd} to $${room}.`}</span>` : ""}
-      </div>`;
-  };
-}
-
-function climberControls(c) {
-  if (c.status === "open") {
-    return `<div class="row">
-      <button class="primary" data-action="lock">Start attempt</button>
-      <button class="danger" data-action="cancel">Cancel and refund</button>
-    </div>`;
-  }
-  if (c.status === "locked") {
-    return `
-      ${
-        c.needsClip
-          ? `<div class="row"><input data-clip placeholder="https:// link to your clip" aria-label="Clip link" style="flex:1" /><button class="primary" data-action="claim">Post clip</button></div>`
-          : c.clipPosted
-            ? `<span class="muted small">Clip posted. It settles when the dispute window ends.</span>`
-            : ""
-      }
-      <div class="row">
-        <button data-action="check">Check now</button>
-        <button class="danger" data-action="cancel">Give up and refund</button>
-        ${state.config?.rehearsal ? `<button data-action="win">Rehearse a win</button><button data-action="miss">Rehearse a miss</button>` : ""}
-      </div>`;
-  }
-  return "";
-}
-
-function field(f) {
-  const value = esc(f.initial ?? "");
-  const control = f.options
-    ? `<select name="${esc(f.name)}">${f.options.map(([v, label]) => `<option value="${esc(v)}"${v === (f.initial ?? "") ? " selected" : ""}>${esc(label)}</option>`).join("")}</select>`
-    : `<input name="${esc(f.name)}" value="${value}" placeholder="${esc(f.placeholder ?? "")}"${f.numeric ? ' inputmode="numeric"' : ""}${f.required ? " required" : ""} />`;
-  return `<label>${esc(f.label)}${control}</label>`;
-}
-
-function newChallengeForm() {
+function ideaForm(stream) {
+  if (!stream.acceptingIdeas) return "";
+  if (!state.ideaOpen) return `<button class="link" data-action="idea-open">Suggest a challenge to ${esc(stream.streamer.name)}</button>`;
   const games = state.config.games;
-  const game = games.find((g) => g.id === state.gameId) ?? games[0];
+  const first = stream.games[0] ?? "other";
   return `
-    <form class="card" id="new-challenge">
-      <label>Game or stream type
-        <select id="game">${games.map((g) => `<option value="${esc(g.id)}"${g.id === game.id ? " selected" : ""}>${esc(g.name)}</option>`).join("")}</select>
+    <form class="card" id="idea">
+      <p class="title">Suggest a challenge</p>
+      <label>Game
+        <select name="gameId">${games.map((g) => `<option value="${esc(g.id)}"${g.id === first ? " selected" : ""}>${esc(g.name)}</option>`).join("")}</select>
       </label>
-      <span class="muted small">${esc(game.how)}</span>
-      ${game.fields.map(field).join("")}
-      <div class="grid2">${state.config.potFields.map(field).join("")}</div>
-      <button class="primary">Open for pledges</button>
+      <label>Your idea<input name="text" maxlength="140" placeholder="Beat the boss without healing" required /></label>
+      <div class="row"><button class="primary">Send idea</button><button type="button" class="link" data-action="idea-close">Cancel</button></div>
     </form>`;
 }
 
 function disconnectedView() {
+  const samples = state.config?.samples ?? [];
   return `
     <section class="card">
-      <p class="eyebrow">Join in</p>
-      <h2>Connect your Potted account</h2>
-      <span class="muted">Fund challenges and run your own without leaving the stream.</span>
-      <button class="primary" data-action="connect">Log in / Sign up</button>
+      <p class="eyebrow">For planters</p>
+      <h2>Back challenges without leaving the stream</h2>
+      <span class="muted">Pledge to the climber you're watching, dispute a clip, and grow your garden.</span>
+      <button class="primary" data-action="connect">Log in or sign up</button>
       <details>
         <summary>Paste a connection code instead</summary>
         <div class="row" style="margin-top:8px"><input id="code" placeholder="ext.…" aria-label="Connection code" style="flex:1" /><button data-action="use-code">Use</button></div>
@@ -164,8 +163,12 @@ function disconnectedView() {
     <div class="divider">or try the demo with test money</div>
     <section class="card">
       <div class="row"><input id="demo-name" placeholder="Your name" aria-label="Your name" maxlength="24" style="flex:1" /><button class="primary" data-action="demo-planter">Join as a planter</button></div>
-      <span class="muted small">Planters back challenges. You start with $25 of test USDC.</span>
-      <div class="row"><span class="muted small">Or run challenges as a demo climber:</span><button data-action="demo-ryan">Ryan</button><button data-action="demo-kai">Kai</button></div>
+      <span class="muted small">You start with $25 of test USDC.</span>
+      ${
+        samples.length
+          ? `<span class="muted small">Or use a ready-made planter:</span><div class="row">${samples.map((s) => `<button data-action="demo-sample" data-id="${esc(s.id)}" title="${esc(s.note)}">${esc(s.label)}</button>`).join("")}</div>`
+          : ""
+      }
     </section>
     <details class="muted small">
       <summary>Server</summary>
@@ -173,29 +176,45 @@ function disconnectedView() {
     </details>`;
 }
 
-async function planterView() {
-  const query = state.tab ? (state.tab.handle ? `handle=${encodeURIComponent(state.tab.handle)}` : `platform=${state.tab.platform}&channel=${encodeURIComponent(state.tab.channel)}`) : null;
+/** Climbers and keepers get a pointer to the website, where their tools are. */
+function otherRoleView() {
+  const climber = state.me.role === "streamer";
+  return `
+    <section class="card">
+      <p class="eyebrow">${climber ? "Climber account" : "Keeper account"}</p>
+      <h2>${climber ? "Run your challenges on the website" : "Review clips on the website"}</h2>
+      <span class="muted">The extension is for planters backing challenges while they watch. ${climber ? "Your dashboard has the scout, your challenges and your overlay." : "Disputed clips wait for you on the reviews page."}</span>
+      <button class="primary" data-open="${climber ? "/dashboard" : "/reviews"}">Open ${climber ? "the dashboard" : "reviews"}</button>
+    </section>`;
+}
+
+async function streamView() {
+  const target = state.picked ?? state.tab;
+  const query = target ? (target.handle ? `handle=${encodeURIComponent(target.handle)}` : `platform=${target.platform}&channel=${encodeURIComponent(target.channel)}`) : null;
   const stream = query ? await api(`stream?${query}`) : { streamer: null, challenges: [] };
+  state.streamHandle = stream.streamer?.handle ?? null;
   if (stream.streamer) {
     return `
       <div>
-        <p class="eyebrow">On this tab</p>
+        <p class="eyebrow">${state.picked ? "Picked from live streams" : "On this tab"}</p>
         <h2>${esc(stream.streamer.name)}</h2>
         ${stream.cause ? `<span class="muted small">Charity stream: ${stream.cause.pct}% of every completed pot goes to ${esc(stream.cause.name)}.</span>` : ""}
+        ${state.picked ? `<button class="link" data-action="unpick">Back to ${state.tab ? "this tab's stream" : "live streams"}</button>` : ""}
       </div>
-      ${stream.challenges.length === 0 ? `<p class="muted">Nothing open right now. New challenges appear here on their own.</p>` : stream.challenges.map((c) => challengeCard(c, planterControls(stream.minPledgeUsd))).join("")}
-      <button class="link" data-open="/s/${esc(stream.streamer.handle)}">Open ${esc(stream.streamer.name)}'s full page</button>`;
+      ${stream.challenges.length === 0 ? `<p class="muted">Nothing open right now. New challenges appear here on their own.</p>` : stream.challenges.map((c) => challengeCard(c, stream.minPledgeUsd)).join("")}
+      ${ideaForm(stream)}
+      <button class="link" data-open="/s/${esc(stream.streamer.handle)}">Open ${esc(stream.streamer.name)}'s page</button>`;
   }
   const { streams } = await api("live");
   return `
     <div>
       <p class="eyebrow">${state.tab ? "No Potted challenges on this channel" : "Live with Potted"}</p>
-      <h2>${streams.length === 0 ? "No one is live right now" : "Pick a stream"}</h2>
-      ${state.tab ? `<span class="muted small">This channel has not linked Potted. Here is who is live.</span>` : ""}
+      <h2>${streams.length === 0 ? "No one is live right now" : "Pick a stream to back"}</h2>
+      ${state.tab ? `<span class="muted small">This channel has not linked Potted yet. Here is who is live.</span>` : ""}
     </div>
     ${streams
       .map(
-        (s) => `<button class="card" data-open="/s/${esc(s.handle)}" style="text-align:left;min-height:0">
+        (s) => `<button class="card stream" data-action="pick" data-handle="${esc(s.handle)}">
           <span class="title">${esc(s.title)}</span>
           <span class="muted small">${esc(s.name)} · ${esc(s.game)}</span>
           <span class="mono">${usd(s.potMicro)} <span class="muted small">in the pot · ${s.planters} ${s.planters === 1 ? "planter" : "planters"}</span></span>
@@ -204,11 +223,50 @@ async function planterView() {
       .join("")}`;
 }
 
-async function climberStage() {
-  const mine = await api("mine");
+async function gardenView() {
+  const g = await api("garden");
+  const next = g.level.next;
+  const pct = next ? Math.min(100, Math.round(((g.xp - g.level.floor) / (next.at - g.level.floor)) * 100)) : 100;
+  const earned = g.badges.filter((b) => b.earned);
+  const ICON = { pledged: "+", paid: "✓", refunded: "↩" };
   return `
-    ${mine.live.length === 0 ? `<p class="muted">Nothing live. Open a challenge from the New tab.</p>` : mine.live.map((c) => challengeCard(c, climberControls)).join("")}
-    ${mine.recent.length > 0 ? `<h2>Recent</h2>${mine.recent.map((c) => challengeCard(c, () => "")).join("")}` : ""}`;
+    <section class="card level">
+      <p class="eyebrow">Level ${g.level.index + 1}</p>
+      <h2>${esc(g.level.name)}</h2>
+      <div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div>
+      <span class="muted small">${next ? `${g.xp} XP · ${next.at - g.xp} to ${esc(next.name)}` : `${g.xp} XP · top level`}</span>
+    </section>
+    <div class="stats">
+      <div><b>${g.streakDays}</b><span>day streak</span></div>
+      <div><b>${g.backed}</b><span>backed</span></div>
+      <div><b>${g.grown}</b><span>completed</span></div>
+      <div><b>${g.streamersBacked}</b><span>climbers</span></div>
+    </div>
+    <section>
+      <p class="eyebrow">Badges · ${earned.length} of ${g.badges.length}</p>
+      <div class="badges">
+        ${g.badges.map((b) => `<span class="badge${b.earned ? " on" : ""}" title="${esc(b.how)}">${esc(b.name)}</span>`).join("")}
+      </div>
+    </section>
+    <section>
+      <p class="eyebrow">Recent</p>
+      ${
+        g.activity.length === 0
+          ? `<p class="muted small">Back a challenge and it shows up here.</p>`
+          : `<ul class="activity">${g.activity
+              .map((a) => `<li><span class="icon ${a.kind}">${ICON[a.kind]}</span><span><button class="link" data-open="/c/${esc(a.id)}">${esc(a.title)}</button><span class="muted small">${esc(a.text)} · ${ago(a.at)}</span></span></li>`)
+              .join("")}</ul>`
+      }
+    </section>
+    <div class="row between muted small"><span>Pledged ${usd(g.pledgedMicro)}</span><span>Came back ${usd(g.returnedMicro)}</span></div>
+    <button class="link" data-open="/garden">Open your full garden</button>`;
+}
+
+function tabs() {
+  return `<div class="tabs" role="tablist">
+    <button role="tab" aria-selected="${state.view === "stream"}" data-action="view-stream">Stream</button>
+    <button role="tab" aria-selected="${state.view === "garden"}" data-action="view-garden">My garden</button>
+  </div>`;
 }
 
 async function draw(force = false) {
@@ -221,32 +279,20 @@ async function draw(force = false) {
     $("footer").innerHTML = "";
     return;
   }
-  $("account").innerHTML = `${esc(state.me.name)}<br /><b>${usd(state.balanceMicro)}</b>`;
+  $("account").innerHTML = `${esc(state.me.name)}${state.me.role === "fan" ? `<br /><b>${usd(state.balanceMicro)}</b>` : ""}`;
   $("footer").innerHTML = `<button class="link" data-open="/">Open the full site</button><button class="link" data-action="disconnect">Disconnect</button>`;
-
-  if (state.me.role === "streamer") {
-    const tabs = `<div class="tabs" role="tablist">
-      <button role="tab" aria-selected="${state.climberTab === "run"}" data-action="tab-run">Run</button>
-      <button role="tab" aria-selected="${state.climberTab === "new"}" data-action="tab-new">New challenge</button>
-    </div>`;
-    if (state.climberTab === "new") {
-      // The form is drawn once per game choice and then left alone, so polling never clears it.
-      const key = `new:${state.gameId}`;
-      if (force || state.drawn !== key) main.innerHTML = tabs + newChallengeForm();
-      state.drawn = key;
-      return;
-    }
-    const html = tabs + (await climberStage());
-    redraw(main, `run:${html}`, html, force);
+  if (state.me.role !== "fan") {
+    redraw(main, "other", otherRoleView(), force);
     return;
   }
-  const html = await planterView();
-  redraw(main, `fan:${html}`, html, force);
+  const html = tabs() + (state.view === "garden" ? await gardenView() : await streamView());
+  redraw(main, `${state.view}:${html}`, html, force);
 }
 
 /** Replaces the content only when it changed and nobody is typing in it. */
 function redraw(main, key, html, force) {
-  const typing = main.contains(document.activeElement) && document.activeElement.tagName === "INPUT" && document.activeElement.value !== "";
+  const active = document.activeElement;
+  const typing = main.contains(active) && (active.tagName === "INPUT" || active.tagName === "SELECT") && (active.value !== "" || active.tagName === "SELECT");
   if (!force && (state.drawn === key || typing)) return;
   main.innerHTML = html;
   state.drawn = key;
@@ -272,7 +318,13 @@ async function refresh(force = false) {
     } else {
       state.me = null;
     }
-    state.tab = await watchedTab();
+    const tab = await watchedTab();
+    // Moving to another stream's tab drops a stream picked from the list.
+    if (JSON.stringify(tab) !== JSON.stringify(state.tab)) {
+      if (tab) state.picked = null;
+      state.ideaOpen = false;
+    }
+    state.tab = tab;
     await draw(force);
   } catch (error) {
     notify(error.message);
@@ -286,6 +338,12 @@ async function signInWith(token) {
   await refresh(true);
 }
 
+async function pledge(id, amount) {
+  if (!(amount > 0)) throw new Error("Enter an amount");
+  await api(`challenges/${id}/pledge`, { method: "POST", body: { amountUsd: amount } });
+  notify(`You added $${amount}. It's in escrow until the result.`, true);
+}
+
 async function act(action, target) {
   const card = target.closest("[data-challenge]");
   const id = card?.dataset.challenge;
@@ -297,9 +355,8 @@ async function act(action, target) {
       return signInWith($("code").value.trim());
     case "demo-planter":
       return signInWith((await post("demo", { as: "planter", name: $("demo-name").value })).token);
-    case "demo-ryan":
-    case "demo-kai":
-      return signInWith((await post("demo", { as: action.slice(5) })).token);
+    case "demo-sample":
+      return signInWith((await post("demo", { as: target.dataset.id })).token);
     case "save-base": {
       const base = $("base").value.trim().replace(/\/+$/, "") || DEFAULT_BASE;
       await chrome.storage.local.set({ base });
@@ -311,35 +368,34 @@ async function act(action, target) {
     case "disconnect":
       state.token = null;
       state.me = null;
+      state.picked = null;
       await chrome.storage.local.remove("token");
       return refresh(true);
-    case "tab-run":
-    case "tab-new":
-      state.climberTab = action.slice(4);
+    case "view-stream":
+    case "view-garden":
+      state.view = action.slice(5);
+      return draw(true);
+    case "pick":
+      state.picked = { handle: target.dataset.handle };
+      state.ideaOpen = false;
+      return draw(true);
+    case "unpick":
+      state.picked = null;
+      return draw(true);
+    case "idea-open":
+    case "idea-close":
+      state.ideaOpen = action === "idea-open";
       return draw(true);
     case "pledge":
-      await post(`challenges/${id}/pledge`, { amountUsd: Number(target.dataset.amount) });
-      notify(`You added $${target.dataset.amount}.`, true);
+      await pledge(id, Number(target.dataset.amount));
       break;
-    case "lock":
-      if (!confirm("Close pledging and start the attempt?")) return;
-      await post(`challenges/${id}/lock`);
+    case "pledge-other":
+      await pledge(id, Number(card.querySelector("[data-other]").value.replace("$", "")));
       break;
-    case "cancel":
-      if (!confirm("Refund every fan and end this challenge?")) return;
-      await post(`challenges/${id}/cancel`);
-      notify("Cancelled. Every pledge was refunded.", true);
-      break;
-    case "claim":
-      await post(`challenges/${id}/claim`, { clipUrl: card.querySelector("[data-clip]").value.trim() });
-      notify("Clip posted.", true);
-      break;
-    case "check":
-      await post(`challenges/${id}/check`);
-      break;
-    case "win":
-    case "miss":
-      await post(`challenges/${id}/simulate`, { success: action === "win" });
+    case "dispute":
+      if (!confirm("Dispute this clip? A keeper will review it before any money moves.")) return;
+      await post(`challenges/${id}/dispute`);
+      notify("Disputed. A keeper will review the clip.", true);
       break;
     default:
       return;
@@ -362,22 +418,16 @@ document.addEventListener("click", async (event) => {
   }
 });
 
-document.addEventListener("change", (event) => {
-  if (event.target.id !== "game") return;
-  state.gameId = event.target.value;
-  draw(true);
-});
-
 document.addEventListener("submit", async (event) => {
-  if (event.target.id !== "new-challenge") return;
+  if (event.target.id !== "idea") return;
   event.preventDefault();
-  const fields = Object.fromEntries(new FormData(event.target).entries());
+  const form = Object.fromEntries(new FormData(event.target).entries());
   const button = event.target.querySelector("button");
   button.disabled = true;
   try {
-    await api("challenges", { method: "POST", body: { gameId: state.gameId, fields } });
-    notify("Challenge open for pledges.", true);
-    state.climberTab = "run";
+    await api("ideas", { method: "POST", body: { handle: state.streamHandle, gameId: form.gameId, text: form.text } });
+    notify("Idea sent. The climber sees it on their dashboard.", true);
+    state.ideaOpen = false;
     await refresh(true);
   } catch (error) {
     notify(error.message);
