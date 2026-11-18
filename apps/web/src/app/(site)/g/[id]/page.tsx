@@ -5,15 +5,24 @@ import { ChallengeCard } from "@/components/ChallengeCard";
 import { GameArt } from "@/components/GameArt";
 import { AutoRefresh } from "@/components/Live";
 import { StreamGrid } from "@/components/StreamCard";
-import { liveStreams, recentResults } from "@/lib/service";
+import { type SettledSort, liveStreams, settledIn } from "@/lib/service";
 
 /** Everyone running Potted challenges in one game or stream type. */
-export default async function GamePage({ params }: { params: Promise<{ id: string }> }) {
+const SORTS: [SettledSort, string][] = [
+  ["recent", "Most recent"],
+  ["pot", "Biggest pot"],
+  ["popular", "Most planters"],
+  ["completed", "Completed first"],
+];
+
+export default async function GamePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ sort?: string }> }) {
   const { id } = await params;
+  const asked = (await searchParams).sort;
+  const sort: SettledSort = SORTS.some(([key]) => key === asked) ? (asked as SettledSort) : "recent";
   const game = GAMES.find((g) => g.id === id);
   if (!game) notFound();
   const live = liveStreams(game.id);
-  const recent = recentResults(game.id);
+  const recent = settledIn(game.id, sort);
   return (
     <>
       {/* Opened from Browse, which already animated in; this page just appears. */}
@@ -42,10 +51,19 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
 
       {recent.length > 0 && (
         <>
-          <h2>Recently settled</h2>
-          <div className="list">
+          <div className="row between wrap settled-head">
+            <h2>Recently settled</h2>
+            <nav className="segmented" aria-label="Sort settled challenges">
+              {SORTS.map(([key, label]) => (
+                <Link key={key} href={`/g/${game.id}?sort=${key}#settled`} className={key === sort ? "on" : undefined} aria-current={key === sort ? "true" : undefined} scroll={false}>
+                  {label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+          <div className="list" id="settled">
             {recent.map((c) => (
-              <ChallengeCard key={c.id} challenge={c} />
+              <ChallengeCard key={c.id} challenge={c} showStreamer />
             ))}
           </div>
         </>

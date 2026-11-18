@@ -2,6 +2,7 @@ import { type Challenge, formatUsd, growthOf, isOpenPot } from "@potted/core";
 import Link from "next/link";
 import { STATUS_LABEL, gameOf, tierLabel } from "@/lib/format";
 import { Countdown } from "./Live";
+import { fundersOf, getUser } from "@/lib/service";
 import { Beanstalk } from "./Beanstalk";
 import { CountUp, GrowBar } from "./Motion";
 
@@ -63,8 +64,10 @@ export function UpfrontLine({ challenge, name }: { challenge: Challenge; name?: 
   );
 }
 
-export function ChallengeCard({ challenge }: { challenge: Challenge }) {
+export function ChallengeCard({ challenge, showStreamer = false }: { challenge: Challenge; /** Name the climber, for lists that mix streams. */ showStreamer?: boolean }) {
   const growth = growthOf(challenge.totalMicro, challenge.goalMicro);
+  const streamer = showStreamer ? getUser(challenge.streamerId) : undefined;
+  const planters = showStreamer ? fundersOf(challenge.id).length : 0;
   const live = challenge.status === "open" || challenge.status === "locked";
   return (
     <Link href={`/c/${challenge.id}`} className="card challenge-card">
@@ -76,6 +79,17 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
           <StatusPill challenge={challenge} />
         </div>
         <h3>{challenge.title}</h3>
+        {streamer && (
+          <p className="byline small">
+            <span className="byline-avatar" aria-hidden="true">
+              {streamer.name.charAt(0).toUpperCase()}
+            </span>
+            <span>{streamer.name}</span>
+            <span className="muted">
+              · {planters} {planters === 1 ? "planter" : "planters"} · {timeAgo(challenge.settledAt ?? challenge.createdAt)}
+            </span>
+          </p>
+        )}
         <SplitLine challenge={challenge} />
         <UpfrontLine challenge={challenge} />
         <FundingBar challenge={challenge} />
@@ -88,4 +102,11 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
       </div>
     </Link>
   );
+}
+
+function timeAgo(at: number): string {
+  const mins = Math.round((Date.now() - at) / 60_000);
+  if (mins < 60) return `${Math.max(1, mins)}m ago`;
+  const hours = Math.round(mins / 60);
+  return hours < 48 ? `${hours}h ago` : `${Math.round(hours / 24)}d ago`;
 }

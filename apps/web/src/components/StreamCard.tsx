@@ -11,7 +11,7 @@ import { GameArt } from "./GameArt";
  * name, game and tags. Where a stream site shows viewers, this shows
  * what is riding on the stream.
  */
-export function StreamCard({ listing }: { listing: StreamListing }) {
+export function StreamCard({ listing, reason, rank }: { listing: StreamListing; /** Why it was picked, for For you and Trending. */ reason?: string; /** Position in a ranked row. */ rank?: number }) {
   const { streamer, headline } = listing;
   const game = gameOf(headline);
   return (
@@ -19,6 +19,7 @@ export function StreamCard({ listing }: { listing: StreamListing }) {
       <div className="stream-thumb">
         <GameArt id={headline.gameId} name={game.name} />
         <span className="live-badge">LIVE</span>
+        {rank && <span className="rank-badge">#{rank}</span>}
         {mockActivityOn() && <span className="viewer-count">{compact(mockViewers(streamer.handle ?? streamer.id))} watching</span>}
         <span className="thumb-count">
           {formatUsd(listing.potMicro)} in the pot · {listing.planters} {listing.planters === 1 ? "planter" : "planters"}
@@ -32,6 +33,7 @@ export function StreamCard({ listing }: { listing: StreamListing }) {
           <strong className="stream-title">{headline.title}</strong>
           <span className="stream-name">{streamer.name}</span>
           <span className="stream-game">{game.name}</span>
+          {reason && <span className="stream-reason">{reason}</span>}
           <span className="stream-tags">
             <span className="pill-tag">{headline.status === "locked" ? "Attempt in progress" : "Open for pledges"}</span>
             {listing.liveCount > 1 && <span className="pill-tag">{listing.liveCount} challenges</span>}
@@ -44,12 +46,12 @@ export function StreamCard({ listing }: { listing: StreamListing }) {
   );
 }
 
-export function StreamGrid({ listings, empty }: { listings: StreamListing[]; empty: string }) {
+export function StreamGrid({ listings, empty, ranked = false }: { listings: (StreamListing & { reason?: string })[]; empty: string; /** Number the cards, for Trending. */ ranked?: boolean }) {
   if (listings.length === 0) return <p className="empty">{empty}</p>;
   return (
     <div className="stream-grid">
-      {listings.map((listing) => (
-        <StreamCard key={listing.streamer.id} listing={listing} />
+      {listings.map((listing, i) => (
+        <StreamCard key={listing.streamer.id} listing={listing} reason={listing.reason} rank={ranked ? i + 1 : undefined} />
       ))}
     </div>
   );

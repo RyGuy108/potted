@@ -101,7 +101,12 @@ function Receipt({ challenge, hostName }: { challenge: Challenge; hostName: stri
         </dl>
       )}
       {evidence?.simulated && <p className="warn">Rehearsal result. No game data was checked for this settlement.</p>}
-      {evidence?.sample && <p className="muted small"><span className="tag tag-quiet">sample history</span> Added for the demo. No game data was checked.</p>}
+      {evidence?.sample && (
+        <p className="receipt-note muted small">
+          <span className="tag tag-quiet">sample history</span>
+          <span>Added for the demo. No game data was checked.</span>
+        </p>
+      )}
       <p>{verdict.reason}.</p>
       {evidence && (
         <dl>
@@ -166,7 +171,9 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
 
       <section className="card detail">
         <div className="detail-side">
-          <Beanstalk stage={growth.index} size={132} />
+          <div className="stalk-tile">
+            <Beanstalk stage={growth.index} size={112} />
+          </div>
           {isOpenPot(challenge) ? (
             <Ring pct={growth.ratio * 100} size={112} stroke={9} tone="violet" label={`Open pot at ${formatUsd(challenge.totalMicro)}`}>
               <CountUp value={challenge.totalMicro} micro format="usd" className="ring-value" />

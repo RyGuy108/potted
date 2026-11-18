@@ -60,6 +60,11 @@ export function livePlans(minutes: number): Plan[] {
       pledges: [[p("hana"), 8], [p("Lena"), 5]],
     },
     {
+      host: "u_s_ash",
+      input: { gameId: "art", condition: clip("Art", "Draw chat's character in 20 minutes"), goalUsd: 35, pledgeCapUsd: 15, minutes },
+      pledges: [[p("bea"), 6], [p("iris_b"), 4], [p("Maya"), 3], [p("nia"), 5]],
+    },
+    {
       host: DEMO_GUEST_ID,
       input: { gameId: "fortnite", condition: { kind: "fortnite", accountName: "KaiOnTheKeys", goal: "wins", count: 1 }, goalUsd: 30, pledgeCapUsd: 15, minutes },
       pledges: [[p("felix_f"), 5], [p("Zara"), 5]],
@@ -156,4 +161,17 @@ export async function addSampleLive({ minutes, log = () => {} }: LiveOptions): P
   });
   log("Juniper invited Ryan to a collab");
   save();
+}
+
+/** Takes the live part of the sample back out (open challenges, their pledges, pending invites), leaving the history. */
+export function removeSampleLive(): number {
+  const state = db();
+  const ids = new Set(state.sample?.challengeIds ?? []);
+  state.challenges = state.challenges.filter((c) => !ids.has(c.id));
+  state.pledges = state.pledges.filter((p) => !ids.has(p.challengeId));
+  state.invites = state.invites.filter((i) => !(i.status === "pending" && i.hostId.startsWith("u_s_")) && !(i.challengeId && ids.has(i.challengeId)));
+  state.events = state.events.filter((e) => !ids.has(e.challengeId));
+  if (state.sample) state.sample.challengeIds = [];
+  save();
+  return ids.size;
 }

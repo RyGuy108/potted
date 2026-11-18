@@ -1113,6 +1113,11 @@ export interface StreamListing {
 
 const isLive = (c: Challenge) => c.status === "open" || c.status === "locked";
 
+/** A game's display name from its id. */
+export function gameOfId(gameId: string): string {
+  return GAMES.find((g) => g.id === gameId)?.name ?? "these";
+}
+
 /** Streamers with something live, biggest pots first. Pass a game id to narrow it to one game. */
 export function liveStreams(gameId?: string): StreamListing[] {
   const byStreamer = new Map<string, Challenge[]>();
@@ -1144,6 +1149,23 @@ export function recentResults(gameId?: string, limit = 8): Challenge[] {
     .challenges.filter((c) => !isLive(c) && (!gameId || c.gameId === gameId))
     .sort((a, b) => (b.settledAt ?? b.createdAt) - (a.settledAt ?? a.createdAt))
     .slice(0, limit);
+}
+
+export type SettledSort = "recent" | "pot" | "popular" | "completed";
+
+/** Settled challenges in a game, sorted: newest, biggest pot, most planters, or completed first. */
+export function settledIn(gameId: string, sort: SettledSort = "recent", limit = 24): Challenge[] {
+  const recency = (c: Challenge) => c.settledAt ?? c.createdAt;
+  const planters = new Map<string, number>();
+  const list = db().challenges.filter((c) => !isLive(c) && c.gameId === gameId);
+  for (const c of list) planters.set(c.id, fundersOf(c.id).length);
+  const by: Record<SettledSort, (a: Challenge, b: Challenge) => number> = {
+    recent: (a, b) => recency(b) - recency(a),
+    pot: (a, b) => b.totalMicro - a.totalMicro || recency(b) - recency(a),
+    popular: (a, b) => planters.get(b.id)! - planters.get(a.id)! || b.totalMicro - a.totalMicro,
+    completed: (a, b) => Number(b.status === "paid") - Number(a.status === "paid") || recency(b) - recency(a),
+  };
+  return list.sort(by[sort]).slice(0, limit);
 }
 
 /** How many streamers are live in each game. */

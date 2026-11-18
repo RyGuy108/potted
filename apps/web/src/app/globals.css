@@ -4221,3 +4221,137 @@ textarea {
 .bell-head {
   background: #1a1612;
 }
+
+/* Challenge page: the beanstalk stands in its own tile, on a wooden base,
+   centred above the goal ring. */
+.stalk-tile {
+  display: grid;
+  place-items: center;
+  width: 148px;
+  height: 160px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  border-bottom: 3px solid var(--wood-deep);
+  background: linear-gradient(to bottom, transparent 70%, var(--wood-soft)), var(--bg-raise);
+}
+
+.stalk-tile svg {
+  display: block;
+}
+
+.detail-side {
+  width: 148px;
+}
+
+.receipt-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 14px 0;
+}
+
+.receipt-note .tag {
+  margin-left: 0;
+}
+
+/* Who ran a challenge, in mixed lists. */
+.byline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -2px 0 10px;
+}
+
+.byline-avatar {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--wood-light);
+  background: radial-gradient(circle at 40% 30%, #3a2a1c, var(--wood-deep));
+  border: 1px solid var(--wood-line);
+}
+
+/* A segmented control for sorting. */
+.settled-head {
+  align-items: flex-end;
+  margin-top: 56px;
+}
+
+.settled-head h2 {
+  margin: 0 0 4px;
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--glass);
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.segmented a {
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: var(--muted);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color var(--fast) var(--ease-out), background-color var(--fast) var(--ease-out);
+}
+
+.segmented a:hover {
+  color: var(--ink);
+}
+
+.segmented a.on {
+  background: var(--ink);
+  color: #000;
+}
+
+#settled {
+  scroll-margin-top: 140px;
+}
+
+/* Browse rows */
+.browse-row {
+  margin-top: 40px;
+}
+
+.row-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.row-head h2 {
+  margin: 0;
+}
+
+.stream-reason {
+  font-size: 0.8rem;
+  color: var(--wood-light);
+}
+
+.rank-badge {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--wood-light);
+  background: rgba(12, 10, 8, 0.82);
+  border: 1px solid var(--wood-line);
+}
