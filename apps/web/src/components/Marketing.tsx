@@ -3,14 +3,9 @@ import { GameDirectory } from "@/components/GameDirectory";
 import { Icon, type IconName } from "@/components/Icon";
 import { Beanstalk } from "@/components/Beanstalk";
 import { Wordmark } from "@/components/Wordmark";
+import { HowItWorks } from "@/components/HowItWorks";
 import { currentUser } from "@/lib/session";
 
-const STEPS = [
-  ["Ask", "A fan suggests a challenge and can fund the request."],
-  ["Answer", "The streamer takes it on or passes. A pass refunds everyone."],
-  ["Back", "Anyone can back the attempt. It pays only if they pull it off."],
-  ["Play it live", "Game data or a clip decides. A miss refunds every backer."],
-] as const;
 
 /** The three kinds of money, and exactly when each one pays. */
 const WAYS: [string, string, string, string][] = [
@@ -20,10 +15,26 @@ const WAYS: [string, string, string, string][] = [
 ];
 
 const GUARANTEES: [IconName, string, string][] = [
-  ["lock", "Only the verifier can settle", "No early withdrawals, and each challenge settles once."],
-  ["refund", "Refunds never depend on us", "Past the deadline, anyone can trigger the refunds."],
-  ["receipt", "Every result has a receipt", "The game id or clip is stored with the payout."],
-  ["shield", "Arranged games don't count", "Friendlies and early resignations are ignored."],
+  [
+    "lock",
+    "Your money waits in escrow, not in anyone's pocket",
+    "A normal donation is gone the moment you send it. Here your pledge sits in an escrow account on Solana until the result is in. The streamer can't touch it early, and neither can Potted.",
+  ],
+  [
+    "receipt",
+    "Only the result can release it",
+    "The escrow pays out only when the verifier confirms the challenge was completed, from the game's own data or a clip fans had time to dispute. It can pay out once, and only to the people set when the challenge opened.",
+  ],
+  [
+    "refund",
+    "A miss sends it back on its own",
+    "If the challenge fails, or no result arrives by the deadline, every backer is refunded. Anyone can trigger the refund, so it still happens even if Potted goes offline.",
+  ],
+  [
+    "shield",
+    "You can check every step",
+    "Each pledge, payout and refund is a public Solana transaction with a receipt, next to the game record or clip that decided it.",
+  ],
 ];
 
 /** Where a dollar goes, in four stops. */
@@ -126,22 +137,10 @@ export async function Marketing() {
         </div>
       </section>
 
-      <section id="how" className="split">
-        <div>
-          <p className="eyebrow">How it works</p>
-          <h2 className="section-title">From a message in chat to a moment on stream</h2>
-        </div>
-        <ol className="steps-list">
-          {STEPS.map(([title, text], i) => (
-            <li key={title}>
-              <span className="step-no mono">0{i + 1}</span>
-              <div>
-                <h3>{title}</h3>
-                <p className="muted">{text}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
+      <section id="how">
+        <p className="eyebrow">How it works</p>
+        <h2 className="section-title">From a message in chat to a moment on stream</h2>
+        <HowItWorks />
       </section>
 
       <section>
@@ -169,8 +168,8 @@ export async function Marketing() {
 
       <section className="split">
         <div>
-          <p className="eyebrow">Settlement rules</p>
-          <h2 className="section-title">Built so nobody has to take our word for it</h2>
+          <p className="eyebrow">Why it's safer than a donation</p>
+          <h2 className="section-title">Nobody holds your money but the rules</h2>
         </div>
         <div className="accordion">
           {GUARANTEES.map(([, title, text], i) => (
@@ -188,7 +187,7 @@ export async function Marketing() {
 
       <section className="money">
         <p className="eyebrow">Where the money goes</p>
-        <h2 className="section-title">Real dollars, held by code instead of a company</h2>
+        <h2 className="section-title">Money held secure at every stage</h2>
         <ol className="money-flow">
           {MONEY.map(([title, text], i) => (
             <li key={title}>

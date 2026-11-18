@@ -5686,7 +5686,7 @@ span.warn {
 /* Lists split by game, with a line sidebar */
 .grouped {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 260px minmax(0, 1fr);
   gap: 28px;
   align-items: start;
 }
@@ -5800,4 +5800,182 @@ span.warn {
   .money-flow li:nth-child(2)::after {
     display: none;
   }
+}
+
+/* Front page: hero copy centred against the example card, wordmark lined up with the text.
+   TechText keeps a 5% margin on the left of its canvas; widening the box by that much puts
+   the P's edge on the page's left edge. */
+.marketing .hero {
+  align-items: center;
+}
+
+.marketing .hero-copy {
+  align-self: center;
+}
+
+.wordmark {
+  margin: 0 0 -6px -5.27%;
+  width: 105.27%;
+}
+
+/* How it works gallery */
+.how-gallery {
+  margin-top: 28px;
+}
+
+.how-gallery .ag-panel {
+  border: 1px solid var(--line);
+  background: #120f0c;
+}
+
+/* Where the money goes: no arrows, more room */
+.money-flow {
+  gap: 20px;
+}
+
+.money-flow li::after {
+  display: none !important;
+}
+
+.money-flow li {
+  padding: 22px 22px 24px;
+  gap: 8px;
+}
+
+/* Settlement accordion: a quiet focus ring instead of the browser's white box */
+.accordion summary:focus {
+  outline: none;
+}
+
+.accordion summary:focus-visible {
+  outline: 2px solid var(--wood);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+/* Badges: medal and name only; the how-to opens in a lightbox */
+button.badge-tile {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  align-items: center;
+  min-height: 0;
+  padding-top: 14px;
+  padding-bottom: 14px;
+  transition: border-color var(--fast, 0.15s) ease, transform var(--fast, 0.15s) ease;
+}
+
+button.badge-tile:hover {
+  border-color: var(--wood-line);
+  transform: translateY(-1px);
+}
+
+button.badge-tile:focus-visible {
+  outline: 2px solid var(--wood);
+  outline-offset: 3px;
+}
+
+.badge-name {
+  font-size: 1rem;
+}
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(8, 6, 4, 0.72);
+  backdrop-filter: blur(6px);
+  animation: lightbox-in 0.2s ease;
+}
+
+.lightbox-card {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: min(380px, 100%);
+  padding: 34px 28px 26px;
+  text-align: center;
+  border-radius: 22px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, #1d1813, #110e0b);
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.9);
+  animation: lightbox-pop 0.32s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+.lightbox-card.earned {
+  border-color: var(--wood-line);
+}
+
+.lightbox-card h3 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.lightbox-card p {
+  margin: 0;
+}
+
+.lightbox-card .btn {
+  margin-top: 14px;
+}
+
+.lightbox-medal {
+  width: 84px;
+  height: 84px;
+  margin-bottom: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #4a4038, #221c16 70%);
+  border: 3px solid var(--line);
+}
+
+.lightbox-card.earned .lightbox-medal {
+  background: radial-gradient(circle at 35% 30%, #fff1c9, #e3b25c 55%, #9a6a2c);
+  border-color: #e3b25c;
+  box-shadow: 0 0 40px -6px rgba(227, 178, 92, 0.6);
+}
+
+@keyframes lightbox-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes lightbox-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lightbox,
+  .lightbox-card {
+    animation: none;
+  }
+}
+
+/* Browse: breathing room between the title and the live stats */
+.browse-head + .browse-stats,
+.browse-head ~ .browse-stats {
+  margin: 14px 0 26px;
+}
+
+/* Leaderboard level track: smaller tier name on one line */
+.lb-levels li.on {
+  font-size: 0.76rem;
+  line-height: 1.1;
+  gap: 6px;
+  padding: 4px 10px 4px 6px;
+}
+
+.lb-levels li span {
+  white-space: nowrap;
+}
+
+.grouped-sidebar .line-sidebar__text {
+  white-space: nowrap;
 }

@@ -24,6 +24,7 @@
     "@solana/spl-token": "^0.4.15",
     "@solana/web3.js": "^1.99.0",
     "geist": "^1.9.2",
+    "gsap": "^3.15.1",
     "next": "^16.0.0",
     "qrcode": "^1.5.4",
     "react": "^19.0.0",

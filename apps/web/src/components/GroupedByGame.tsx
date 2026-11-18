@@ -33,7 +33,7 @@ export function GroupedByGame({ groups, all }: { groups: GameGroup[]; all: React
         markerLength={28}
         markerGap={12}
         itemGap={14}
-        fontSize={0.95}
+        fontSize={1.15}
         smoothing={90}
         defaultActive={0}
         onItemClick={(index) => setActive(index)}

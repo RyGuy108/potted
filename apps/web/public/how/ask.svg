@@ -1,0 +1,24 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1000' height='625' viewBox='0 0 1000 625'>
+<defs>
+<radialGradient id='g' cx='50%' cy='45%' r='55%'><stop offset='0' stop-color='#b4875a' stop-opacity='0.3'/><stop offset='1' stop-color='#0c0a08' stop-opacity='0'/></radialGradient>
+<linearGradient id='bg' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#1a1511'/><stop offset='1' stop-color='#0c0a08'/></linearGradient>
+</defs>
+<rect width='1000' height='625' fill='url(#bg)'/>
+<rect width='1000' height='625' fill='url(#g)'/>
+<g fill='none' stroke='#faf7f2' stroke-opacity='0.05'><path d='M0 80 H1000'/><path d='M0 160 H1000'/><path d='M0 240 H1000'/><path d='M0 320 H1000'/><path d='M0 400 H1000'/><path d='M0 480 H1000'/><path d='M0 560 H1000'/></g>
+<g transform='translate(-25.0 -303.3) scale(1.1667)'><g font-family='Geist, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif'>
+ <rect x='170' y='330' width='560' height='150' rx='34' fill='#211a14' stroke='#b4875a' stroke-opacity='0.45' stroke-width='2'/>
+ <circle cx='235' cy='405' r='34' fill='#3a2a1c' stroke='#b4875a' stroke-width='3'/>
+ <text x='235' y='417' text-anchor='middle' font-size='34' font-weight='700' fill='#e6c9a3'>M</text>
+ <text x='290' y='392' font-size='30' font-weight='700' fill='#faf7f2'>maya</text>
+ <text x='290' y='436' font-size='30' fill='#d9d2c7'>no-hit run on the next boss?</text>
+ <rect x='290' y='510' width='320' height='62' rx='31' fill='#2a2015' stroke='#b4875a' stroke-width='2'/>
+ <text x='450' y='552' text-anchor='middle' font-size='28' fill='#e6c9a3'>Request · $12 from 4 fans</text>
+ <rect x='170' y='620' width='420' height='110' rx='30' fill='#17130f' stroke='#faf7f2' stroke-opacity='0.12' stroke-width='2'/>
+ <text x='205' y='685' font-size='28' fill='#aaa298'>jay  +$5</text>
+ <text x='360' y='685' font-size='28' fill='#aaa298'>priya  +$3</text>
+ <path d='M640 700 l40 -40 l14 14 l-40 40 z' fill='#3ecf8e'/>
+ <circle cx='690' cy='650' r='10' fill='#3ecf8e'/>
+</g>
+</g>
+</svg>
