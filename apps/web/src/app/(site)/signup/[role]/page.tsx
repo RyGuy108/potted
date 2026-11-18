@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { DemoSignUp } from "@/components/DemoSignUp";
+import { EmailSignIn } from "@/components/EmailSignIn";
 import { ProviderButtons } from "@/components/ProviderButtons";
 import { currentUser } from "@/lib/session";
 import { SIGNUP } from "../roles";
@@ -33,6 +34,7 @@ export default async function SignUpAs({ params }: { params: Promise<{ role: str
         <div className="signin-ways">
           {page.role !== "mod" && (
             <>
+              <EmailSignIn as={page.role} verb="Sign up" />
               <ProviderButtons as={page.role} verb="Sign up" />
               <div className="divider">
                 <span>or try the demo with test money</span>

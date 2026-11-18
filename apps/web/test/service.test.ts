@@ -428,3 +428,49 @@ describe("games not on the platform", () => {
     expect(clip.condition).toMatchObject({ proof: "The final split with the timer visible" });
   });
 });
+
+describe("streamer dashboard", () => {
+  const clip = { gameId: "gta6", condition: { kind: "optimistic", game: "GTA VI", statement: "Finish the heist", disputeWindowSecs: 60 }, goalUsd: 10, pledgeCapUsd: 10, minutes: 30 };
+
+  it("runs a campaign that new challenges join, and reports its progress", async () => {
+    const fan = await service.signIn("Maya", "fan");
+    const campaign = await service.startCampaign(streamer(), "Launch week", 50);
+    await expect(service.startCampaign(streamer(), "Another", 0)).rejects.toThrow("End the current campaign");
+    const c = await service.createChallenge(streamer(), clip);
+    expect(c.campaignId).toBe(campaign.id);
+    await service.pledge(fan, c.id, 6);
+    expect(service.campaignStats(campaign)).toMatchObject({ challenges: 1, live: 1, raisedMicro: toMicro(6), planters: 1 });
+    await service.endCampaign(streamer(), campaign.id);
+    expect((await service.createChallenge(streamer(), { ...clip, condition: { ...clip.condition, statement: "Win a street race" } })).campaignId).toBeUndefined();
+  });
+
+  it("lists payouts with their receipts", async () => {
+    process.env.POTTED_ALLOW_SIMULATED_RESULTS = "true";
+    const fan = await service.signIn("Ben", "fan");
+    const c = await service.createChallenge(streamer(), clip);
+    await service.pledge(fan, c.id, 8);
+    await service.lock(streamer(), c.id);
+    await service.claim(streamer(), c.id, "https://clips.example.com/x");
+    await service.simulateResult(streamer(), c.id, true);
+    const { rows, totalMicro } = service.payoutsFor(streamer());
+    expect(totalMicro).toBe(toMicro(8));
+    expect(rows[0]).toMatchObject({ kind: "completed", amountMicro: toMicro(8), href: `/c/${c.id}` });
+    expect(rows[0]!.tx).toBeTruthy();
+  });
+
+  it("only takes ideas for the challenge types the climber accepts", async () => {
+    const fan = await service.signIn("Cy", "fan");
+    await service.updateSettings(streamer(), { ...service.settingsOf(streamer()), acceptedGames: ["chess", "nope"] });
+    expect(service.settingsOf(streamer()).acceptedGames).toEqual(["chess"]);
+    await expect(service.suggest(fan, "ryan", "fortnite", "Get ten eliminations")).rejects.toThrow("not taking Fortnite");
+    await expect(service.suggest(fan, "ryan", "chess", "Win a blitz game against 1800")).resolves.toBeTruthy();
+  });
+
+  it("puts on-chain activity into the recap facts", async () => {
+    const c = await service.createChallenge(streamer(), clip);
+    const account = service.chainAccountOf(c.ledgerRef!);
+    const { db } = await import("../src/lib/store");
+    db().chain.push({ key: "k1", signature: "s", slot: 1, at: Date.now(), name: "Pledged", challenge: account, fields: { challenge: account, amount: 1, totalPledged: 1 } } as never);
+    expect(service.recapFacts(streamer()).onChain.pledges).toBe(1);
+  });
+});

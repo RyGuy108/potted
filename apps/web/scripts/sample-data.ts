@@ -12,13 +12,15 @@
 import { addSampleHistory, removeSample } from "../src/lib/sample-data";
 import { addSampleLive, removeSampleLive } from "../src/lib/sample-live";
 import { ledger } from "../src/lib/ledger";
-import { db, save } from "../src/lib/store";
+import { db, flush, hydrate, save } from "../src/lib/store";
 
 const args = process.argv.slice(2);
 const hoursAt = args.indexOf("--hours");
 const hours = hoursAt >= 0 ? Number(args[hoursAt + 1]) : 24;
 
 async function main() {
+  // With Supabase set up, work on what the app will load, and write it back at the end.
+  await hydrate();
   const state = db();
   if (args.includes("--remove")) {
     removeSample(state);
@@ -52,7 +54,9 @@ async function main() {
   console.log("Done. Start the app again with: pnpm --filter @potted/web dev");
 }
 
-main().catch((err) => {
-  console.error(err instanceof Error ? err.message : err);
-  process.exit(1);
-});
+main()
+  .then(() => flush())
+  .catch((err) => {
+    console.error(err instanceof Error ? err.message : err);
+    process.exit(1);
+  });

@@ -39,6 +39,11 @@ const BY_VERIFIER: Record<string, TermField[]> = {
     { name: "achievementTitle", label: "Achievement title", placeholder: "Steel Soul", required: true },
     { name: "achievement", label: "Achievement API name", placeholder: "STEEL_SOUL", required: true },
   ],
+  twitch: [
+    { name: "channel", label: "Your Twitch channel", placeholder: "ryan_plays", required: true },
+    { name: "goal", label: "Goal", options: [["live_minutes", "Stay live (minutes)"], ["peak_viewers", "Viewers at once"]], initial: "live_minutes" },
+    { name: "count", label: "How many", numeric: true, required: true, initial: "180" },
+  ],
   optimistic: [
     { name: "statement", label: "Challenge", required: true },
     { name: "proof", label: "What the clip must show (optional)", placeholder: "The end screen with the timer visible" },
@@ -87,6 +92,8 @@ export function conditionFromFields(gameId: string, f: Record<string, string | u
       return { kind: "fortnite", accountName: f.accountName, goal: f.goal, count: f.count };
     case "steam":
       return { kind: "steam", steamId: f.steamId, appId: f.appId, gameName: f.gameName, achievement: f.achievement, achievementTitle: f.achievementTitle };
+    case "twitch":
+      return { kind: "twitch", channel: f.channel, goal: f.goal, count: f.count };
     case "optimistic":
       return { kind: "optimistic", game: game.id === "other" ? f.game : game.name, statement: f.statement, disputeWindowSecs: f.disputeWindowSecs, proof: f.proof };
   }

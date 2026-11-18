@@ -22,9 +22,11 @@ import {
   refundReason,
   toMicro,
 } from "@potted/core";
+import { type Deps as CoordinatorDeps, type RecapFacts, defaultDeps as coordinatorDeps, draftRecap } from "@potted/coordinator";
 import { type Deps, defaultDeps, snapshot, verify } from "@potted/verifier";
 import * as notifications from "./notifications";
 import { ledger } from "./ledger";
+import { createPrivyWallet, privyConfigured } from "./privy";
 import { VOICES, type VoiceKey } from "./voices";
 import {
   DEFAULT_SETTINGS,
@@ -35,6 +37,7 @@ import {
   type StreamSettings,
   type Backing,
   type Bounty,
+  type Campaign,
   type Invite,
   type Suggestion,
   type User,
@@ -307,9 +310,18 @@ export async function updateSettings(actor: User, input: Partial<Record<keyof St
     blockedWords,
     autopilot: input.autopilot === undefined ? current.autopilot : input.autopilot === true,
     scoutMaxGoalUsd: current.scoutMaxGoalUsd,
+    acceptedGames:
+      input.acceptedGames === undefined
+        ? current.acceptedGames
+        : [...new Set((Array.isArray(input.acceptedGames) ? input.acceptedGames : []).map(String))].filter((id) => GAMES.some((g) => g.id === id)),
   };
   save();
   return settingsOf(actor);
+}
+
+/** Whether a streamer takes ideas, bounties and scout pitches for a game. An empty list means every game. */
+export function takesGame(settings: StreamSettings, gameId: string): boolean {
+  return settings.acceptedGames.length === 0 || settings.acceptedGames.includes(gameId);
 }
 
 const MAX_PENDING_PER_FAN = 3;
@@ -321,6 +333,7 @@ export async function suggest(actor: User, handle: string, gameId: string, text:
   const settings = settingsOf(streamer);
   if (!settings.acceptingSuggestions) fail(`${streamer.name} is not taking suggestions right now`);
   const game = GAMES.find((g) => g.id === gameId) ?? fail("Unknown game");
+  if (!takesGame(settings, game.id)) fail(`${streamer.name} is not taking ${game.name} challenges`);
   const clean = text.trim().replace(/\s+/g, " ");
   if (clean.length < 8 || clean.length > 140) fail("Describe the challenge in 8 to 140 characters");
   // A fan can name a game the platform has no entry for; it rides on the clip tier.
@@ -535,6 +548,8 @@ export async function createChallenge(actor: User, input: NewChallenge, guests: 
   const created = await ledger().createChallenge(challenge, actor.wallet);
   challenge.ledgerRef = created.ref;
   challenge.txs.create = created.tx;
+  const campaign = activeCampaign(actor.id);
+  if (campaign) challenge.campaignId = campaign.id;
   db().challenges.push(challenge);
   emit("created", challenge, splits.some((s) => s.kind === "guest") ? `New collab with ${namesOf(challenge)}: ${challenge.title}.` : `New challenge: ${challenge.title}.`);
   save();
@@ -595,6 +610,11 @@ const OPEN_POT_LINES: Record<number, ((c: Challenge) => string) | undefined> = {
 
 const RECAP_WINDOW_MS = 12 * 60 * 60_000;
 
+/** The on-chain account in a ledger ref ("<account>:<streamer wallet>"); a simulated ref is kept whole. */
+export function chainAccountOf(ref: string): string {
+  return ref.startsWith("sim:") ? ref : ref.split(":")[0]!;
+}
+
 /** A spoken summary of the stream so far: the last 12 hours of this streamer's challenges. */
 export function recapText(streamer: User, now = Date.now()): string {
   const recent = stageChallenges(streamer.id).filter((c) => now - c.createdAt <= RECAP_WINDOW_MS);
@@ -622,10 +642,47 @@ export function recapText(streamer: User, now = Date.now()): string {
   return parts.join(" ");
 }
 
-/** Sends the recap to the overlay, where the announcer reads it. */
-export async function announceRecap(actor: User): Promise<string> {
+/** The stream's facts, for Grok to write the recap from: results, money, and what the escrow program recorded on chain. */
+export function recapFacts(streamer: User, now = Date.now()): RecapFacts {
+  const recent = stageChallenges(streamer.id).filter((c) => now - c.createdAt <= RECAP_WINDOW_MS);
+  const ids = new Set(recent.map((c) => c.id));
+  const accounts = new Set(recent.flatMap((c) => (c.ledgerRef ? [chainAccountOf(c.ledgerRef)] : [])));
+  const byFan = new Map<string, number>();
+  let refunded = 0;
+  for (const p of db().pledges) {
+    if (!ids.has(p.challengeId)) continue;
+    refunded += returnedOf(p);
+    byFan.set(p.userId, (byFan.get(p.userId) ?? 0) + p.amountMicro);
+  }
+  const top = [...byFan.entries()].sort((a, b) => b[1] - a[1])[0];
+  const onChain = { pledges: 0, payouts: 0, refunds: 0 };
+  for (const e of db().chain) {
+    if (!accounts.has(e.challenge)) continue;
+    if (e.name === "Pledged") onChain.pledges += 1;
+    if (e.name === "Settled" && e.fields.success) onChain.payouts += 1;
+    if (e.name === "Refunded") onChain.refunds += 1;
+  }
+  const settings = settingsOf(streamer);
+  const raised = settings.causeOn ? raisedFor(streamer, settings.causeName).raisedMicro : 0;
+  return {
+    streamer: streamer.name,
+    challenges: recent.slice(0, 12).map((c) => ({
+      title: c.title,
+      result: c.status === "paid" ? "completed" : c.status === "failed" ? "missed" : c.status === "open" || c.status === "locked" ? "live" : "refunded",
+      pot: formatUsd(c.totalMicro),
+    })),
+    earned: formatUsd(recent.reduce((sum, c) => sum + earnedBy(c, streamer.id), 0)),
+    ...(refunded > 0 ? { refunded: formatUsd(refunded) } : {}),
+    ...(top ? { topBacker: { name: getUser(top[0])?.name ?? "a fan", amount: formatUsd(top[1]) } } : {}),
+    ...(raised > 0 ? { cause: { name: settings.causeName, raised: formatUsd(raised) } } : {}),
+    onChain,
+  };
+}
+
+/** Sends the recap to the overlay, where the announcer reads it. Grok drafts it when a key is set. */
+export async function announceRecap(actor: User, deps: CoordinatorDeps = coordinatorDeps()): Promise<string> {
   if (actor.role !== "streamer" || !actor.handle) fail("Only a streamer can read the recap");
-  const text = recapText(actor);
+  const { text } = await draftRecap(recapFacts(actor), recapText(actor), deps);
   emitTo(actor.handle, "recap", "", text);
   save();
   return text;
@@ -911,6 +968,15 @@ export async function simulateResult(actor: User, challengeId: string, success: 
 // ---------------------------------------------------------------------------
 
 /**
+ * A wallet for a new account that signed in for real: made by Privy when
+ * Privy is set up on the Solana ledger, otherwise the ledger's own kind.
+ */
+async function walletFor(userId: string): Promise<string> {
+  if (ledger().kind === "solana" && privyConfigured()) return createPrivyWallet();
+  return ledger().newWallet(userId);
+}
+
+/**
  * Signs someone in with a provider account. The first time, they get a
  * planter account that still has to choose its role.
  */
@@ -923,7 +989,7 @@ export async function signInWith(provider: string, profile: { subject: string; n
     id,
     name,
     role: "fan",
-    wallet: ledger().newWallet(id),
+    wallet: await walletFor(id),
     createdAt: Date.now(),
     identities: [{ provider, subject: profile.subject }],
     ...(profile.email ? { email: profile.email } : {}),
@@ -1346,6 +1412,7 @@ const MAX_OPEN_BOUNTIES_PER_FAN = 3;
 /** The shared checks for a fan's idea: length, game, blocked words. */
 function cleanIdea(streamer: User, gameId: string, text: string, customGame: string) {
   const game = GAMES.find((g) => g.id === gameId) ?? fail("Unknown game");
+  if (!takesGame(settingsOf(streamer), game.id)) fail(`${streamer.name} is not taking ${game.name} challenges`);
   const clean = text.trim().replace(/\s+/g, " ");
   if (clean.length < 8 || clean.length > 140) fail("Describe the challenge in 8 to 140 characters");
   const named = game.id === "other" ? customGame.trim().replace(/\s+/g, " ") : "";
@@ -1535,4 +1602,101 @@ export function bountiesBackedBy(fan: User): { bounty: Bounty; mineMicro: number
  */
 export function bountiesSupported(): boolean {
   return ledger().kind === "sim";
+}
+
+// ---------------------------------------------------------------------------
+// Campaigns
+// ---------------------------------------------------------------------------
+
+/** The campaign a streamer is running now, if any. */
+export function activeCampaign(streamerId: string): Campaign | undefined {
+  return (db().campaigns ?? []).find((c) => c.streamerId === streamerId && !c.endedAt);
+}
+
+export function campaignsOf(streamerId: string): Campaign[] {
+  return (db().campaigns ?? []).filter((c) => c.streamerId === streamerId).sort((a, b) => b.startedAt - a.startedAt);
+}
+
+/** Starts a campaign. New challenges join it until it is ended. */
+export async function startCampaign(actor: User, name: string, goalUsd: number): Promise<Campaign> {
+  if (actor.role !== "streamer") fail("Only a climber runs campaigns");
+  if (activeCampaign(actor.id)) fail("End the current campaign before starting another");
+  const clean = String(name).trim().replace(/\s+/g, " ");
+  if (clean.length < 3 || clean.length > 50) fail("Name the campaign in 3 to 50 characters");
+  const goal = Number(goalUsd || 0);
+  if (!(goal >= 0 && goal <= 100_000)) fail("A campaign target is $0 to $100,000");
+  const campaign: Campaign = { id: newId("cmp"), streamerId: actor.id, name: clean, goalMicro: toMicro(goal), startedAt: Date.now() };
+  (db().campaigns ??= []).push(campaign);
+  save();
+  return campaign;
+}
+
+export async function endCampaign(actor: User, campaignId: string): Promise<Campaign> {
+  const campaign = (db().campaigns ?? []).find((c) => c.id === campaignId) ?? fail("Campaign not found");
+  if (campaign.streamerId !== actor.id) fail("Only this campaign's climber can end it");
+  if (campaign.endedAt) fail("This campaign has already ended");
+  campaign.endedAt = Date.now();
+  save();
+  return campaign;
+}
+
+export interface CampaignStats {
+  challenges: number;
+  completed: number;
+  live: number;
+  /** Everything pledged to its challenges, including pots still open. */
+  raisedMicro: number;
+  /** What the climber has been paid from it. */
+  earnedMicro: number;
+  planters: number;
+}
+
+export function campaignStats(campaign: Campaign): CampaignStats {
+  const list = db().challenges.filter((c) => c.campaignId === campaign.id);
+  const ids = new Set(list.map((c) => c.id));
+  return {
+    challenges: list.length,
+    completed: list.filter((c) => c.status === "paid").length,
+    live: list.filter(isLive).length,
+    raisedMicro: list.filter((c) => c.status !== "failed").reduce((sum, c) => sum + c.totalMicro, 0),
+    earnedMicro: list.reduce((sum, c) => sum + earnedBy(c, campaign.streamerId), 0),
+    planters: new Set(db().pledges.filter((p) => ids.has(p.challengeId)).map((p) => p.userId)).size,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Payouts
+// ---------------------------------------------------------------------------
+
+export interface PayoutRow {
+  at: number;
+  kind: "completed" | "upfront" | "gift" | "guest";
+  label: string;
+  amountMicro: number;
+  /** Transaction id, for a receipt link. */
+  tx?: string;
+  href?: string;
+}
+
+/** Everything paid to a climber: completed pots, up-front shares, collab shares and gifts. Newest first. */
+export function payoutsFor(streamer: User, limit = 40): { rows: PayoutRow[]; totalMicro: number } {
+  const rows: PayoutRow[] = [];
+  for (const c of stageChallenges(streamer.id)) {
+    const upfront = c.upfrontPaidMicro ?? 0;
+    const guest = c.streamerId !== streamer.id;
+    if (upfront > 0) {
+      const amount = shareOf(c, streamer.id, upfront);
+      if (amount > 0) rows.push({ at: c.lockedAt ?? c.createdAt, kind: "upfront", label: `Up-front share: ${c.title}`, amountMicro: amount, tx: c.txs.lock, href: `/c/${c.id}` });
+    }
+    if (c.status === "paid") {
+      const amount = shareOf(c, streamer.id, c.totalMicro - upfront);
+      if (amount > 0) rows.push({ at: c.settledAt ?? c.createdAt, kind: guest ? "guest" : "completed", label: guest ? `Collab share: ${c.title}` : c.title, amountMicro: amount, tx: c.txs.settle, href: `/c/${c.id}` });
+    }
+  }
+  for (const g of db().gifts ?? []) {
+    if (g.streamerId !== streamer.id) continue;
+    rows.push({ at: g.at, kind: "gift", label: `Gift from ${getUser(g.fanId)?.name ?? "a planter"}`, amountMicro: g.amountMicro, tx: g.tx });
+  }
+  rows.sort((a, b) => b.at - a.at);
+  return { rows: rows.slice(0, limit), totalMicro: rows.reduce((sum, r) => sum + r.amountMicro, 0) };
 }

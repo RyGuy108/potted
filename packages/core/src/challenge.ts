@@ -71,6 +71,8 @@ export interface Challenge {
   upfrontPct?: number;
   /** What was actually paid up front when the attempt started. */
   upfrontPaidMicro?: Micro;
+  /** The streamer's campaign this challenge belongs to, if one was running when it opened. */
+  campaignId?: string;
   /** Address of the on-chain challenge account, or a sim id. */
   ledgerRef?: string;
   /** Transaction ids by step, for receipts. */

@@ -4,6 +4,7 @@ import path from "node:path";
 import type { ChainEvent } from "@potted/chain";
 import type { ScoutInput, Scouting } from "@potted/coordinator";
 import type { Challenge, Pledge } from "@potted/core";
+import { flushSupabase, loadFromSupabase, scheduleSync, supabaseConfigured, syncToSupabase } from "./supabase";
 import type { VoiceKey } from "./voices";
 
 /**
@@ -47,6 +48,8 @@ export interface StreamSettings {
   autopilot: boolean;
   /** Largest goal the scout may pitch, and autopilot may open, in dollars. */
   scoutMaxGoalUsd: number;
+  /** Game ids fans may send ideas and bounties for, and the scout may pitch. Empty means all. */
+  acceptedGames: string[];
 }
 
 export const DEFAULT_SETTINGS: StreamSettings = {
@@ -67,6 +70,7 @@ export const DEFAULT_SETTINGS: StreamSettings = {
   blockedWords: [],
   autopilot: false,
   scoutMaxGoalUsd: 100,
+  acceptedGames: [],
 };
 
 /** A fan's challenge idea, waiting for the streamer to use or dismiss it. */
@@ -179,8 +183,25 @@ export interface Db {
   redemptions?: Redemption[];
   /** The scout's latest pitches for each climber. */
   scouts?: Record<string, ScoutRun>;
+  /** Streamers' campaigns: a named run of challenges with an overall goal. */
+  campaigns?: Campaign[];
+  /** Pending email sign-in codes, hashed, by email. */
+  emailCodes?: Record<string, { hash: string; expires: number; tries: number; sentAt: number }>;
+  /** Wallets Privy holds: address to Privy wallet id. */
+  privyWallets?: Record<string, string>;
   /** Set while the demo sample is loaded: live challenges it opened, so it can be removed again. */
   sample?: { challengeIds: string[]; addedAt: number };
+}
+
+/** A named run of challenges, like "Road to 2000" or a week-long charity drive. New challenges join the running one. */
+export interface Campaign {
+  id: string;
+  streamerId: string;
+  name: string;
+  /** What the whole campaign aims to raise, in micro-USDC. 0 for no target. */
+  goalMicro: number;
+  startedAt: number;
+  endedAt?: number;
 }
 
 export type NoticeKind = "gift" | "award" | "challenge" | "money" | "refund" | "clip" | "dispute" | "idea" | "invite" | "points" | "follow";
@@ -311,7 +332,44 @@ function dataFile(): string {
   return path.join(dir, "potted.json");
 }
 
-const cache = globalThis as { __pottedDb?: Db };
+const cache = globalThis as { __pottedDb?: Db; __pottedHydrated?: boolean };
+
+/** Fills in collections that older saves did not have. */
+function upgrade(state: Db): Db {
+  state.suggestions ??= [];
+  state.bounties ??= [];
+  state.causeWallets ??= {};
+  state.backings ??= [];
+  state.chain ??= [];
+  state.invites ??= [];
+  state.events ??= [];
+  state.balances ??= {};
+  state.seq ??= 0;
+  if (!state.users.some((u) => u.id === DEMO_GUEST_ID)) state.users.push(demoGuest());
+  return state;
+}
+
+/**
+ * With Supabase set up, loads the state from it before the first request
+ * (instrumentation.ts calls this when the server starts). On the first run,
+ * Supabase is empty and gets everything the local file holds.
+ */
+export async function hydrate(): Promise<"supabase" | "pushed" | "file"> {
+  if (!supabaseConfigured() || cache.__pottedHydrated) return "file";
+  cache.__pottedHydrated = true;
+  const loaded = await loadFromSupabase();
+  if (loaded) {
+    cache.__pottedDb = upgrade(loaded);
+    return "supabase";
+  }
+  await syncToSupabase(db());
+  return "pushed";
+}
+
+/** Waits for writes to Supabase to finish. Scripts call this before exiting. */
+export async function flush(): Promise<void> {
+  await flushSupabase(db);
+}
 
 export function db(): Db {
   if (!cache.__pottedDb) {
@@ -352,6 +410,7 @@ export function save(): void {
   const tmp = `${file}.${process.pid}.${crypto.randomUUID().slice(0, 8)}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(db()));
   fs.renameSync(tmp, file);
+  scheduleSync(db);
 }
 
 /** Test hook: start from a clean in-memory database that is never written. */

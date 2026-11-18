@@ -28,10 +28,12 @@ request shows one change. Merge from the top of the list down.
 | 16d | `feat/bounty-board` | Planters put money on an idea; it becomes a challenge if the climber takes it on, or is refunded on decline or expiry | Done on the simulated ledger |
 | 16e | `feat/solana-ledger` | Real transactions through the escrow program, custodial devnet wallets, sponsored fees, a test USDC faucet, explorer links on receipts | Done; tested on a local validator, not yet on devnet |
 | 16f | `feat/upfront` | Up-front share: up to half the pot goes to the climber when the attempt starts, the rest only on completion | Done; program change tested on a local validator |
+| 16g | `feat/browse-for-you` | For you and Trending on browse, sorting settled challenges, sample `--live` refresh | Done |
+| 16h | `feat/architecture-complete` | Twitch stream checker, Grok-written recaps from on-chain activity, email sign-in, Privy wallets, Supabase storage, campaigns, payouts, approval queue, accepted challenge types | Done; Privy tested against a stand-in on a local validator, Supabase against a stand-in REST API |
 | 17 | `feat/program-splits` | Guest and cause shares paid by the escrow program itself (today the host's custodial wallet sends them after payout) | Touches the program |
 | 17b | `feat/program-bounties` | Bounty money held by the program until a climber takes it on | Touches the program; bounties are refused on Solana until then |
 | 18 | `feat/solana-pay` | Pledge from a QR code or a link (Solana Pay, Blinks) | After 16 |
-| 19 | `feat/embedded-wallets` | A real Solana wallet made for each signed-in account (Privy) | Needs a Privy app id |
+| 19 | `feat/embedded-wallets` | Superseded by 16h (Privy wallets made and signed for on the server); a wallet the planter signs with in the browser is still open | Needs a Privy app id |
 | 20 | `feat/stretch-tiers` | Several pot sizes on one challenge, each unlocking more | After 16, touches the program |
 | 21 | `feat/funder-beans` | A compressed NFT for funders of a completed challenge | After 16 |
 
@@ -67,4 +69,4 @@ These seams are why the remaining branches stay small.
 | 16 | `anchor build`, `anchor keys sync`, `anchor test` and `anchor deploy` run locally; then `POTTED_PROGRAM_ID` and `VERIFIER_SECRET_KEY` |
 | 17 | A verified wallet address per cause, before real money is sent to one |
 | 19 | A Privy app id |
-| Hosting | A database, because the JSON file store does not persist on serverless hosts |
+| Hosting | `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (16h), so state persists on serverless hosts |

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { checkCode, sendCode } from "@/lib/email-auth";
 import * as service from "@/lib/service";
 import { currentUser, endSession, startSession } from "@/lib/session";
 import { SAMPLE_SIGN_INS } from "@/lib/sample-data";
@@ -228,4 +229,36 @@ export async function markNoticesReadAction(ids?: string[]): Promise<ActionResul
 
 export async function giveAction(handle: string, amountUsd: number, note: string): Promise<ActionResult> {
   return run(async () => gifts.give(await requireUser(), String(handle), Number(amountUsd), String(note ?? "")));
+}
+
+/** Email sign-in, step one: mail a code (or, on a dev server with no mail service, return it to show). */
+export async function emailCodeAction(email: string): Promise<{ ok: true; shown?: string } | { ok: false; error: string }> {
+  try {
+    return { ok: true, ...(await sendCode(String(email))) };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Something went wrong" };
+  }
+}
+
+/** Email sign-in, step two: check the code, sign in (making the account the first time), and say where to go. */
+export async function emailVerifyAction(email: string, code: string, as?: string): Promise<{ ok: true; next: string } | { ok: false; error: string }> {
+  try {
+    const address = checkCode(String(email), String(code));
+    const user = await service.signInWith("email", { subject: address, name: address.split("@")[0]!.replace(/[._+-]+/g, " ").trim(), email: address });
+    await startSession(user.id);
+    if (user.onboarded === false && as === "fan") await service.chooseRole(user, "fan");
+    revalidatePath("/", "layout");
+    if (user.onboarded === false) return { ok: true, next: as === "streamer" ? "/welcome?as=streamer" : "/welcome" };
+    return { ok: true, next: user.role === "streamer" ? "/dashboard" : user.role === "mod" ? "/reviews" : "/" };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Something went wrong" };
+  }
+}
+
+export async function startCampaignAction(name: string, goalUsd: string): Promise<ActionResult> {
+  return run(async () => service.startCampaign(await requireUser(), String(name), Number(goalUsd || 0)));
+}
+
+export async function endCampaignAction(campaignId: string): Promise<ActionResult> {
+  return run(async () => service.endCampaign(await requireUser(), String(campaignId)));
 }

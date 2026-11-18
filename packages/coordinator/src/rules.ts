@@ -60,6 +60,21 @@ export function draftWithRules(idea: Idea): Draft {
       }
       break;
     }
+    case "twitch": {
+      const hours = text.match(/\b(\d{1,2})\s*(?:hours?|hrs?|h)\b/);
+      const minutes = text.match(/\b(\d{2,4})\s*(?:minutes?|mins?)\b/);
+      const viewers = text.match(/\b(\d[\d,]{0,7})\s*(?:viewers?|people watching|watching)\b/);
+      if (viewers) {
+        fields.goal = "peak_viewers";
+        fields.count = viewers[1]!.replace(/,/g, "");
+        picked.push(`${fields.count} viewers at once`);
+      } else if (hours || minutes) {
+        fields.goal = "live_minutes";
+        fields.count = hours ? String(Math.min(1440, Number(hours[1]) * 60)) : minutes![1]!;
+        picked.push(`${fields.count} minutes live`);
+      }
+      break;
+    }
     case "optimistic":
       fields.statement = tidy(idea.text);
       break;

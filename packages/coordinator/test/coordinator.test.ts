@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type Deps, disputeBrief, draftTerms } from "../src/index";
+import { type Deps, disputeBrief, draftRecap, draftTerms, draftWithRules } from "../src/index";
 
 const noKey: Deps = { fetch: () => Promise.reject(new Error("no network in tests")), env: {} };
 
@@ -81,5 +81,34 @@ describe("dispute brief", () => {
     expect(brief.points).toHaveLength(3);
     expect(brief.points[2]).toContain("2 of 5 funders disputed");
     expect(JSON.stringify(brief)).not.toContain("uphold");
+  });
+});
+
+describe("recap", () => {
+  const facts = {
+    streamer: "Ryan",
+    challenges: [{ title: "Win 3 of 5", result: "completed" as const, pot: "$42.00" }],
+    earned: "$42.00",
+    topBacker: { name: "Maya", amount: "$15.00" },
+    onChain: { pledges: 6, payouts: 1, refunds: 0 },
+  };
+  const grok = (text: string) => ({
+    env: { XAI_API_KEY: "k" },
+    fetch: (async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ text }) } }] }))) as typeof fetch,
+  });
+
+  it("uses Grok's recap when every figure is in the facts", async () => {
+    const r = await draftRecap(facts, "fallback", grok("Great stream! Ryan finished Win 3 of 5 and earned $42.00. Huge thanks to Maya for $15.00."));
+    expect(r.source).toBe("grok");
+  });
+
+  it("falls back when Grok invents a figure", async () => {
+    const r = await draftRecap(facts, "fallback", grok("Ryan earned a massive $420.00 tonight, thank you all so much!"));
+    expect(r).toEqual({ text: "fallback", source: "rules" });
+  });
+
+  it("drafts Twitch terms from a loose idea without Grok", () => {
+    expect(draftWithRules({ gameId: "twitch", text: "stay live for 4 hours" }).fields).toEqual({ goal: "live_minutes", count: "240" });
+    expect(draftWithRules({ gameId: "twitch", text: "hit 300 viewers" }).fields).toEqual({ goal: "peak_viewers", count: "300" });
   });
 });

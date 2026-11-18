@@ -11,11 +11,12 @@ import {
   mintTo,
   TokenAccountNotFoundError,
 } from "@solana/spl-token";
-import { Connection, Keypair, PublicKey, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
+import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
 import type { Challenge, Evidence } from "@potted/core";
 import baseIdl from "./escrow-idl.json";
 import type { Escrow } from "./escrow-types";
 import type { Ledger, Payout } from "./ledger";
+import { privySign, privyWalletId } from "./privy";
 
 /**
  * The ledger backed by the escrow program on Solana.
@@ -31,7 +32,7 @@ import type { Ledger, Payout } from "./ledger";
  * of the test USDC that the faucet hands out.
  */
 
-const VERIFIER_KINDS: Record<string, number> = { lichess: 0, brawlstars: 1, fortnite: 2, optimistic: 3, steam: 4 };
+const VERIFIER_KINDS: Record<string, number> = { lichess: 0, brawlstars: 1, fortnite: 2, optimistic: 3, steam: 4, twitch: 5 };
 
 function required(name: string): string {
   const value = process.env[name];
@@ -103,8 +104,9 @@ export class SolanaLedger implements Ledger {
     fs.renameSync(tmp, this.keyFile);
   }
 
-  /** Whether this server can sign for a wallet, after checking the file for keys another process added. */
+  /** Whether this server can sign for a wallet (itself or through Privy), after checking the file for keys another process added. */
   hasKey(wallet: string): boolean {
+    if (privyWalletId(wallet)) return true;
     if (!this.keys.has(wallet)) this.loadKeys();
     return this.keys.has(wallet);
   }
@@ -121,6 +123,28 @@ export class SolanaLedger implements Ledger {
     const key = this.keys.get(wallet);
     if (!key) throw new Error(`No key on this server for wallet ${wallet}`);
     return key;
+  }
+
+  /**
+   * Signs and sends a transaction an account has to approve. The server
+   * pays the fee. Each account signs with its key on this server, or Privy
+   * signs for it when Privy holds the wallet.
+   */
+  private async sendAs(tx: Transaction, wallets: string[]): Promise<string> {
+    const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash("confirmed");
+    tx.feePayer = this.server.publicKey;
+    tx.recentBlockhash = blockhash;
+    const held = wallets.filter((w) => privyWalletId(w));
+    tx.partialSign(this.server, ...wallets.filter((w) => !privyWalletId(w)).map((w) => this.signer(w)));
+    let signed = tx;
+    for (const wallet of held) {
+      const wire = signed.serialize({ requireAllSignatures: false, verifySignatures: false }).toString("base64");
+      signed = Transaction.from(Buffer.from(await privySign(wallet, wire), "base64"));
+    }
+    const signature = await this.connection.sendRawTransaction(signed.serialize());
+    const confirmed = await this.connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
+    if (confirmed.value.err) throw new Error(`Transaction failed: ${JSON.stringify(confirmed.value.err)}`);
+    return signature;
   }
 
   private tokenAccount(wallet: string | PublicKey): PublicKey {
@@ -186,16 +210,16 @@ export class SolanaLedger implements Ledger {
         challenge: account,
         vault,
       })
-      .signers([this.signer(streamerWallet)])
-      .rpc();
+      .transaction();
+    const sent = await this.sendAs(tx, [streamerWallet]);
     // "<challenge account>:<streamer wallet>", so later calls can rebuild the addresses.
-    return { ref: `${account.toBase58()}:${streamerWallet}`, tx };
+    return { ref: `${account.toBase58()}:${streamerWallet}`, tx: sent };
   }
 
   async pledge(challenge: Challenge, fanWallet: string, amountMicro: number): Promise<string> {
     const { account, vault } = this.accountsFor(challenge);
     const fan = new PublicKey(fanWallet);
-    return this.program.methods
+    const tx = await this.program.methods
       .pledge(new BN(amountMicro))
       .accountsPartial({
         payer: this.server.publicKey,
@@ -205,8 +229,8 @@ export class SolanaLedger implements Ledger {
         fanToken: this.tokenAccount(fan),
         vault,
       })
-      .signers([this.signer(fanWallet)])
-      .rpc();
+      .transaction();
+    return this.sendAs(tx, [fanWallet]);
   }
 
   /** The program pays the up-front share to the host; guest and cause shares follow from the host. */
@@ -226,9 +250,7 @@ export class SolanaLedger implements Ledger {
     const fromToken = this.tokenAccount(from);
     if ((await this.balanceOf(fromWallet)) < amountMicro) throw new Error("Not enough test USDC for that gift");
     const to = await this.ensureTokenAccount(toWallet);
-    const tx = new Transaction().add(createTransferInstruction(fromToken, to, from, amountMicro));
-    tx.feePayer = this.server.publicKey;
-    return sendAndConfirmTransaction(this.connection, tx, [this.server, this.signer(fromWallet)], { commitment: "confirmed" });
+    return this.sendAs(new Transaction().add(createTransferInstruction(fromToken, to, from, amountMicro)), [fromWallet]);
   }
 
   /** Sends guest and cause shares out of the host's wallet after the program has paid the host. */
@@ -240,8 +262,7 @@ export class SolanaLedger implements Ledger {
       const to = await this.ensureTokenAccount(share.wallet);
       transfer.add(createTransferInstruction(hostToken, to, host, share.amountMicro));
     }
-    transfer.feePayer = this.server.publicKey;
-    await sendAndConfirmTransaction(this.connection, transfer, [this.server, this.signer(host.toBase58())], { commitment: "confirmed" });
+    await this.sendAs(transfer, [host.toBase58()]);
   }
 
   /**

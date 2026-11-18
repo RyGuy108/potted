@@ -55,9 +55,9 @@ interface StreamerSpec {
 export const SAMPLE_STREAMERS: StreamerSpec[] = [
   { id: "u_s_juniper", name: "Juniper", handle: "juniperplays", games: ["minecraft", "speedrun", "other"], sessions: 7, settings: { voice: "sarah" } },
   { id: "u_s_moss", name: "Moss", handle: "mossbyte", games: ["chess", "study"], sessions: 6, lichess: "mossbyte_chess" },
-  { id: "u_s_fern", name: "Fern", handle: "ironfern", games: ["fortnite", "steam"], sessions: 7, fortnite: "IronFernTTV", steamId: "76561198000004417" },
+  { id: "u_s_fern", name: "Fern", handle: "ironfern", games: ["fortnite", "steam", "twitch"], sessions: 7, fortnite: "IronFernTTV", steamId: "76561198000004417" },
   { id: "u_s_sol", name: "Sol", handle: "solcooks", games: ["cooking", "fitness"], sessions: 5, cause: { name: "Hearthside Food Pantry", pct: 50 } },
-  { id: "u_s_wren", name: "Wren", handle: "wrenruns", games: ["speedrun", "fitness", "steam"], sessions: 6, steamId: "76561198000007731" },
+  { id: "u_s_wren", name: "Wren", handle: "wrenruns", games: ["speedrun", "fitness", "steam", "twitch"], sessions: 6, steamId: "76561198000007731" },
   { id: "u_s_nova", name: "Nova", handle: "novabrawl", games: ["brawlstars", "other"], sessions: 5, brawl: "2QY0LPJC" },
   { id: "u_s_ash", name: "Ash", handle: "ashsketches", games: ["art", "music"], sessions: 4 },
 ];
@@ -301,6 +301,10 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
       }
       case "steam":
         return { kind: "steam", steamId: spec.steamId ?? "76561198000000001", ...r.pick(STEAM_GOALS) };
+      case "twitch":
+        return r.chance(0.6)
+          ? { kind: "twitch", channel: spec.handle.toLowerCase(), goal: "live_minutes", count: r.pick([120, 180, 240]) }
+          : { kind: "twitch", channel: spec.handle.toLowerCase(), goal: "peak_viewers", count: r.pick([150, 250, 400]) };
       default: {
         const idea = CLIP_IDEAS[gameId] ?? CLIP_IDEAS.other!;
         return { kind: "optimistic", game: idea.game, statement: r.pick(idea.statements), disputeWindowSecs: 300, proof: "The clip shows the whole attempt, start to finish" };
@@ -318,6 +322,14 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
         if (ruling === "rejected") return { outcome: "failure", reason: "A moderator reviewed the dispute and rejected the claim", evidence };
         return success ? { outcome: "success", reason: "No funder disputed the clip in time", evidence } : { outcome: "failure", reason: "No claim was made before the deadline" };
       }
+      case "twitch":
+        return success
+          ? {
+              outcome: "success",
+              reason: c.goal === "live_minutes" ? `${c.channel} has been live for ${c.count} minutes straight` : `${(c.count + r.int(5, 60)).toLocaleString("en-US")} people watching`,
+              evidence: sample("twitch", c.goal === "live_minutes" ? `Twitch reported the broadcast live through ${c.count} minutes of the attempt.` : `Twitch reported the viewer count at or above ${c.count} during the attempt.`),
+            }
+          : { outcome: "failure", reason: c.goal === "live_minutes" ? `Stream ended before ${c.count} minutes` : `Did not reach ${c.count} viewers before the deadline` };
       case "steam":
         return success
           ? { outcome: "success", reason: `Unlocked "${c.achievementTitle}"`, evidence: sample("steam", `Steam recorded "${c.achievementTitle}" in ${c.gameName} as unlocked during the attempt.`) }
@@ -535,7 +547,7 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
     for (let i = 0; i < n; i++) {
       const fan = i === 0 && r.chance(0.5) ? "u_s_maya" : r.pick(fans);
       const waiting = i >= n - r.int(1, 2);
-      const gameId = r.pick(spec.games.filter((g) => !["chess", "fortnite", "brawlstars", "steam"].includes(g))) ?? "other";
+      const gameId = r.pick(spec.games.filter((g) => !["chess", "fortnite", "brawlstars", "steam", "twitch"].includes(g))) ?? "other";
       suggestions.push({
         id: id("sg"),
         streamerId: spec.id,
@@ -618,6 +630,14 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
       }
     }
   }
+  // Ryan's stage always has a request or two waiting, whatever the draws gave.
+  const ryans = redemptions.filter((d) => d.streamerId === DEMO_STREAMER_ID).sort((a, b) => b.at - a.at);
+  if (ryans.length > 0 && !ryans.some((d) => d.status === "pending")) {
+    const latest = ryans[0]!;
+    latest.status = "pending";
+    latest.at = now - r.int(10, 90) * MIN;
+    delete latest.resolvedAt;
+  }
   redemptions.sort((a, b) => a.at - b.at);
 
   // Regulars follow the climbers they back; Maya follows a few favourites.
@@ -640,6 +660,8 @@ export function removeSample(state: Db): number {
   );
   state.users = state.users.filter((u) => !sampleUsers.has(u.id));
   state.challenges = state.challenges.filter((c) => !sampleChallenges.has(c.id));
+  state.campaigns = (state.campaigns ?? []).filter((c) => !c.id.startsWith("cmp_s_"));
+  for (const c of state.challenges) if (c.campaignId?.startsWith("cmp_s_")) delete c.campaignId;
   state.pledges = state.pledges.filter((p) => !sampleChallenges.has(p.challengeId) && !sampleUsers.has(p.userId));
   state.suggestions = state.suggestions.filter((s) => !isSampleId(s.id) && !sampleUsers.has(s.streamerId) && !sampleUsers.has(s.userId));
   state.invites = state.invites.filter((i) => !isSampleId(i.id) && !sampleUsers.has(i.hostId) && !sampleUsers.has(i.guestId));
@@ -668,6 +690,24 @@ export function addSampleHistory(state: Db, now = Date.now()): SampleHistory {
   (state.redemptions ??= []).push(...history.redemptions);
   const followed = new Set((state.follows ?? []).map((f) => `${f.fanId}>${f.streamerId}`));
   (state.follows ??= []).push(...history.follows.filter((f) => !followed.has(`${f.fanId}>${f.streamerId}`)));
+  // Two climbers have a campaign running (the live challenges opened later join it)
+  // and one finished; each takes in that climber's recent settled challenges.
+  const CAMPAIGNS: [string, string, number, number, boolean][] = [
+    // [streamer, name, target $, days back, still running]
+    [DEMO_STREAMER_ID, "GTA VI launch week", 400, 4, true],
+    ["u_s_fern", "Fortnite for Austin Pets Alive", 250, 3, true],
+    ["u_s_moss", "Road to 2000 blitz", 150, 9, false],
+  ];
+  for (const [streamerId, name, goalUsd, daysBack, running] of CAMPAIGNS) {
+    if (!state.users.some((u) => u.id === streamerId)) continue;
+    const id = `cmp_s_${streamerId.replace(/^u_(s_|demo_)?/, "")}`;
+    const startedAt = now - daysBack * 24 * 60 * 60_000;
+    const endedAt = running ? undefined : startedAt + 5 * 24 * 60 * 60_000;
+    (state.campaigns ??= []).push({ id, streamerId, name, goalMicro: goalUsd * 1_000_000, startedAt, ...(endedAt ? { endedAt } : {}) });
+    for (const c of state.challenges) {
+      if (c.streamerId === streamerId && c.createdAt >= startedAt && (!endedAt || c.createdAt <= endedAt)) c.campaignId = id;
+    }
+  }
   // The test accounts' awards are recounted quietly, so their new history doesn't arrive as a flood of notifications.
   for (const u of state.users) if (u.id.startsWith("u_t_")) delete u.awarded;
   state.sample = { challengeIds: [], addedAt: now };

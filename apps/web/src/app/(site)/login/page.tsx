@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { type DemoAccount, DemoAccounts } from "@/components/DemoAccounts";
+import { EmailSignIn } from "@/components/EmailSignIn";
 import { ProviderButtons } from "@/components/ProviderButtons";
 import { SAMPLE_SIGN_INS } from "@/lib/sample-data";
 import { ledger } from "@/lib/ledger";
@@ -47,6 +48,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
           </p>
         </div>
         <div className="signin-ways">
+          <EmailSignIn />
           <ProviderButtons />
           <div className="divider">
             <span>or use a test account</span>

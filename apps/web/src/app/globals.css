@@ -4355,3 +4355,218 @@ textarea {
   background: rgba(12, 10, 8, 0.82);
   border: 1px solid var(--wood-line);
 }
+
+/* Email sign-in */
+.email-signin {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.email-signin input {
+  width: 100%;
+}
+
+.email-signin .linkish {
+  justify-self: start;
+}
+
+.linkish {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.linkish:hover {
+  color: var(--ink);
+}
+
+/* Streamer dashboard: approval queue, campaign, payouts */
+.queue h3,
+.campaign h3,
+.payouts h3 {
+  margin: 0;
+}
+
+.queue-count {
+  font-size: 0.82rem;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.queue-count.on {
+  color: var(--wood-light);
+  border-color: var(--wood-line);
+  background: var(--wood-soft);
+}
+
+.queue-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 14px 0 0;
+}
+
+.queue-list a {
+  display: inline-flex;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.queue-list a:hover {
+  border-color: var(--wood-line);
+}
+
+.dash-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .dash-pair {
+    grid-template-columns: 1fr;
+  }
+}
+
+.campaign-name {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 10px 0 4px;
+}
+
+.campaign-figures {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  margin: 12px 0;
+}
+
+.campaign-figures .big {
+  font-size: 1.5rem;
+}
+
+.campaign-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.campaign-past {
+  list-style: none;
+  padding: 0;
+  margin: 18px 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.campaign-past li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.payout-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 0.9rem;
+}
+
+.payout-table th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--muted);
+  font-size: 0.8rem;
+  padding: 0 8px 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.payout-table td {
+  padding: 9px 8px 9px 0;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.payout-table .num {
+  text-align: right;
+}
+
+.payouts {
+  max-height: 520px;
+  overflow: auto;
+}
+
+/* Settings: challenge types as toggle chips */
+.chip-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.chip-pick {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.chip-pick input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chip-pick.on {
+  color: var(--ink);
+  border-color: var(--wood-line);
+  background: var(--wood-soft);
+}
+
+.chip-pick:focus-within {
+  outline: 2px solid var(--accent, #3ecf8e);
+  outline-offset: 2px;
+}
+
+/* Campaign banner on a stream page */
+.campaign-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  margin: 18px 0;
+  border-radius: 14px;
+  border: 1px solid var(--wood-line);
+  background: linear-gradient(90deg, var(--wood-soft), transparent 70%), var(--glass);
+}
+
+.campaign-banner .bar {
+  flex: 1 1 200px;
+}
+
+.payout-table td:first-child,
+.payout-table td.num {
+  white-space: nowrap;
+}

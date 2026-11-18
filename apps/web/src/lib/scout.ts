@@ -39,7 +39,7 @@ function lastAccount(streamer: User, verifier: string): Record<string, string> |
 
 /** What QuickNode has reported from the escrow program for this climber in the last day. */
 export function chainDigest(streamer: User, now = Date.now()): ScoutInput["chain"] {
-  const refs = new Set(ownChallenges(streamer).flatMap((c) => (c.ledgerRef ? [c.ledgerRef] : [])));
+  const refs = new Set(ownChallenges(streamer).flatMap((c) => (c.ledgerRef ? [service.chainAccountOf(c.ledgerRef)] : [])));
   const recent = db().chain.filter((e) => refs.has(e.challenge) && (e.at === 0 || now - e.at <= DAY));
   const usd = (micro: unknown) => Number(micro ?? 0) / 1_000_000;
   const pledges = recent.filter((e) => e.name === "Pledged");
@@ -56,7 +56,10 @@ export function chainDigest(streamer: User, now = Date.now()): ScoutInput["chain
 export function scoutInput(streamer: User, now = Date.now()): ScoutInput {
   const own = ownChallenges(streamer);
   const played = [...new Set(own.map((c) => c.gameId))];
-  const ids = played.length > 0 ? played : GAMES.filter((g) => g.featured && g.id !== "other").map((g) => g.id);
+  const accepted = service.settingsOf(streamer).acceptedGames;
+  const takes = (id: string) => accepted.length === 0 || accepted.includes(id);
+  const ownIds = played.filter(takes);
+  const ids = ownIds.length > 0 ? ownIds : GAMES.filter((g) => g.featured && g.id !== "other" && takes(g.id)).map((g) => g.id);
   const games: ScoutGame[] = ids.map((id) => {
     const list = own.filter((c) => c.gameId === id);
     const funded = list.filter((c) => c.totalMicro > 0);
@@ -103,7 +106,9 @@ export async function runScout(actor: User): Promise<ScoutRun> {
   try {
     const input = scoutInput(actor);
     const result = await scout(input);
-    const run: ScoutRun = { ...result, at: Date.now(), opened: {}, chain: input.chain };
+    // Grok searches widely; keep only the challenge types this climber takes.
+    const settings = service.settingsOf(actor);
+    const run: ScoutRun = { ...result, pitches: result.pitches.filter((p) => service.takesGame(settings, p.gameId)), at: Date.now(), opened: {}, chain: input.chain };
     (db().scouts ??= {})[actor.id] = run;
     save();
     return run;

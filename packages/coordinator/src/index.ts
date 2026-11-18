@@ -1,9 +1,9 @@
-import { briefWithGrok, draftWithGrok } from "./grok";
+import { briefWithGrok, draftWithGrok, recapWithGrok } from "./grok";
 import { briefWithRules, draftWithRules } from "./rules";
 import { type ScoutInput, type Scouting, scoutWithGrok, scoutWithRules } from "./scout";
-import type { Brief, Deps, DisputeCase, Draft, Idea } from "./types";
+import type { Brief, Deps, DisputeCase, Draft, Idea, RecapFacts } from "./types";
 
-export type { Brief, Deps, DisputeCase, Draft, Idea } from "./types";
+export type { Brief, Deps, DisputeCase, Draft, Idea, RecapFacts } from "./types";
 export { draftWithRules, briefWithRules } from "./rules";
 export type { Pitch, ScoutGame, ScoutInput, Scouting } from "./scout";
 export { checkPitch, scoutWithRules } from "./scout";
@@ -61,5 +61,19 @@ export async function scout(input: ScoutInput, deps: Deps = defaultDeps()): Prom
     return await scoutWithGrok(input, deps);
   } catch (err) {
     return { ...scoutWithRules(input), fallback: reasonOf(err) };
+  }
+}
+
+/**
+ * The spoken recap. Grok writes it from the stream's facts (and the escrow
+ * program's on-chain activity); the fixed sentence version is used with no
+ * key, or when Grok's text fails the figure check.
+ */
+export async function draftRecap(facts: RecapFacts, fallback: string, deps: Deps = defaultDeps()): Promise<{ text: string; source: "grok" | "rules" }> {
+  if (!usesGrok(deps) || facts.challenges.length === 0) return { text: fallback, source: "rules" };
+  try {
+    return { text: await recapWithGrok(facts, deps), source: "grok" };
+  } catch {
+    return { text: fallback, source: "rules" };
   }
 }

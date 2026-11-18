@@ -39,18 +39,35 @@ One escrow serves every game. Only the verifier plugged into it changes.
 
 | Tier | How it decides | Games in this repo |
 | --- | --- | --- |
-| Data | Reads a public game API and checks a precise condition | Chess (Lichess), Brawl Stars, Fortnite |
+| Data | Reads a public game or stream API and checks a precise condition | Chess (Lichess), Brawl Stars, Fortnite, any Steam achievement, Twitch stream goals |
 | Optimistic | Streamer claims with a clip; settles unless a funder disputes in time | GTA VI and any game without a data source |
 
 See [docs/architecture.md](docs/architecture.md) for the trust boundary and
 the anti-collusion rules.
 
+## Architecture
+
+| Component | What it does | Where |
+| --- | --- | --- |
+| Escrow program | Holds pledges; enforces payout and refund rules (Open → Locked → Paid or Refunded) | `programs/escrow` on `feat/escrow-program`; Anchor, USDC, devnet |
+| Verifier service | One adapter per tier checks results and signs settlements | `packages/verifier`: Lichess, Brawl Stars, Fortnite, Steam, Twitch stream, optimistic claim and dispute |
+| Fan web app | Email (and Google, Twitch, Discord) sign-in, pledges, challenge pages with receipts | `apps/web`; Privy wallets when configured, prices in dollars |
+| Streamer dashboard | Accepted challenge types, approval queue, campaigns, payouts | `apps/web/src/app/(site)/dashboard` |
+| Stream overlay | Live funding bars and paid or refunded alerts | QuickNode Stream on the program's events → `/api/webhooks/quicknode` → `/overlay/<handle>` |
+| Voice announcer | Reads pledges and results aloud | ElevenLabs via `/api/tts` |
+| Hype assistant | Turns fan ideas and X chatter into checkable terms, pitches them for approval, opens them through the app, writes the stream recap | Grok, `packages/coordinator` |
+| Off-chain data | Profiles, challenge text, pledges, clips | Supabase (`supabase/migrations`), or a local JSON file with no keys |
+
 ## Repository layout
 
 ```
 apps/web            Next.js app: fan pages, streamer dashboard, stream overlay
+apps/extension      Chrome side panel for planters
 packages/core       Domain model: challenges, conditions, money, state machine
-packages/verifier   Verifier engine and one adapter per game
+packages/verifier   Verifier engine and one adapter per game (Lichess, Brawl Stars, Fortnite, Steam, Twitch, clips)
+packages/coordinator Grok: drafts terms, scouts challenges, writes recaps, briefs keepers
+packages/chain      Escrow event decoder and QuickNode Streams webhook
+supabase/           Postgres tables for off-chain data
 programs/escrow     Anchor program: USDC escrow with payout and refund rules
 tests/              Anchor integration tests for the escrow program
 docs/               Architecture and demo notes

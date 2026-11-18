@@ -136,4 +136,45 @@ describe.skipIf(!RPC)("Solana ledger against a local validator", () => {
     expect(await service.balanceOf(amy)).toBe(usd(4));
     expect(service.getChallenge(open.id).totalMicro).toBe(usd(18));
   }, 90_000);
+
+  it("signs through Privy for a wallet Privy holds", async () => {
+    // A stand-in for Privy's wallet API: it holds the keys and signs what it is sent.
+    const http = await import("node:http");
+    const { Transaction } = await import("@solana/web3.js");
+    const held = new Map<string, Keypair>();
+    const seen: string[] = [];
+    const fake = http.createServer((req, res) => {
+      let body = "";
+      req.on("data", (d) => (body += d));
+      req.on("end", () => {
+        seen.push(`${req.method} ${req.url} ${req.headers["privy-app-id"]}`);
+        if (req.url === "/v1/wallets") {
+          const key = Keypair.generate();
+          const id = `wal_${held.size + 1}`;
+          held.set(id, key);
+          return res.end(JSON.stringify({ id, address: key.publicKey.toBase58(), chain_type: "solana" }));
+        }
+        const id = req.url!.split("/")[3]!;
+        const tx = Transaction.from(Buffer.from(JSON.parse(body).params.transaction, "base64"));
+        tx.partialSign(held.get(id)!);
+        res.end(JSON.stringify({ method: "signTransaction", data: { signed_transaction: tx.serialize({ requireAllSignatures: false }).toString("base64"), encoding: "base64" } }));
+      });
+    });
+    await new Promise<void>((done) => fake.listen(0, "127.0.0.1", done));
+    const port = (fake.address() as { port: number }).port;
+    Object.assign(process.env, { PRIVY_APP_ID: "app_test", PRIVY_APP_SECRET: "secret", PRIVY_API_BASE: `http://127.0.0.1:${port}` });
+    try {
+      const nia = await service.signInWith("email", { subject: "nia@example.com", name: "Nia", email: "nia@example.com" });
+      expect([...held.values()].map((k) => k.publicKey.toBase58())).toContain(nia.wallet);
+      await service.chooseRole(nia, "fan");
+      expect(await service.balanceOf(nia)).toBe(usd(25));
+      const c = await service.createChallenge(streamer(), clip("Win the next street race"));
+      await service.pledge(nia, c.id, 4);
+      expect(await service.balanceOf(nia)).toBe(usd(21));
+      expect(seen.some((s) => s.startsWith("POST /v1/wallets/wal_") && s.endsWith("app_test"))).toBe(true);
+    } finally {
+      for (const k of ["PRIVY_APP_ID", "PRIVY_APP_SECRET", "PRIVY_API_BASE"]) delete process.env[k];
+      fake.close();
+    }
+  }, 120_000);
 });

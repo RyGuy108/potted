@@ -10,7 +10,10 @@ export function SuggestForm({
   streamerName,
   bounties = false,
   ideas = true,
+  games,
 }: {
+  /** Game ids this climber takes. Every game when omitted or empty. */
+  games?: string[];
   handle: string;
   streamerName: string;
   /** The streamer takes bounties: ideas with money on them. */
@@ -21,7 +24,8 @@ export function SuggestForm({
   const [withMoney, setWithMoney] = useState(!ideas);
   const [amount, setAmount] = useState("5");
   const [hours, setHours] = useState("24");
-  const [gameId, setGameId] = useState(GAMES[0]!.id);
+  const offered = games && games.length > 0 ? GAMES.filter((g) => games.includes(g.id)) : GAMES;
+  const [gameId, setGameId] = useState(offered[0]!.id);
   const [text, setText] = useState("");
   const [customGame, setCustomGame] = useState("");
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -60,7 +64,7 @@ export function SuggestForm({
       <label className="field">
         <span>Game</span>
         <select value={gameId} onChange={(e) => setGameId(e.target.value)}>
-          {GAMES.map((game) => (
+          {offered.map((game) => (
             <option key={game.id} value={game.id}>
               {game.name}
             </option>

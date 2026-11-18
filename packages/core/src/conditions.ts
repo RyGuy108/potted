@@ -60,8 +60,22 @@ export interface SteamCondition {
   achievementTitle: string;
 }
 
+/**
+ * A goal for the stream itself, checked against Twitch's live data: stay
+ * live for a stretch, or reach a number of people watching at once.
+ */
+export interface TwitchCondition {
+  kind: "twitch";
+  /** The channel's login, as in twitch.tv/<login>. */
+  channel: string;
+  goal: "live_minutes" | "peak_viewers";
+  /** Minutes live without a break, or concurrent viewers. */
+  count: number;
+}
+
 export type Condition =
   | LichessCondition
+  | TwitchCondition
   | BrawlStarsCondition
   | FortniteCondition
   | SteamCondition
@@ -94,6 +108,10 @@ export function describeCondition(c: Condition): string {
         : `${c.accountName} gets ${c.count} eliminations in Fortnite`;
     case "steam":
       return `${c.gameName}: unlock "${c.achievementTitle}" on Steam`;
+    case "twitch":
+      return c.goal === "live_minutes"
+        ? `${c.channel} stays live on Twitch for ${c.count} minutes straight`
+        : `${c.channel} reaches ${c.count.toLocaleString("en-US")} viewers at once on Twitch`;
     case "optimistic":
       return `${c.game}: ${c.statement}`;
   }
@@ -166,6 +184,17 @@ export function parseCondition(input: unknown): Condition {
         achievementTitle: raw.achievementTitle ? requireString(raw.achievementTitle, "Achievement title", 80) : achievement,
       };
     }
+    case "twitch": {
+      const channel = requireString(raw.channel, "Twitch channel", 25).replace(/^@/, "").toLowerCase();
+      if (!/^[a-z0-9_]{3,25}$/.test(channel)) throw new Error("Invalid Twitch channel name");
+      if (raw.goal !== "live_minutes" && raw.goal !== "peak_viewers") throw new Error("Unknown Twitch goal");
+      return {
+        kind: "twitch",
+        channel,
+        goal: raw.goal,
+        count: raw.goal === "live_minutes" ? requireInt(raw.count, "Minutes", 10, 1440) : requireInt(raw.count, "Viewers", 2, 1_000_000),
+      };
+    }
     case "optimistic":
       return {
         kind: "optimistic",
@@ -201,6 +230,7 @@ export const GAMES: GameInfo[] = [
   { id: "brawlstars", name: "Brawl Stars", verifier: "brawlstars", how: "Checked against the official battle log.", featured: true, example: "Win 3 of the next 5 battles" },
   { id: "fortnite", name: "Fortnite", verifier: "fortnite", how: "Checked against public player stats.", featured: true, example: "Get 10 eliminations" },
   { id: "steam", name: "Any Steam game", verifier: "steam", how: "Checked against the time Steam recorded the achievement.", featured: true, example: "Unlock a named achievement before the deadline" },
+  { id: "twitch", name: "Twitch stream goals", verifier: "twitch", how: "Checked against Twitch's live stream data.", featured: true, example: "Stay live for 3 hours straight" },
   { id: "gta6", name: "GTA VI", verifier: "optimistic", how: CLIP, featured: true, example: "Finish the first heist without getting busted" },
   // Stream types beyond the featured games. Each settles by clip until it
   // gets a data checker of its own: add an adapter in packages/verifier and

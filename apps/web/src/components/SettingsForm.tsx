@@ -1,5 +1,6 @@
 "use client";
 
+import { GAMES } from "@potted/core";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { updateSettingsAction } from "@/app/actions";
@@ -92,6 +93,25 @@ export function SettingsForm({ initial, bounties = true }: { initial: StreamSett
             <option value={2}>Two</option>
           </select>
         </label>
+      </div>
+      <h3 className="settings-sub">Challenge types you take</h3>
+      <p className="muted small">Fans can only send ideas and bounties for these, and the scout only pitches them. Leave all off to take everything.</p>
+      <div className="chip-picks" role="group" aria-label="Challenge types you take">
+        {GAMES.map((g) => {
+          const on = settings.acceptedGames.includes(g.id);
+          return (
+            <label key={g.id} className={`chip-pick${on ? " on" : ""}`}>
+              <input
+                type="checkbox"
+                checked={on}
+                onChange={(e) =>
+                  setSettings({ ...settings, acceptedGames: e.target.checked ? [...settings.acceptedGames, g.id] : settings.acceptedGames.filter((id) => id !== g.id) })
+                }
+              />
+              {g.name}
+            </label>
+          );
+        })}
       </div>
       <h3 className="settings-sub">Browser extension</h3>
       <p className="muted small">Link your channel so the Potted extension shows your challenges beside your stream.</p>

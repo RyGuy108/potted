@@ -41,3 +41,15 @@ export interface Brief {
   points: string[];
   source: "grok" | "rules";
 }
+
+/** What happened on one stream, for the spoken recap. Amounts are already formatted ("$12.50"). */
+export interface RecapFacts {
+  streamer: string;
+  challenges: { title: string; result: "completed" | "missed" | "refunded" | "live"; pot: string }[];
+  earned: string;
+  refunded?: string;
+  topBacker?: { name: string; amount: string };
+  cause?: { name: string; raised: string };
+  /** What the escrow program recorded, read from the chain event feed. */
+  onChain: { pledges: number; payouts: number; refunds: number };
+}

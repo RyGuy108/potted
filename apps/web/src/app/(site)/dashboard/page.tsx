@@ -17,6 +17,7 @@ import { currentUser } from "@/lib/session";
 import { pitchFields, scoutOf } from "@/lib/scout";
 import { publicBase } from "@/lib/url";
 import { ScoutPanel } from "@/components/ScoutPanel";
+import { ApprovalQueue, CampaignPanel, PayoutsPanel } from "@/components/StreamerPanels";
 import { PointsPanel } from "@/components/PointsPanel";
 import { pointsConfig, redemptionsFor } from "@/lib/points";
 
@@ -100,12 +101,27 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </p>
       </section>
 
+      <ApprovalQueue
+        items={[
+          { label: "fan ideas to review", count: suggestions.length, href: "#ideas" },
+          { label: "bounties with money on them", count: bounties.length, href: "#bounties" },
+          { label: "invites to collab", count: invites.incoming.length, href: "#invites" },
+          { label: "reward redemptions to fulfil", count: redemptionsFor(user.id).filter((r) => r.status === "pending").length, href: "#points" },
+          { label: "scout pitches not opened yet", count: scoutRun ? scoutRun.pitches.filter((_, i) => !scoutRun.opened[i]).length : 0, href: "#scout" },
+        ]}
+      />
+
+      <div className="dash-pair">
+        <CampaignPanel user={user} />
+        <PayoutsPanel user={user} />
+      </div>
+
       <ScoutPanel run={scoutRun} settings={settingsOf(user)} fanPage={fanPage} grok={usesGrok()} />
 
       <PointsPanel config={pointsConfig(user.id)} redemptions={redemptionsFor(user.id)} />
 
       {bounties.length > 0 && (
-        <section className="card manage">
+        <section className="card manage" id="bounties">
           <h3>Bounties waiting for you</h3>
           <p className="muted small">Planters put this money on ideas. Take one on and it opens as a challenge with the money already in the pot. Decline and they get it back.</p>
           {bounties.map((b) => {
@@ -134,7 +150,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       )}
 
       {suggestions.length > 0 && (
-        <section className="card manage">
+        <section className="card manage" id="ideas">
           <h3>Ideas from fans</h3>
           {suggestions.map((s) => (
             <div key={s.id} className="suggestion">
@@ -158,7 +174,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       )}
 
       {(invites.incoming.length > 0 || invites.outgoing.length > 0) && (
-        <section className="card manage">
+        <section className="card manage" id="invites">
           <h3>Collab invites</h3>
           {invites.incoming.map((i) => (
             <div key={i.id} className="suggestion">

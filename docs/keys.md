@@ -29,6 +29,7 @@ a commit or a pull request.
 | Brawl Stars | `BRAWLSTARS_API_KEY` | developer.brawlstars.com → My Account → Create New Key. The key only works from the IP addresses you list, so add your current public IP, and the host's when deployed. |
 | Fortnite | `FORTNITE_API_KEY` | dash.fortnite-api.com → sign in → API key. The player's stats must be public in Fortnite's settings. |
 | Any Steam game | `STEAM_API_KEY` | steamcommunity.com/dev/apikey. The streamer's profile and game details must be public. |
+| Twitch stream goals (stay live N minutes, reach N viewers) | `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET` | The same Twitch app as sign-in. The checker uses an app token, so no extra scope. |
 
 ## For Solana and QuickNode
 
@@ -57,13 +58,52 @@ this order (commands from the repo root unless noted):
    account, including the demo ones, gets a devnet wallet, and receipts
    link to Solana Explorer.
 
-Wallets in this mode are custodial: the server holds each account's key
-in `.data/wallets.json` and signs for it. That is fine for a devnet demo
-with test tokens; real money needs wallets the user controls.
+By default, wallets in this mode are custodial: the server holds each
+account's key in `.data/wallets.json` and signs for it. With Privy set up
+(below), accounts that sign in for real (email, Google, Twitch, Discord)
+get a wallet made by Privy instead, and the server asks Privy to sign
+their transactions. The demo and test accounts stay custodial.
+
+| Turns on | Variable | Where to get it |
+| --- | --- | --- |
+| Privy wallets | `PRIVY_APP_ID`, `PRIVY_APP_SECRET` | dashboard.privy.io → create an app → Settings → Basics shows the App ID and App secret. Under Wallets, make sure server-side wallet creation is allowed. Only used with `POTTED_LEDGER=solana`. |
 
 | Turns on | Variable | Where to get it |
 | --- | --- | --- |
 | On-chain activity page | `QUICKNODE_WEBHOOK_SECRET` | quicknode.com → Streams → create a Stream (steps in `docs/quicknode.md`) → Settings → Security token. Needs `POTTED_PROGRAM_ID` too. |
+
+## Email sign-in
+
+Email sign-in works with no key on a development server: with no mail
+service connected, the code is shown on screen. To mail it:
+
+| Turns on | Variable | Where to get it |
+| --- | --- | --- |
+| Sign-in codes by email | `RESEND_API_KEY`, optionally `EMAIL_FROM` | resend.com → API Keys → Create. Without a verified domain Resend only delivers to your own address; `EMAIL_FROM` defaults to `Potted <onboarding@resend.dev>`. |
+
+A production server never shows codes unless `POTTED_SHOW_EMAIL_CODES=true`.
+
+## Supabase (off-chain data)
+
+Without these, everything is kept in `apps/web/.data/potted.json`. With
+them, the app loads its state from Supabase when it starts and writes
+every change back, so it survives redeploys and serverless hosts.
+
+1. supabase.com → New project.
+2. SQL Editor → paste `supabase/migrations/20261118000000_potted.sql` →
+   Run. It creates `profiles`, `challenges`, `pledges`, `clips` and
+   `app_state`, with row level security on.
+3. Project Settings → API: copy the Project URL and the `service_role`
+   key into `.env.local`:
+
+   | Variable | Value |
+   | --- | --- |
+   | `SUPABASE_URL` | `https://<project>.supabase.co` |
+   | `SUPABASE_SERVICE_ROLE_KEY` | The `service_role` key (secret: server only, never in the browser) |
+
+4. Restart. On the first start Supabase is empty, so the app pushes what
+   the local file holds; after that Supabase is the source. The sample
+   script reads and writes Supabase too.
 
 ## For hosting
 

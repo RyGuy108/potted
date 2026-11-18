@@ -227,6 +227,16 @@ export function CreateChallengeForm({
             {input("count", "How many", { inputMode: "numeric", required: true })}
           </>
         )}
+        {game.verifier === "twitch" && (
+          <>
+            {input("channel", "Your Twitch channel", { placeholder: "ryan_plays", required: true })}
+            {select("goal", "Goal", [
+              ["live_minutes", "Stay live (minutes)"],
+              ["peak_viewers", "Viewers at once"],
+            ])}
+            {input("count", "How many", { inputMode: "numeric", required: true })}
+          </>
+        )}
         {game.verifier === "optimistic" && (
           <>
             {gameId === "other" && input("game", "Game or activity", { placeholder: "Cooking stream", required: true })}

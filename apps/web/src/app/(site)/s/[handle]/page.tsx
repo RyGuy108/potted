@@ -5,7 +5,8 @@ import { SignInPanel } from "@/components/SignInPanel";
 import { BountyBoard } from "@/components/BountyBoard";
 import { SuggestForm } from "@/components/SuggestForm";
 import { formatUsd } from "@potted/core";
-import { bountiesSupported, expireBounties, getStreamer, openBounties, raisedFor, settingsOf, stageChallenges, topPlanters } from "@/lib/service";
+import { activeCampaign, bountiesSupported, campaignStats, expireBounties, getStreamer, openBounties, raisedFor, settingsOf, stageChallenges, topPlanters } from "@/lib/service";
+import { GrowBar } from "@/components/Motion";
 import { currentUser } from "@/lib/session";
 import { pointsConfig, pointsOf, redemptionsFor } from "@/lib/points";
 import { twitchCategoryUrl, twitchChannel } from "@/lib/twitch";
@@ -29,6 +30,8 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
 
   const planters = topPlanters(streamer.id);
   const cause = settingsOf(streamer);
+  const campaign = activeCampaign(streamer.id);
+  const campaignNow = campaign ? campaignStats(campaign) : undefined;
   await expireBounties();
   const takesBounties = bountiesSupported() && cause.acceptingBounties;
   const bounties = bountiesSupported() ? openBounties(streamer.id) : [];
@@ -99,6 +102,24 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
 
       {!user && <SignInPanel />}
 
+      {campaign && campaignNow && (
+        <div className="campaign-banner">
+          <div>
+            <p className="eyebrow">Campaign</p>
+            <strong>{campaign.name}</strong>
+            <p className="muted small">
+              {campaignNow.challenges} {campaignNow.challenges === 1 ? "challenge" : "challenges"}, {campaignNow.completed} completed, {campaignNow.planters}{" "}
+              {campaignNow.planters === 1 ? "planter" : "planters"}
+            </p>
+          </div>
+          <span className="mono">
+            {formatUsd(campaignNow.raisedMicro)}
+            {campaign.goalMicro > 0 ? <span className="muted"> of {formatUsd(campaign.goalMicro)}</span> : " raised"}
+          </span>
+          {campaign.goalMicro > 0 && <GrowBar pct={Math.min(100, (campaignNow.raisedMicro / campaign.goalMicro) * 100)} label="Campaign progress" duration={2200} />}
+        </div>
+      )}
+
       <h2>Live now</h2>
       {live.length === 0 ? (
         <p className="empty">No open challenges right now. New ones show up here the moment {streamer.name} posts them.</p>
@@ -115,7 +136,7 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
           <h2>{takesBounties || bounties.length > 0 ? "Bounties and ideas" : "Got an idea?"}</h2>
           {bounties.length > 0 && <BountyBoard bounties={bounties} canBack={user?.role === "fan"} minUsd={cause.minPledgeUsd} />}
           {user?.role === "fan" && streamer.handle && (takesBounties || cause.acceptingSuggestions) && (
-            <SuggestForm handle={streamer.handle} streamerName={streamer.name} bounties={takesBounties} ideas={cause.acceptingSuggestions} />
+            <SuggestForm handle={streamer.handle} streamerName={streamer.name} bounties={takesBounties} ideas={cause.acceptingSuggestions} games={cause.acceptedGames} />
           )}
         </>
       )}

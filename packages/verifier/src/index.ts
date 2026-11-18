@@ -4,10 +4,12 @@ import { fortniteAdapter } from "./fortnite";
 import { lichessAdapter } from "./lichess";
 import { optimisticAdapter } from "./optimistic";
 import { steamAdapter } from "./steam";
+import { twitchAdapter } from "./twitch";
 import type { Adapter, CheckContext, Deps } from "./types";
 
 export * from "./types";
-export { lichessAdapter, brawlStarsAdapter, fortniteAdapter, optimisticAdapter, steamAdapter };
+export { lichessAdapter, brawlStarsAdapter, fortniteAdapter, optimisticAdapter, steamAdapter, twitchAdapter };
+export { liveStream, resetTwitchToken } from "./twitch";
 
 /** Adding a game means adding one adapter here. Nothing else changes. */
 const ADAPTERS: { [K in Condition["kind"]]: Adapter<Extract<Condition, { kind: K }>> } = {
@@ -15,6 +17,7 @@ const ADAPTERS: { [K in Condition["kind"]]: Adapter<Extract<Condition, { kind: K
   brawlstars: brawlStarsAdapter,
   fortnite: fortniteAdapter,
   steam: steamAdapter,
+  twitch: twitchAdapter,
   optimistic: optimisticAdapter,
 };
 

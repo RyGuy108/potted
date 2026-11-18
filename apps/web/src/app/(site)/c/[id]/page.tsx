@@ -42,6 +42,13 @@ function rulesFor(challenge: Challenge): string[] {
         "Steam records the moment each achievement is unlocked. That timestamp must fall between the start of the attempt and the deadline.",
         "If the achievement was already unlocked when the attempt began, the challenge fails and everyone is refunded.",
       ];
+    case "twitch":
+      return [
+        c.goal === "live_minutes"
+          ? "Twitch's live data is read every few seconds. Minutes count from the start of the attempt (or the broadcast, if later); a restart begins the count again."
+          : "Twitch's live data is read every few seconds. The first reading at or above the goal settles it.",
+        "If the goal is not reached by the deadline, everyone is refunded.",
+      ];
     case "optimistic":
       return [
         "The streamer posts a clip of the challenge being completed.",
