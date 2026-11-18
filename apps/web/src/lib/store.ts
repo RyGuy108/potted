@@ -132,7 +132,7 @@ export interface User {
   onboarded?: boolean;
 }
 
-export type EventType = "created" | "pledged" | "locked" | "claimed" | "disputed" | "paid" | "failed" | "refunded" | "milestone" | "recap" | "bounty";
+export type EventType = "created" | "pledged" | "locked" | "claimed" | "disputed" | "paid" | "failed" | "refunded" | "milestone" | "recap" | "bounty" | "redeemed";
 
 /** What the overlay shows and reads aloud. */
 export interface StreamEvent {
@@ -163,10 +163,48 @@ export interface Db {
   /** Sim ledger balances in micro-USDC, by wallet. */
   balances: Record<string, number>;
   seq: number;
+  /** Each climber's channel points: how planters earn them and what they buy. */
+  points?: Record<string, PointsConfig>;
+  /** Rewards planters have redeemed. */
+  redemptions?: Redemption[];
   /** The scout's latest pitches for each climber. */
   scouts?: Record<string, ScoutRun>;
   /** Set while the demo sample is loaded: live challenges it opened, so it can be removed again. */
   sample?: { challengeIds: string[]; addedAt: number };
+}
+
+/** Something a planter can spend a climber's channel points on. */
+export interface Reward {
+  id: string;
+  title: string;
+  cost: number;
+  /** What the planter gets, in the climber's words. */
+  note: string;
+  /** Asks the planter for a line of text (a game to pick, a name to shout out). */
+  needsInput: boolean;
+  enabled: boolean;
+}
+
+export interface PointsConfig {
+  on: boolean;
+  /** Points per dollar a planter puts into this climber's pots. */
+  perUsd: number;
+  /** "pledged": earned on pledging, taken back if refunded. "completed": only for pots that completed. */
+  when: "pledged" | "completed";
+  rewards: Reward[];
+}
+
+export interface Redemption {
+  id: string;
+  streamerId: string;
+  userId: string;
+  rewardId: string;
+  title: string;
+  cost: number;
+  input: string;
+  at: number;
+  status: "pending" | "fulfilled" | "refunded";
+  resolvedAt?: number;
 }
 
 /** One scouting run and what became of its pitches. */

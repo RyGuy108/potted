@@ -5,6 +5,7 @@ import * as service from "@/lib/service";
 import { currentUser, endSession, startSession } from "@/lib/session";
 import { SAMPLE_SIGN_INS } from "@/lib/sample-data";
 import * as scouting from "@/lib/scout";
+import * as points from "@/lib/points";
 import { DEMO_GUEST_ID, DEMO_STREAMER_ID, type Role } from "@/lib/store";
 
 /** Expected failures come back as values so forms can show them inline. */
@@ -191,4 +192,16 @@ export async function openPitchAction(index: number): Promise<ActionResult> {
 
 export async function setAutopilotAction(on: boolean, maxGoalUsd: number): Promise<ActionResult> {
   return run(async () => scouting.setAutopilot(await requireUser(), on, Math.round(Number(maxGoalUsd))));
+}
+
+export async function redeemAction(handle: string, rewardId: string, input: string): Promise<ActionResult> {
+  return run(async () => points.redeem(await requireUser(), String(handle), String(rewardId), String(input ?? "")));
+}
+
+export async function resolveRedemptionAction(id: string, outcome: "fulfilled" | "refunded"): Promise<ActionResult> {
+  return run(async () => points.resolveRedemption(await requireUser(), String(id), outcome === "refunded" ? "refunded" : "fulfilled"));
+}
+
+export async function updatePointsAction(input: { on: boolean; perUsd: number; when: string; rewards: unknown[] }): Promise<ActionResult> {
+  return run(async () => points.updatePoints(await requireUser(), input));
 }

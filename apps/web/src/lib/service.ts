@@ -197,6 +197,11 @@ function emitTo(handle: string, type: EventType, challengeId: string, message: s
   if (state.events.length > 500) state.events.splice(0, state.events.length - 500);
 }
 
+/** A stream-wide line on a climber's overlay, not tied to a challenge. */
+export function announceStream(handle: string, type: EventType, message: string): void {
+  emitTo(handle, type, "", message);
+}
+
 export function eventsSince(handle: string, since: number): StreamEvent[] {
   return db().events.filter((e) => e.handle === handle && e.seq > since);
 }

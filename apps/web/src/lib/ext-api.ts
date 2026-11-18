@@ -2,7 +2,9 @@ import { type Challenge, GAMES, toUsd } from "@potted/core";
 import { gameOf } from "./format";
 import * as service from "./service";
 import { extToken, readExtToken } from "./session";
+import { pointsConfig, pointsOf, redeem } from "./points";
 import { SAMPLE_SIGN_INS } from "./sample-data";
+import { twitchChannel } from "./twitch";
 import { DEMO_GUEST_ID, DEMO_STREAMER_ID, type User } from "./store";
 import { POT_FIELDS, conditionFromFields, termFields } from "./terms";
 
@@ -123,8 +125,17 @@ async function route(method: string, path: string[], query: URLSearchParams, bod
       if (!streamer) return ok({ streamer: null, challenges: [] });
       await service.tick(streamer.id);
       const settings = service.settingsOf(streamer);
+      const points = pointsConfig(streamer.id);
+      const twitch = settings.twitchChannel ? await twitchChannel(settings.twitchChannel) : null;
       return ok({
-        streamer: { name: streamer.name, handle: streamer.handle },
+        streamer: { name: streamer.name, handle: streamer.handle, avatarUrl: twitch?.profileImageUrl ?? null, live: Boolean(twitch?.live) },
+        points: points.on
+          ? {
+              perUsd: points.perUsd,
+              balance: user?.role === "fan" ? pointsOf(user, streamer.id).balance : null,
+              rewards: points.rewards.filter((r) => r.enabled).map((r) => ({ id: r.id, title: r.title, cost: r.cost, note: r.note, needsInput: r.needsInput })),
+            }
+          : null,
         minPledgeUsd: settings.minPledgeUsd,
         acceptingIdeas: settings.acceptingSuggestions,
         // Games this climber has run, so an idea starts on something they play.
@@ -167,6 +178,11 @@ async function route(method: string, path: string[], query: URLSearchParams, bod
         badges: stats.badges,
         activity: service.planterActivity(me, 8).map((a) => ({ at: a.at, kind: a.kind, text: a.text, title: a.challenge.title, id: a.challenge.id })),
       });
+    }
+
+    case "POST redeem": {
+      const r = await redeem(need(), String(body.handle ?? ""), String(body.rewardId ?? ""), String(body.input ?? ""));
+      return ok({ id: r.id, title: r.title });
     }
 
     case "POST challenges/:id/dispute":

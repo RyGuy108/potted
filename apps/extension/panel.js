@@ -131,6 +131,33 @@ function challengeCard(c, minPledgeUsd) {
     </article>`;
 }
 
+function pointsCard(stream) {
+  const p = stream.points;
+  if (!p) return "";
+  return `
+    <section class="card points">
+      <div class="row between">
+        <p class="eyebrow">Channel points</p>
+        <span class="pts">${(p.balance ?? 0).toLocaleString()}</span>
+      </div>
+      <span class="muted small">${p.perUsd.toLocaleString()} points for every $1 you put into ${esc(stream.streamer.name)}'s pots.</span>
+      ${p.rewards
+        .map((r) => {
+          const short = r.cost - (p.balance ?? 0);
+          return `<div class="reward" data-reward="${esc(r.id)}">
+            <div class="row between"><b>${esc(r.title)}</b><span class="pts small">${r.cost.toLocaleString()}</span></div>
+            ${r.note ? `<span class="muted small">${esc(r.note)}</span>` : ""}
+            ${
+              short > 0
+                ? `<span class="muted small">${short.toLocaleString()} more points</span>`
+                : `<div class="row">${r.needsInput ? `<input data-reward-input placeholder="Your pick or message" maxlength="140" aria-label="Note for ${esc(r.title)}" style="flex:1" />` : ""}<button class="primary" data-action="redeem">Redeem</button></div>`
+            }
+          </div>`;
+        })
+        .join("")}
+    </section>`;
+}
+
 function ideaForm(stream) {
   if (!stream.acceptingIdeas) return "";
   if (!state.ideaOpen) return `<button class="link" data-action="idea-open">Suggest a challenge to ${esc(stream.streamer.name)}</button>`;
@@ -195,13 +222,19 @@ async function streamView() {
   state.streamHandle = stream.streamer?.handle ?? null;
   if (stream.streamer) {
     return `
+      <div class="who">
+        ${stream.streamer.avatarUrl ? `<img class="avatar" src="${esc(stream.streamer.avatarUrl)}" alt="" />` : `<span class="avatar initials">${esc(stream.streamer.name.slice(0, 1).toUpperCase())}</span>`}
+        <div>
+          <p class="eyebrow">${state.picked ? "Picked from live streams" : "On this tab"}${stream.streamer.live ? ` · <span class="live">LIVE</span>` : ""}</p>
+          <h2>${esc(stream.streamer.name)}</h2>
+        </div>
+      </div>
       <div>
-        <p class="eyebrow">${state.picked ? "Picked from live streams" : "On this tab"}</p>
-        <h2>${esc(stream.streamer.name)}</h2>
         ${stream.cause ? `<span class="muted small">Charity stream: ${stream.cause.pct}% of every completed pot goes to ${esc(stream.cause.name)}.</span>` : ""}
         ${state.picked ? `<button class="link" data-action="unpick">Back to ${state.tab ? "this tab's stream" : "live streams"}</button>` : ""}
       </div>
       ${stream.challenges.length === 0 ? `<p class="muted">Nothing open right now. New challenges appear here on their own.</p>` : stream.challenges.map((c) => challengeCard(c, stream.minPledgeUsd)).join("")}
+      ${pointsCard(stream)}
       ${ideaForm(stream)}
       <button class="link" data-open="/s/${esc(stream.streamer.handle)}">Open ${esc(stream.streamer.name)}'s page</button>`;
   }
@@ -392,6 +425,13 @@ async function act(action, target) {
     case "pledge-other":
       await pledge(id, Number(card.querySelector("[data-other]").value.replace("$", "")));
       break;
+    case "redeem": {
+      const row = target.closest("[data-reward]");
+      const input = row.querySelector("[data-reward-input]")?.value ?? "";
+      const r = await post("redeem", { handle: state.streamHandle, rewardId: row.dataset.reward, input });
+      notify(`Redeemed ${r.title}. It's in the streamer's queue.`, true);
+      break;
+    }
     case "dispute":
       if (!confirm("Dispute this clip? A keeper will review it before any money moves.")) return;
       await post(`challenges/${id}/dispute`);

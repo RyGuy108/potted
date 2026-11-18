@@ -429,3 +429,52 @@ details summary {
 .icon.refunded {
   background: rgba(233, 187, 77, 0.2);
 }
+
+.who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.who h2 {
+  margin: 0;
+}
+
+.avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+  border: 2px solid var(--line);
+}
+
+.avatar.initials {
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  background: linear-gradient(135deg, #2a66f0, #35c98b);
+}
+
+.live {
+  color: #ff4d4d;
+  font-weight: 700;
+}
+
+.points .pts,
+.reward .pts {
+  color: #c4b5fd;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.points .pts {
+  font-size: 18px;
+}
+
+.reward {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}

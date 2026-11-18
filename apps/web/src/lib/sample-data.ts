@@ -10,7 +10,8 @@ import {
   splitPot,
   upfrontOf,
 } from "@potted/core";
-import { type Db, type Invite, type Role, type StreamEvent, type StreamSettings, type Suggestion, type User, DEMO_GUEST_ID, DEMO_STREAMER_ID } from "./store";
+import { STARTER_REWARDS } from "./points";
+import { type Db, type Invite, type PointsConfig, type Redemption, type Role, type StreamEvent, type StreamSettings, type Suggestion, type User, DEMO_GUEST_ID, DEMO_STREAMER_ID } from "./store";
 
 /**
  * Sample history for demos: climbers, planters and keepers with about six
@@ -69,6 +70,76 @@ const HOSTS: StreamerSpec[] = [
   { id: DEMO_STREAMER_ID, name: "Ryan", handle: "ryan", games: ["gta6", "steam", "gta6"], sessions: 7, steamId: "76561198000001108" },
   { id: DEMO_GUEST_ID, name: "Kai", handle: "kai", games: ["fortnite", "gta6"], sessions: 5, fortnite: "KaiOnTheKeys" },
 ];
+
+type RewardSpec = [title: string, cost: number, note: string, needsInput: boolean];
+
+/** Each sample climber's points rate and rewards, in the spirit of their stream. */
+const SAMPLE_POINTS: Record<string, { perUsd: number; when: PointsConfig["when"]; rewards: RewardSpec[] }> = {
+  u_s_juniper: {
+    perUsd: 100,
+    when: "pledged",
+    rewards: [
+      ["Shoutout", 250, "Your name read out with a thank-you.", false],
+      ["Name my next world", 600, "I'll name the next Minecraft world after your pick.", true],
+      ["Pick the seed", 900, "Send a seed and I'll play it next.", true],
+      ["Hardcore penalty: you choose", 2500, "If I die in hardcore, I do your forfeit (keep it kind).", true],
+    ],
+  },
+  u_s_moss: {
+    perUsd: 50,
+    when: "completed",
+    rewards: [
+      ["Pick my opening", 500, "I play your opening for the next three games.", true],
+      ["Shoutout", 300, "A thank-you on stream.", false],
+      ["Review your game live", 3000, "Send a Lichess game and I'll analyse it on stream.", true],
+    ],
+  },
+  u_s_fern: {
+    perUsd: 100,
+    when: "pledged",
+    rewards: [
+      ["Pick my drop spot", 400, "Name where I land next match.", true],
+      ["Loadout challenge", 1200, "I play a whole match with the loadout you pick.", true],
+      ["Squad up with me", 3500, "Join my squad for a match on stream.", true],
+    ],
+  },
+  u_s_sol: {
+    perUsd: 150,
+    when: "pledged",
+    rewards: [
+      ["Name the dish", 400, "Whatever I cook next gets your name for it.", true],
+      ["Pick tomorrow's recipe", 800, "Send a recipe and I'll cook it next stream.", true],
+      ["Extra $1 to the pantry", 1000, "I add $1 of my own to the Hearthside Food Pantry donation.", false],
+    ],
+  },
+  u_s_wren: {
+    perUsd: 100,
+    when: "pledged",
+    rewards: [
+      ["Shoutout at the finish", 300, "Your name on the finish split.", false],
+      ["Pick a category to run", 900, "Choose the category for my next run.", true],
+    ],
+  },
+  u_s_nova: {
+    perUsd: 120,
+    when: "pledged",
+    rewards: [
+      ["Pick my brawler", 500, "I play your pick for the next match.", true],
+      ["1v1 me", 2500, "A friendly 1v1 on stream.", true],
+    ],
+  },
+  u_s_ash: {
+    perUsd: 100,
+    when: "pledged",
+    rewards: [
+      ["Pick the colour palette", 600, "Three colours; I paint with only those.", true],
+      ["Request a song", 800, "I learn and play your request.", true],
+      ["Sketch your character", 4000, "A quick sketch of your character, live.", true],
+    ],
+  },
+};
+
+const REDEEM_LINES = ["Celeste", "Hollow Knight", "the Sicilian", "Tilted Towers", "lemon risotto", "Wolf Lake", "Shelly", "teal, gold, black", "Mr. Brightside", "my wizard OC", "any% glitchless"];
 
 const PLANTERS = [
   "Maya", "leoverse", "Ava K", "samwise", "iris_b", "Diego", "noor", "benji", "chloe.mp4", "ezra",
@@ -139,6 +210,8 @@ export interface SampleHistory {
   suggestions: Suggestion[];
   invites: Invite[];
   events: Omit<StreamEvent, "seq">[];
+  points: Record<string, PointsConfig>;
+  redemptions: Redemption[];
   /** Simulated-ledger balances for the sample accounts. */
   balances: Record<string, number>;
 }
@@ -462,7 +535,57 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
     }
   }
 
-  return { users, challenges, pledges, suggestions, invites, events, balances };
+  // Channel points: each sample climber's setup, and what planters spent so far.
+  const points: Record<string, PointsConfig> = {};
+  for (const [streamerId, spec] of Object.entries(SAMPLE_POINTS)) {
+    points[streamerId] = {
+      on: true,
+      perUsd: spec.perUsd,
+      when: spec.when,
+      rewards: spec.rewards.map(([title, cost, note, needsInput], i) => ({ id: `rw${SAMPLE_TAG}${streamerId.slice(4)}${i}`, title, cost, note, needsInput, enabled: true })),
+    };
+  }
+  const redemptions: Redemption[] = [];
+  const earnedBy = (fan: string, streamerId: string, config: PointsConfig) => {
+    let micro = 0;
+    for (const p of pledges) {
+      const c = challenges.find((x) => x.id === p.challengeId)!;
+      if (p.userId !== fan || c.streamerId !== streamerId || (config.when === "completed" && c.status !== "paid")) continue;
+      micro += p.amountMicro - (p.refunded ? (p.refundMicro ?? p.amountMicro) : 0);
+    }
+    return Math.floor((micro / 1_000_000) * config.perUsd);
+  };
+  // Ryan keeps the starter rewards, so his queue has requests to answer on stage too.
+  const ryanConfig: PointsConfig = { on: true, perUsd: 100, when: "pledged", rewards: STARTER_REWARDS.map((w, i) => ({ ...w, id: `starter-${i}` })) };
+  for (const [streamerId, config] of [...Object.entries(points), [DEMO_STREAMER_ID, ryanConfig] as const]) {
+    for (const fan of fans) {
+      let left = earnedBy(fan, streamerId, config);
+      // Most planters save up; some spend once or twice.
+      for (let n = 0; n < 2 && r.chance(0.45); n++) {
+        const affordable = config.rewards.filter((w) => w.cost <= left);
+        if (affordable.length === 0) break;
+        const reward = r.pick(affordable);
+        left -= reward.cost;
+        const recent = r.chance(0.18);
+        const at = recent ? now - r.int(10, 240) * MIN : now - r.int(1, 30) * DAY;
+        redemptions.push({
+          id: id("rd"),
+          streamerId,
+          userId: fan,
+          rewardId: reward.id,
+          title: reward.title,
+          cost: reward.cost,
+          input: reward.needsInput ? r.pick(REDEEM_LINES) : "",
+          at,
+          status: recent ? "pending" : r.chance(0.92) ? "fulfilled" : "refunded",
+          ...(recent ? {} : { resolvedAt: at + r.int(5, 90) * MIN }),
+        });
+      }
+    }
+  }
+  redemptions.sort((a, b) => a.at - b.at);
+
+  return { users, challenges, pledges, suggestions, invites, events, points, redemptions, balances };
 }
 
 /** Takes every sample record back out, leaving everything else as it was. */
@@ -481,6 +604,8 @@ export function removeSample(state: Db): number {
   state.invites = state.invites.filter((i) => !isSampleId(i.id) && !sampleUsers.has(i.hostId) && !sampleUsers.has(i.guestId));
   state.events = state.events.filter((e) => !sampleChallenges.has(e.challengeId));
   for (const key of Object.keys(state.balances)) if (isSampleId(key)) delete state.balances[key];
+  for (const key of Object.keys(state.points ?? {})) if (sampleUsers.has(key)) delete state.points![key];
+  if (state.redemptions) state.redemptions = state.redemptions.filter((r) => !isSampleId(r.id) && !sampleUsers.has(r.userId) && !sampleUsers.has(r.streamerId));
   delete state.sample;
   return before - (state.users.length + state.challenges.length + state.pledges.length);
 }
@@ -496,6 +621,8 @@ export function addSampleHistory(state: Db, now = Date.now()): SampleHistory {
   state.invites.push(...history.invites);
   for (const e of history.events) state.events.push({ ...e, seq: ++state.seq });
   Object.assign(state.balances, history.balances);
+  Object.assign((state.points ??= {}), history.points);
+  (state.redemptions ??= []).push(...history.redemptions);
   state.sample = { challengeIds: [], addedAt: now };
   return history;
 }

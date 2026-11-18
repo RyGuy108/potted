@@ -5,6 +5,7 @@ import { StatusPill } from "@/components/ChallengeCard";
 import { SignInPanel } from "@/components/SignInPanel";
 import { gameOf } from "@/lib/format";
 import { BadgeGrid } from "@/components/BadgeGrid";
+import { allPointsOf } from "@/lib/points";
 import { LevelCard } from "@/components/LevelCard";
 import { Wallet } from "@/components/Wallet";
 import { bountiesBackedBy, expireBounties, gardenOf, planterActivity, planterStats } from "@/lib/service";
@@ -30,6 +31,7 @@ export default async function Garden() {
   const activity = planterActivity(user);
   await expireBounties();
   const bounties = bountiesBackedBy(user);
+  const myPoints = allPointsOf(user);
   return (
     <>
       <div className="row between">
@@ -91,6 +93,21 @@ export default async function Garden() {
         Badges <span className="muted small">{earned} of {stats.badges.length}</span>
       </h2>
       <BadgeGrid badges={stats.badges} />
+
+      {myPoints.length > 0 && (
+        <>
+          <h2>Channel points</h2>
+          <div className="points-list">
+            {myPoints.map((p) => (
+              <Link key={p.streamer.id} href={`/s/${p.streamer.handle}#points`} className="card points-chip">
+                <strong>{p.streamer.name}</strong>
+                <span className="mono">{p.balance.toLocaleString()}</span>
+                <span className="muted small">points to spend · {p.earned.toLocaleString()} earned</span>
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
 
       {activity.length > 0 && (
         <>

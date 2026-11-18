@@ -17,6 +17,8 @@ import { currentUser } from "@/lib/session";
 import { pitchFields, scoutOf } from "@/lib/scout";
 import { publicBase } from "@/lib/url";
 import { ScoutPanel } from "@/components/ScoutPanel";
+import { PointsPanel } from "@/components/PointsPanel";
+import { pointsConfig, redemptionsFor } from "@/lib/points";
 
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ use?: string; bounty?: string; pitch?: string }> }) {
   const user = await currentUser();
@@ -99,6 +101,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       </section>
 
       <ScoutPanel run={scoutRun} settings={settingsOf(user)} fanPage={fanPage} grok={usesGrok()} />
+
+      <PointsPanel config={pointsConfig(user.id)} redemptions={redemptionsFor(user.id)} />
 
       {bounties.length > 0 && (
         <section className="card manage">

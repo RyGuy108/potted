@@ -7,6 +7,10 @@ import { SuggestForm } from "@/components/SuggestForm";
 import { formatUsd } from "@potted/core";
 import { bountiesSupported, expireBounties, getStreamer, openBounties, raisedFor, settingsOf, stageChallenges, topPlanters } from "@/lib/service";
 import { currentUser } from "@/lib/session";
+import { pointsConfig, pointsOf, redemptionsFor } from "@/lib/points";
+import { twitchChannel } from "@/lib/twitch";
+import { ChannelPoints } from "@/components/ChannelPoints";
+import { StreamHeader, StreamPreview } from "@/components/StreamHeader";
 
 export default async function StreamerPage({ params }: { params: Promise<{ handle: string }> }) {
   const { handle } = await params;
@@ -23,12 +27,18 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
   const takesBounties = bountiesSupported() && cause.acceptingBounties;
   const bounties = bountiesSupported() ? openBounties(streamer.id) : [];
   const raised = raisedFor(streamer, cause.causeName);
+  const twitch = cause.twitchChannel ? await twitchChannel(cause.twitchChannel) : null;
+  const pointsSetup = pointsConfig(streamer.id);
   return (
     <>
       <AutoRefresh pollIds={live.filter((c) => c.status === "locked").map((c) => c.id)} />
-      <p className="eyebrow">Stream</p>
-      <h1>{streamer.name}&apos;s challenges</h1>
-      <p className="lede">Pick a challenge and add to its pot. If {streamer.name} misses it, you get every cent back.</p>
+      <div className="stream-top">
+        <div>
+          <StreamHeader name={streamer.name} handle={streamer.handle!} twitch={twitch} twitchLogin={cause.twitchChannel} />
+          <p className="lede">Pick a challenge and add to its pot. If {streamer.name} misses it, you get your pledge back.</p>
+        </div>
+        {twitch && <StreamPreview twitch={twitch} name={streamer.name} />}
+      </div>
 
       {cause.causeOn && (
         <section className="card cause-banner">
@@ -77,6 +87,17 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
             <SuggestForm handle={streamer.handle} streamerName={streamer.name} bounties={takesBounties} ideas={cause.acceptingSuggestions} />
           )}
         </>
+      )}
+
+      {pointsSetup.on && (
+        <ChannelPoints
+          streamerName={streamer.name}
+          handle={streamer.handle!}
+          config={pointsSetup}
+          mine={user?.role === "fan" ? pointsOf(user, streamer.id) : undefined}
+          recent={redemptionsFor(streamer.id, 4).map((r) => ({ fanName: r.fanName, title: r.title, at: r.at }))}
+          canRedeem={user?.role === "fan"}
+        />
       )}
 
       {planters.length > 0 && (
