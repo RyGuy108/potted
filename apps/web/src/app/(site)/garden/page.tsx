@@ -157,7 +157,7 @@ export default async function Garden() {
       {bounties.length > 0 && (
         <>
           <h2>
-            <Scramble text="Your bounties" />
+            <Scramble text="Your requests" />
           </h2>
           <div className="card table">
             {bounties.map(({ bounty, mineMicro, totalMicro, streamerName }) => (
@@ -172,10 +172,10 @@ export default async function Garden() {
                     <span className="warn">waiting for {streamerName}</span>
                   ) : bounty.status === "accepted" ? (
                     <Link href={`/c/${bounty.challengeId}`} className="success">
-                      taken on: now a challenge
+                      taken on: paid when they start
                     </Link>
                   ) : (
-                    <span className="muted">{bounty.status === "declined" ? "declined" : "expired"}, returned to you</span>
+                    <span className="muted">{bounty.status === "declined" ? "passed" : "expired"}, returned to you</span>
                   )}
                 </span>
               </div>

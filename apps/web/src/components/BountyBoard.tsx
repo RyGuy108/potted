@@ -5,7 +5,7 @@ import type { Bounty } from "@/lib/store";
 import { BackBountyButtons } from "./BountyForms";
 import { Countdown } from "./Live";
 
-/** Open bounties on a stream, as planters see them. */
+/** Open fan requests (bounties) on a stream, as planters see them. */
 export function BountyBoard({ bounties, canBack, minUsd }: { bounties: Bounty[]; canBack: boolean; minUsd: number }) {
   return (
     <div className="bounties">
@@ -14,6 +14,7 @@ export function BountyBoard({ bounties, canBack, minUsd }: { bounties: Bounty[];
         return (
           <article key={b.id} className="card bounty">
             <div className="meta">
+              <span className="tag">Fan request</span>
               <span className="tag">{b.customGame ?? gameOf({ gameId: b.gameId }).name}</span>
               <span className="muted small">
                 Closes in <Countdown until={b.expiresAt} />
@@ -23,9 +24,10 @@ export function BountyBoard({ bounties, canBack, minUsd }: { bounties: Bounty[];
             <p className="bounty-pot">
               <span className="mono">{formatUsd(bountyTotal(b.id))}</span>
               <span className="muted small">
-                from {backers.length} {backers.length === 1 ? "planter" : "planters"} · posted by {backers.find((x) => x.userId === b.creatorId)?.name ?? "a planter"}
+                from {backers.length} {backers.length === 1 ? "planter" : "planters"} · asked by {backers.find((x) => x.userId === b.creatorId)?.name ?? "a planter"}
               </span>
             </p>
+            <p className="muted small">Paid when the climber takes it on and starts. Refunded if they pass or never start.</p>
             {canBack && <BackBountyButtons bountyId={b.id} minUsd={minUsd} />}
           </article>
         );

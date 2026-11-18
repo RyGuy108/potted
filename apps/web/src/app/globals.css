@@ -5285,3 +5285,148 @@ body {
 .lb-levels li {
   opacity: 0.6;
 }
+
+/* Home: a request from chat, then the backed pot. */
+.chat-flow {
+  list-style: none;
+  margin: 6px 0 18px;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.chat-msg {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.chat-msg p {
+  margin: 0 0 6px;
+  line-height: 1.4;
+}
+
+.chat-msg.streamer {
+  padding-left: 28px;
+}
+
+.chat-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--wood-light);
+  background: radial-gradient(circle at 35% 30%, #3a2a1c, #15100b 75%);
+  border: 1px solid var(--wood-line);
+}
+
+.chat-tag {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  color: var(--wood-light);
+  background: var(--wood-soft);
+  border: 1px solid var(--wood-line);
+}
+
+.chat-tag.green {
+  color: var(--accent, #3ecf8e);
+  background: rgba(62, 207, 142, 0.1);
+  border-color: rgba(62, 207, 142, 0.3);
+}
+
+.ways {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.way h3 {
+  margin: 0 0 6px;
+}
+
+.way dl {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.way dl div {
+  display: grid;
+  gap: 2px;
+}
+
+.way dt {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wood-light);
+}
+
+.way dd {
+  margin: 0;
+}
+
+/* Free idea or funded request */
+.choice {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 4px 0 2px;
+}
+
+.choice button {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+}
+
+.choice button strong {
+  color: var(--ink);
+}
+
+.choice button span {
+  font-size: 0.82rem;
+}
+
+.choice button.on {
+  border-color: var(--wood-line);
+  background: var(--wood-soft);
+}
+
+.choice button:focus-visible {
+  outline: 2px solid var(--accent, #3ecf8e);
+  outline-offset: 2px;
+}
+
+.back-note,
+.request-note {
+  margin: 12px 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.request-note {
+  border-color: var(--wood-line);
+  background: var(--wood-soft);
+}

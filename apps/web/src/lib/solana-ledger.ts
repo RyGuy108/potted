@@ -248,7 +248,7 @@ export class SolanaLedger implements Ledger {
   async transfer(fromWallet: string, toWallet: string, amountMicro: number): Promise<string> {
     const from = new PublicKey(fromWallet);
     const fromToken = this.tokenAccount(from);
-    if ((await this.balanceOf(fromWallet)) < amountMicro) throw new Error("Not enough test USDC for that gift");
+    if ((await this.balanceOf(fromWallet)) < amountMicro) throw new Error("Not enough test USDC for that");
     const to = await this.ensureTokenAccount(toWallet);
     return this.sendAs(new Transaction().add(createTransferInstruction(fromToken, to, from, amountMicro)), [fromWallet]);
   }
@@ -303,15 +303,27 @@ export class SolanaLedger implements Ledger {
     return this.program.methods.refund().accountsPartial({ challenge: account, pledge, fanToken: this.tokenAccount(fan), vault }).rpc();
   }
 
-  async holdBacking(): Promise<string> {
-    throw new Error("Bounties are not on chain yet. They work on the simulated ledger.");
+  // --- Fan requests ------------------------------------------------------
+  // The escrow program holds completion pledges. Request money has a
+  // different rule (paid when the attempt starts, whatever the result), so
+  // it is held in the server's own token account until the climber answers,
+  // then sent on or back as ordinary USDC transfers, each with a receipt.
+
+  async holdBacking(_bountyId: string, fanWallet: string, amountMicro: number): Promise<string> {
+    return this.transfer(fanWallet, this.server.publicKey.toBase58(), amountMicro);
   }
 
-  async returnBacking(): Promise<string> {
-    throw new Error("Bounties are not on chain yet.");
+  async returnBacking(_bountyId: string, fanWallet: string, amountMicro: number): Promise<string> {
+    return this.fromServer(fanWallet, amountMicro);
   }
 
-  async backingToPledge(): Promise<string> {
-    throw new Error("Bounties are not on chain yet.");
+  async payBacking(_bountyId: string, climberWallet: string, amountMicro: number): Promise<string> {
+    return this.fromServer(climberWallet, amountMicro);
+  }
+
+  private async fromServer(toWallet: string, amountMicro: number): Promise<string> {
+    const from = this.tokenAccount(this.server.publicKey);
+    const to = await this.ensureTokenAccount(toWallet);
+    return this.sendAs(new Transaction().add(createTransferInstruction(from, to, this.server.publicKey, amountMicro)), []);
   }
 }

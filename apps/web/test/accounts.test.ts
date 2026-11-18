@@ -270,7 +270,7 @@ describe("bounties", () => {
   const post = (fan: Parameters<typeof service.postBounty>[0], amountUsd = 5, hours = 24) =>
     service.postBounty(fan, { handle: "ryan", gameId: "gta6", text: "Finish the first heist without getting busted", amountUsd, hours });
 
-  it("holds the money, lets others add to it, and turns it into pledges when taken on", async () => {
+  it("holds the money, lets others add to it, and pays it when the attempt starts, whatever the result", async () => {
     const maya = await service.signIn("Maya", "fan");
     const ben = await service.signIn("Ben", "fan");
     const bounty = await post(maya, 5);
@@ -282,17 +282,30 @@ describe("bounties", () => {
     expect(service.eventsSince("ryan", 0).filter((e) => e.type === "bounty")).toHaveLength(3);
 
     await expect(service.acceptBounty(service.getStreamer("kai")!, bounty.id, terms())).rejects.toThrow("Only the streamer this bounty is for");
-    await expect(service.acceptBounty(streamer(), bounty.id, terms(5))).rejects.toThrow("at least that");
     const c = await service.acceptBounty(streamer(), bounty.id, terms());
-    expect(c).toMatchObject({ status: "open", totalMicro: 9_000_000 });
-    expect(service.fundersOf(c.id).map((f) => f.amountMicro)).toEqual([6_000_000, 3_000_000]);
+    // Request money is not in the completion pot; it waits for the attempt to start.
+    expect(c).toMatchObject({ status: "open", totalMicro: 0, requestMicro: 9_000_000 });
     expect(service.getBounty(bounty.id)).toMatchObject({ status: "accepted", challengeId: c.id });
-    // The poster counts as first in, and a completed challenge pays out as usual.
-    expect(service.planterStats(maya).firstIn).toBe(1);
+    await service.pledge(ben, c.id, 2);
     await service.lock(streamer(), c.id);
-    await service.simulateResult(streamer(), c.id, true);
     expect(await service.balanceOf(streamer())).toBe(9_000_000);
+    expect(service.getChallenge(c.id).requestPaidMicro).toBe(9_000_000);
+    // A miss refunds the completion pledge only; the request money stays paid.
+    await service.simulateResult(streamer(), c.id, false);
+    expect(await service.balanceOf(streamer())).toBe(9_000_000);
+    expect(await service.balanceOf(ben)).toBe(22_000_000);
+    expect(service.earnedBy(service.getChallenge(c.id), streamer().id)).toBe(9_000_000);
+    expect(service.payoutsFor(streamer()).rows[0]).toMatchObject({ kind: "request", amountMicro: 9_000_000 });
     await expect(service.backBounty(ben, bounty.id, 1)).rejects.toThrow("closed");
+  });
+
+  it("returns request money if the climber takes it on but never starts", async () => {
+    const maya = await service.signIn("Maya", "fan");
+    const bounty = await post(maya, 5);
+    const c = await service.acceptBounty(streamer(), bounty.id, terms());
+    await service.cancel(streamer(), c.id);
+    expect(await service.balanceOf(maya)).toBe(25_000_000);
+    expect(await service.balanceOf(streamer())).toBe(0);
   });
 
   it("returns every backer's money on decline or expiry", async () => {
@@ -350,7 +363,7 @@ describe("up-front share", () => {
     expect(c.upfrontPaidMicro).toBe(5_000_000);
     expect(await service.balanceOf(streamer())).toBe(5_000_000);
     expect(service.eventsSince("ryan", 0).find((e) => e.type === "locked")!.message).toBe(
-      "Pledging is closed. Ryan got $5 for starting; the other $5 pays out only if they finish.",
+      "Pledging is closed. Ryan got $5 for taking it on; the other $5 pays out only if they finish.",
     );
     await service.simulateResult(streamer(), c.id, true);
     expect(await service.balanceOf(streamer())).toBe(10_000_000);

@@ -51,7 +51,7 @@ export function SettingsForm({ initial, bounties = true }: { initial: StreamSett
       <h3>Stream settings</h3>
       <div className="grid">
         {toggle("acceptingSuggestions", "Let fans suggest challenges")}
-        {bounties && toggle("acceptingBounties", "Let fans post bounties (ideas with money on them)")}
+        {bounties && toggle("acceptingBounties", "Let fans fund requests (paid when you start them)")}
         {toggle("announcer", "Read events aloud on stream")}
         {toggle("overlayQr", "Show a QR code on the overlay")}
       </div>

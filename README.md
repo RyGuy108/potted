@@ -45,6 +45,14 @@ One escrow serves every game. Only the verifier plugged into it changes.
 See [docs/architecture.md](docs/architecture.md) for the trust boundary and
 the anti-collusion rules.
 
+## Three ways to take part
+
+| | Pays | Otherwise |
+| --- | --- | --- |
+| **Fund a request**: ask for a specific challenge and put money on it | When the streamer takes it on and starts the attempt, whatever the result | Refunded if they pass or never start; the fan can send it on as a tip |
+| **Back a challenge**: add to the pot of an open challenge | Only if the streamer completes it (held by the escrow program) | Refunded on a miss |
+| **Tip**: support the streamer directly | Straight away | Not refundable |
+
 ## Architecture
 
 | Component | What it does | Where |

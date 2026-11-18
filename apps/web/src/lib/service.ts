@@ -706,11 +706,13 @@ export async function lock(actor: User, challengeId: string, deps: Deps = defaul
   challenge.status = "locked";
   challenge.lockedAt = Date.now();
   if (upfront > 0) challenge.upfrontPaidMicro = upfront;
+  const requested = await payRequest(challenge);
+  const forStarting = upfront + requested;
   emit(
     "locked",
     challenge,
-    upfront > 0
-      ? `Pledging is closed. ${namesOf(challenge)} got ${formatUsd(upfront)} for starting; the other ${formatUsd(challenge.totalMicro - upfront)} pays out only if they finish.`
+    forStarting > 0
+      ? `Pledging is closed. ${namesOf(challenge)} got ${formatUsd(forStarting)} for taking it on; the other ${formatUsd(challenge.totalMicro - upfront)} pays out only if they finish.`
       : `Pledging is closed. ${formatUsd(challenge.totalMicro)} is riding on this one.`,
   );
   save();
@@ -723,6 +725,7 @@ export async function lock(actor: User, challengeId: string, deps: Deps = defaul
  * pledge with the streamer.
  */
 async function refundAll(challenge: Challenge): Promise<number> {
+  await returnRequest(challenge);
   const byFan = new Map<string, Pledge[]>();
   for (const p of db().pledges) {
     if (p.challengeId !== challenge.id || p.refunded) continue;
@@ -759,7 +762,8 @@ export const returnedOf = (p: Pledge): number => (p.refunded ? (p.refundMicro ??
 export function earnedBy(challenge: Challenge, userId: string): number {
   const upfront = challenge.upfrontPaidMicro ?? 0;
   const fromUpfront = upfront > 0 ? shareOf(challenge, userId, upfront) : 0;
-  return fromUpfront + (challenge.status === "paid" ? shareOf(challenge, userId, challenge.totalMicro - upfront) : 0);
+  const fromRequest = userId === challenge.streamerId ? (challenge.requestPaidMicro ?? 0) : 0;
+  return fromRequest + fromUpfront + (challenge.status === "paid" ? shareOf(challenge, userId, challenge.totalMicro - upfront) : 0);
 }
 
 /**
@@ -1514,12 +1518,25 @@ export async function backBounty(actor: User, bountyId: string, amountUsd: numbe
 }
 
 async function returnAll(bounty: Bounty, status: "declined" | "expired"): Promise<void> {
+  const streamer = getUser(bounty.streamerId);
+  const back = new Map<string, number>();
   for (const b of db().backings) {
     if (b.bountyId !== bounty.id || b.outcome) continue;
     const owner = getUser(b.userId);
     if (!owner) continue;
     await ledger().returnBacking(bounty.id, owner.wallet, b.amountMicro);
     b.outcome = "returned";
+    back.set(owner.id, (back.get(owner.id) ?? 0) + b.amountMicro);
+  }
+  // Each fan has their money back, and the choice to send it on as a tip anyway.
+  for (const [fanId, amount] of back) {
+    notifications.notify(
+      fanId,
+      "refund",
+      status === "declined" ? `${streamer?.name ?? "The climber"} passed on your request` : "Your request expired",
+      `Your ${formatUsd(amount)} is back in your wallet. Want to send it as a tip instead?`,
+      streamer?.handle ? `/s/${streamer.handle}#give` : "/garden",
+    );
   }
   bounty.status = status;
   bounty.closedAt = Date.now();
@@ -1548,33 +1565,29 @@ export async function expireBounties(now = Date.now()): Promise<number> {
 }
 
 /**
- * The streamer takes the bounty on. They set the exact terms, as for any
- * challenge; the backers' money then becomes pledges in it, oldest first,
- * so whoever posted the bounty counts as first in.
+ * The streamer takes the request on. They set the exact terms, as for any
+ * challenge. The request money stays held and goes to them when they start
+ * the attempt, whatever the result; it comes back to the planters if they
+ * never start. Pledges added after this are ordinary completion pledges.
  */
 export async function acceptBounty(actor: User, bountyId: string, input: NewChallenge): Promise<Challenge> {
   await expireBounties();
   const bounty = getBounty(bountyId);
   if (bounty.streamerId !== actor.id) fail("Only the streamer this bounty is for can accept it");
   if (bounty.status !== "open") fail("This bounty is closed");
-  const biggest = backersOf(bounty.id)[0]?.amountMicro ?? 0;
-  if (toMicro(Number(input.pledgeCapUsd)) < biggest) {
-    fail(`One backer already put ${formatUsd(biggest)} on this. Set the per-fan limit to at least that.`);
-  }
   const challenge = await createChallenge(actor, input);
-  const backings = db()
-    .backings.filter((b) => b.bountyId === bounty.id && !b.outcome)
-    .sort((a, b) => a.createdAt - b.createdAt);
-  for (const b of backings) {
-    const tx = await ledger().backingToPledge(bounty.id, challenge, b.amountMicro);
-    db().pledges.push({ id: newId("p"), challengeId: challenge.id, userId: b.userId, amountMicro: b.amountMicro, refunded: false, createdAt: b.createdAt, tx });
-    challenge.totalMicro += b.amountMicro;
-    b.outcome = "pledged";
-  }
+  const backings = db().backings.filter((b) => b.bountyId === bounty.id && !b.outcome);
+  for (const b of backings) b.outcome = "held";
+  challenge.bountyId = bounty.id;
+  challenge.requestMicro = backings.reduce((sum, b) => sum + b.amountMicro, 0);
   bounty.status = "accepted";
   bounty.challengeId = challenge.id;
   bounty.closedAt = Date.now();
-  emit("pledged", challenge, `${actor.name} took the bounty on. ${formatUsd(challenge.totalMicro)} from ${backersOf(bounty.id).length} backers is already in the pot.`);
+  emit(
+    "pledged",
+    challenge,
+    `${actor.name} took the request on. ${formatUsd(challenge.requestMicro)} from ${backersOf(bounty.id).length} ${backersOf(bounty.id).length === 1 ? "fan" : "fans"} pays when the attempt starts; pledges from here pay only if it's completed.`,
+  );
   save();
   return challenge;
 }
@@ -1595,13 +1608,37 @@ export function bountiesBackedBy(fan: User): { bounty: Bounty; mineMicro: number
     }));
 }
 
-/**
- * Bounties need somewhere to hold money before a climber accepts. The
- * simulated ledger has that; the escrow program does not yet, so on Solana
- * the bounty option is hidden and ideas are free suggestions only.
- */
+/** Funded requests work on both ledgers: on Solana the server's token account holds the money until the climber answers. */
 export function bountiesSupported(): boolean {
-  return ledger().kind === "sim";
+  return true;
+}
+
+/** Pays held request money to the climber when the attempt starts. Returns the total paid. */
+async function payRequest(challenge: Challenge): Promise<number> {
+  if (!challenge.bountyId) return 0;
+  const host = getUser(challenge.streamerId);
+  if (!host) return 0;
+  let paid = 0;
+  for (const b of db().backings) {
+    if (b.bountyId !== challenge.bountyId || b.outcome !== "held") continue;
+    b.payTx = await ledger().payBacking(b.bountyId, host.wallet, b.amountMicro);
+    b.outcome = "paid";
+    paid += b.amountMicro;
+  }
+  if (paid > 0) challenge.requestPaidMicro = (challenge.requestPaidMicro ?? 0) + paid;
+  return paid;
+}
+
+/** Sends held request money back when a taken-on request is never started. */
+async function returnRequest(challenge: Challenge): Promise<void> {
+  if (!challenge.bountyId) return;
+  for (const b of db().backings) {
+    if (b.bountyId !== challenge.bountyId || b.outcome !== "held") continue;
+    const owner = getUser(b.userId);
+    if (!owner) continue;
+    b.payTx = await ledger().returnBacking(b.bountyId, owner.wallet, b.amountMicro);
+    b.outcome = "returned";
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1670,7 +1707,7 @@ export function campaignStats(campaign: Campaign): CampaignStats {
 
 export interface PayoutRow {
   at: number;
-  kind: "completed" | "upfront" | "gift" | "guest";
+  kind: "completed" | "upfront" | "gift" | "guest" | "request";
   label: string;
   amountMicro: number;
   /** Transaction id, for a receipt link. */
@@ -1682,6 +1719,10 @@ export interface PayoutRow {
 export function payoutsFor(streamer: User, limit = 40): { rows: PayoutRow[]; totalMicro: number } {
   const rows: PayoutRow[] = [];
   for (const c of stageChallenges(streamer.id)) {
+    if (c.requestPaidMicro && c.streamerId === streamer.id) {
+      const tx = db().backings.find((b) => b.bountyId === c.bountyId && b.outcome === "paid")?.payTx;
+      rows.push({ at: c.lockedAt ?? c.createdAt, kind: "request", label: `Fan request taken on: ${c.title}`, amountMicro: c.requestPaidMicro, ...(tx ? { tx } : {}), href: `/c/${c.id}` });
+    }
     const upfront = c.upfrontPaidMicro ?? 0;
     const guest = c.streamerId !== streamer.id;
     if (upfront > 0) {

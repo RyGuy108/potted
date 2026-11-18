@@ -141,7 +141,7 @@ export function CreateChallengeForm({
         <p className="hint">
           {suggestion.kind === "bounty" ? "Bounty" : "From"} {suggestion.kind === "bounty" ? "posted by" : ""} {suggestion.fanName}: &ldquo;{suggestion.text}&rdquo;.{" "}
           {suggestion.kind === "bounty"
-            ? `${formatUsd(suggestion.heldMicro ?? 0)} is waiting and moves into the pot when you open this. Set the exact terms below.`
+            ? `${formatUsd(suggestion.heldMicro ?? 0)} from fans is waiting. It's yours when you start the attempt, whatever the result; pledges added after you open it pay only if you complete it. Set the exact terms below.`
             : "Set the exact terms below; fans fund what you write, not the idea."}
           {draft && (
             <span className="draft-note">
@@ -301,7 +301,7 @@ export function CreateChallengeForm({
 
       <div className="row">
         <button className="btn btn-primary" disabled={pending}>
-          {pending ? (partner ? "Sending…" : "Creating…") : partner ? "Send invite" : suggestion?.kind === "bounty" ? "Take the bounty on" : "Open for pledges"}
+          {pending ? (partner ? "Sending…" : "Creating…") : partner ? "Send invite" : suggestion?.kind === "bounty" ? "Take the request on" : "Open for pledges"}
         </button>
         {sent && (
           <span className="success" role="status">

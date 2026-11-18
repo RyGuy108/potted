@@ -136,7 +136,7 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
 
       {(bounties.length > 0 || canSuggest) && (
         <>
-          <h2>{takesBounties || bounties.length > 0 ? "Bounties and ideas" : "Got an idea?"}</h2>
+          <h2>{bounties.length > 0 ? "Requests from fans" : "Got an idea?"}</h2>
           {bounties.length > 0 && <BountyBoard bounties={bounties} canBack={user?.role === "fan"} minUsd={cause.minPledgeUsd} />}
         </>
       )}
@@ -150,11 +150,11 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
         <section className="card give-card" id="give">
           <div className="row between wrap">
             <div>
-              <p className="eyebrow">Just give</p>
+              <p className="eyebrow">Tip</p>
               <h3>Support {streamer.name} directly</h3>
               <p className="muted small">
-                No challenge, nothing to complete: it goes straight to {streamer.name}
-                {pointsSetup.on ? " and earns channel points like a pledge" : ""}. Gifts can't be refunded.
+                No challenge attached: it goes straight to {streamer.name}
+                {pointsSetup.on ? " and earns channel points like a pledge" : ""}. Tips can't be refunded.
               </p>
             </div>
             {gifted.count > 0 && (

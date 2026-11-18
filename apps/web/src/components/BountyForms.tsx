@@ -21,7 +21,7 @@ export function BackBountyButtons({ bountyId, minUsd }: { bountyId: string; minU
           onClick={() =>
             start(async () => {
               const result = await backBountyAction(bountyId, amount);
-              setMessage(result.ok ? { ok: true, text: `You added $${amount}. It comes back if the bounty is not taken.` } : { ok: false, text: result.error });
+              setMessage(result.ok ? { ok: true, text: `You added $${amount}. It pays when they start, and comes back if they pass.` } : { ok: false, text: result.error });
               router.refresh();
             })
           }

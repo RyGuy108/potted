@@ -71,6 +71,12 @@ export interface Challenge {
   upfrontPct?: number;
   /** What was actually paid up front when the attempt started. */
   upfrontPaidMicro?: Micro;
+  /** The fan request (bounty) this challenge came from, if any. */
+  bountyId?: string;
+  /** Money fans put on the request. Paid to the climber when the attempt starts, whatever the result; not part of the pot. */
+  requestMicro?: number;
+  /** How much of the request money has been paid to the climber. */
+  requestPaidMicro?: number;
   /** The streamer's campaign this challenge belongs to, if one was running when it opened. */
   campaignId?: string;
   /** Address of the on-chain challenge account, or a sim id. */

@@ -211,9 +211,24 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
           )}
 
           {challenge.status === "open" && !user && <SignInPanel />}
-          {challenge.status === "open" && user?.role === "fan" && (
+          {challenge.requestMicro ? (
+            <p className="request-note">
+              <span className="tag">Fan request</span>{" "}
+              <span className="mono">{formatUsd(challenge.requestMicro)}</span> from the fans who asked for this{" "}
+              {challenge.requestPaidMicro
+                ? "was paid when the attempt started."
+                : challenge.status === "open"
+                  ? "goes to the climber when they start, whatever the result."
+                  : "went back to them, since the attempt never started."}
+            </p>
+          ) : null}
+                    {challenge.status === "open" && user?.role === "fan" && (
             <>
               <Wallet user={user} />
+              <p className="back-note">
+                <strong>Back it:</strong> your money goes to the climber only if this is completed. A miss refunds it
+                {challenge.upfrontPct ? `, apart from the ${challenge.upfrontPct}% paid for starting` : ""}.
+              </p>
               <PledgeForm challengeId={challenge.id} remainingUsd={toUsd(challenge.pledgeCapMicro - mine)} upfrontPct={challenge.upfrontPct} />
               {mine > 0 && <p className="muted small">You have {formatUsd(mine)} in this pot.</p>}
             </>

@@ -93,7 +93,7 @@ export function CampaignPanel({ user }: { user: User }) {
   );
 }
 
-const KIND: Record<PayoutRow["kind"], string> = { completed: "Completed", upfront: "Up front", gift: "Gift", guest: "Collab" };
+const KIND: Record<PayoutRow["kind"], string> = { completed: "Completed", upfront: "Up front", gift: "Tip", guest: "Collab", request: "Request" };
 
 /** What the climber has been paid, each with its receipt. */
 export function PayoutsPanel({ user }: { user: User }) {

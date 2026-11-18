@@ -114,8 +114,14 @@ export interface Backing {
   userId: string;
   amountMicro: number;
   createdAt: number;
-  /** Where the money went when the bounty closed. */
-  outcome?: "pledged" | "returned";
+  /**
+   * Where the money went. "held": the climber took the request on and it is
+   * waiting for the attempt to start; "paid": it went to the climber when
+   * the attempt started; "returned": back to the planter. "pledged" is from
+   * before requests paid at the start, when it became a completion pledge.
+   */
+  outcome?: "held" | "paid" | "returned" | "pledged";
+  payTx?: string;
   tx: string;
 }
 

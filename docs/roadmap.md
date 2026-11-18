@@ -30,8 +30,9 @@ request shows one change. Merge from the top of the list down.
 | 16f | `feat/upfront` | Up-front share: up to half the pot goes to the climber when the attempt starts, the rest only on completion | Done; program change tested on a local validator |
 | 16g | `feat/browse-for-you` | For you and Trending on browse, sorting settled challenges, sample `--live` refresh | Done |
 | 16h | `feat/architecture-complete` | Twitch stream checker, Grok-written recaps from on-chain activity, email sign-in, Privy wallets, Supabase storage, campaigns, payouts, approval queue, accepted challenge types | Done; Privy tested against a stand-in on a local validator, Supabase against a stand-in REST API |
+| 16i | `feat/carousel-leaderboard` | Browse carousels, leaderboard page, top planters strip, home page rewritten around fans and streamers, funded requests (paid at the start) vs backing (paid only on completion) vs tips | Done; requests tested on a local validator |
 | 17 | `feat/program-splits` | Guest and cause shares paid by the escrow program itself (today the host's custodial wallet sends them after payout) | Touches the program |
-| 17b | `feat/program-bounties` | Bounty money held by the program until a climber takes it on | Touches the program; bounties are refused on Solana until then |
+| 17b | `feat/program-bounties` | Request money held by the escrow program instead of the server's token account | Requests work on Solana since `feat/requests`, held by the server until the climber answers |
 | 18 | `feat/solana-pay` | Pledge from a QR code or a link (Solana Pay, Blinks) | After 16 |
 | 19 | `feat/embedded-wallets` | Superseded by 16h (Privy wallets made and signed for on the server); a wallet the planter signs with in the browser is still open | Needs a Privy app id |
 | 20 | `feat/stretch-tiers` | Several pot sizes on one challenge, each unlocking more | After 16, touches the program |

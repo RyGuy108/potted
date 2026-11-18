@@ -46,7 +46,7 @@ export function SuggestForm({
               ? {
                   ok: true,
                   text: withMoney
-                    ? `Bounty posted. Your $${amount} is held until ${streamerName} takes it on, and comes back if not.`
+                    ? `Request sent. Your $${amount} is held until ${streamerName} answers. It's theirs once they start the attempt; if they pass, it comes back.`
                     : `Sent. ${streamerName} sees it on the dashboard.`,
                 }
               : { ok: false, text: result.error },
@@ -55,11 +55,23 @@ export function SuggestForm({
         });
       }}
     >
-      <h3>{withMoney ? "Post a bounty" : "Suggest a challenge"}</h3>
+      <h3>Ask {streamerName} for a challenge</h3>
+      {bounties && ideas && (
+        <div className="choice" role="radiogroup" aria-label="Free idea or funded request">
+          <button type="button" role="radio" aria-checked={!withMoney} className={!withMoney ? "on" : undefined} onClick={() => setWithMoney(false)}>
+            <strong>Just suggest</strong>
+            <span>Free. Anyone can back it if it opens.</span>
+          </button>
+          <button type="button" role="radio" aria-checked={withMoney} className={withMoney ? "on" : undefined} onClick={() => setWithMoney(true)}>
+            <strong>Fund the request</strong>
+            <span>Paid when they take it on and start.</span>
+          </button>
+        </div>
+      )}
       <p className="muted small">
         {withMoney
-          ? `Put money on your idea. Others can add to it. It becomes a challenge if ${streamerName} takes it on; otherwise everyone gets their money back.`
-          : `Nothing is charged for an idea. If ${streamerName} opens it, anyone can fund it.`}
+          ? `Your money goes to ${streamerName} when they take this on and start the attempt, whether or not they pull it off. If they pass, or never start, it comes back. Other fans can add to it.`
+          : `Nothing is charged for an idea. If ${streamerName} opens it, fans can back it, and that money pays only if it's completed.`}
       </p>
       <label className="field">
         <span>Game</span>
@@ -87,12 +99,6 @@ export function SuggestForm({
           required
         />
       </label>
-      {bounties && ideas && (
-        <label className="check">
-          <input type="checkbox" checked={withMoney} onChange={(e) => setWithMoney(e.target.checked)} />
-          Put money on it (make it a bounty)
-        </label>
-      )}
       {withMoney && (
         <div className="grid">
           <label className="field">
@@ -100,7 +106,7 @@ export function SuggestForm({
             <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} required />
           </label>
           <label className="field">
-            <span>Open for</span>
+            <span>Waits for an answer for</span>
             <select value={hours} onChange={(e) => setHours(e.target.value)}>
               {[1, 6, 24, 72].map((h) => (
                 <option key={h} value={h}>
@@ -113,7 +119,7 @@ export function SuggestForm({
       )}
       <div className="row">
         <button className={withMoney ? "btn btn-primary" : "btn btn-ghost"} disabled={pending || text.trim().length < 8}>
-          {pending ? "Sending…" : withMoney ? `Post bounty with $${amount || 0}` : "Send idea"}
+          {pending ? "Sending…" : withMoney ? `Send request with $${amount || 0}` : "Send idea"}
         </button>
         {message && (
           <span className={message.ok ? "success" : "error"} role="status">

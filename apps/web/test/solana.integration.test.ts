@@ -114,14 +114,6 @@ describe.skipIf(!RPC)("Solana ledger against a local validator", () => {
     expect(service.gardenOf(lee).returnedMicro).toBe(3_500_000);
   }, 120_000);
 
-  it("refuses bounties, which are not on chain yet", async () => {
-    const zoe = await service.signIn("Zoe", "fan");
-    await expect(
-      service.postBounty(zoe, { handle: "ryan", gameId: "gta6", text: "Finish the first heist clean", amountUsd: 5, hours: 24 }),
-    ).rejects.toThrow("not on chain yet");
-    expect(await service.balanceOf(zoe)).toBe(usd(25));
-  }, 60_000);
-
   it("sends a gift on chain and runs an open pot past the old per-fan limit", async () => {
     const { give } = await import("../src/lib/gifts");
     const amy = await service.signIn("Amy", "fan");
@@ -136,6 +128,26 @@ describe.skipIf(!RPC)("Solana ledger against a local validator", () => {
     expect(await service.balanceOf(amy)).toBe(usd(4));
     expect(service.getChallenge(open.id).totalMicro).toBe(usd(18));
   }, 90_000);
+
+  it("holds request money on chain, pays it when the attempt starts, and returns it on a pass", async () => {
+    const kim = await service.signIn("Kim", "fan");
+    const before = await service.balanceOf(streamer());
+    const post = (text: string) => service.postBounty(kim, { handle: "ryan", gameId: "gta6", text, amountUsd: 4, hours: 2 });
+    const taken = await post("Pull off a heist without a getaway car");
+    expect(await service.balanceOf(kim)).toBe(usd(21));
+    const c = await service.acceptBounty(streamer(), taken.id, clip("Pull off a heist without a getaway car"));
+    expect(c.requestMicro).toBe(usd(4));
+    await service.lock(streamer(), c.id);
+    expect(await service.balanceOf(streamer())).toBe(before + usd(4));
+    // A miss refunds completion pledges; the request money was for taking it on.
+    await service.simulateResult(streamer(), c.id, false);
+    expect(await service.balanceOf(streamer())).toBe(before + usd(4));
+
+    const passed = await post("Win a street race in a garbage truck");
+    expect(await service.balanceOf(kim)).toBe(usd(17));
+    await service.declineBounty(streamer(), passed.id);
+    expect(await service.balanceOf(kim)).toBe(usd(21));
+  }, 180_000);
 
   it("signs through Privy for a wallet Privy holds", async () => {
     // A stand-in for Privy's wallet API: it holds the keys and signs what it is sent.

@@ -67,7 +67,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <ApprovalQueue
           items={[
             { label: ["fan idea to review", "fan ideas to review"], count: suggestions.length, href: "#ideas" },
-            { label: ["bounty with money on it", "bounties with money on them"], count: bounties.length, href: "#bounties" },
+            { label: ["funded request", "funded requests"], count: bounties.length, href: "#bounties" },
             { label: ["invite to collab", "invites to collab"], count: invites.incoming.length, href: "#invites" },
             { label: ["reward redemption to fulfil", "reward redemptions to fulfil"], count: redemptions.filter((r) => r.status === "pending").length, href: "/dashboard/channel#points" },
             { label: ["scout pitch not opened yet", "scout pitches not opened yet"], count: scoutRun ? scoutRun.pitches.filter((_, i) => !scoutRun.opened[i]).length : 0, href: "#scout" },
@@ -147,8 +147,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
       {bounties.length > 0 && (
         <section className="card manage" id="bounties">
-          <h3>Bounties waiting for you</h3>
-          <p className="muted small">Planters put this money on ideas. Take one on and it opens as a challenge with the money already in the pot. Decline and they get it back.</p>
+          <h3>Funded requests</h3>
+          <p className="muted small">Fans put this money on things they want to see. Take one on and the money is yours when you start the attempt, whether or not you pull it off. Pass and they get it back.</p>
           {bounties.map((b) => {
             const backers = backersOf(b.id);
             return (
@@ -164,7 +164,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                   <Link href={`/dashboard?bounty=${b.id}#new`} className="btn btn-primary">
                     Take it on
                   </Link>
-                  <ActionButton action={declineBountyAction.bind(null, b.id)} variant="ghost" confirm="Decline this bounty and refund everyone who backed it?">
+                  <ActionButton action={declineBountyAction.bind(null, b.id)} variant="ghost" confirm="Pass on this request and refund every fan who funded it?">
                     Decline
                   </ActionButton>
                 </div>
