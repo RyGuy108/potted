@@ -5979,3 +5979,161 @@ button.badge-tile:focus-visible {
 .grouped-sidebar .line-sidebar__text {
   white-space: nowrap;
 }
+
+/* Overlay toast: credits under the line, and a bigger entrance for milestones with a sound */
+.overlay-credit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 6px;
+  font: 600 0.72rem/1.3 var(--mono, ui-monospace, monospace);
+  letter-spacing: 0.02em;
+  color: #5b6474;
+}
+
+.overlay-speed {
+  color: #0f7a4f;
+}
+
+.overlay-sfx-half,
+.overlay-sfx-goal {
+  animation: toast-pop 0.5s cubic-bezier(0.34, 1.5, 0.64, 1);
+}
+
+.overlay-sfx-goal {
+  border-left-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(227, 178, 92, 0.55), 0 10px 28px rgba(0, 0, 0, 0.35);
+}
+
+@keyframes toast-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.85) translateY(10px);
+  }
+}
+
+/* Channel: the streamer's own announcer voice */
+.voice-card {
+  display: grid;
+  gap: 14px;
+}
+
+.voice-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 12px;
+}
+
+.voice-head h3,
+.voice-head p {
+  margin: 0;
+}
+
+.voice-head p {
+  margin-top: 4px;
+}
+
+.voice-form {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.voice-form .field {
+  width: 100%;
+}
+
+.voice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn.danger {
+  color: #ff8f86;
+}
+
+/* Challenge page: share as a Blink */
+.blink-share {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.blink-share p {
+  margin: 0;
+}
+
+.blink-share .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Challenges: go live from a stream link */
+.go-live {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 24px;
+}
+
+.go-live.on {
+  border-color: rgba(255, 90, 79, 0.35);
+  background: linear-gradient(135deg, rgba(255, 90, 79, 0.08), transparent 60%), var(--surface, #15110d);
+}
+
+.go-live-main {
+  display: grid;
+  gap: 4px;
+  flex: 1 1 320px;
+}
+
+.go-live-main h3,
+.go-live-main p {
+  margin: 0;
+}
+
+.go-live-form {
+  display: flex;
+  gap: 8px;
+  flex: 1 1 340px;
+  max-width: 520px;
+}
+
+.go-live-form input {
+  flex: 1;
+}
+
+.go-live-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.go-live .error {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #ff8f86;
+  background: rgba(255, 90, 79, 0.12);
+}
+
+.pill-tag.pill-platform {
+  color: #ff8f86;
+  border-color: rgba(255, 90, 79, 0.35);
+}

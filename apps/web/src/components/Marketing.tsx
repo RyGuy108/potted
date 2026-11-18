@@ -9,8 +9,8 @@ import { currentUser } from "@/lib/session";
 
 /** The three kinds of money, and exactly when each one pays. */
 const WAYS: [string, string, string, string][] = [
-  ["Fund a request", "Ask for something specific and put money on it.", "Paid when the streamer takes it on and starts", "Refunded if they pass or never start"],
-  ["Back a challenge", "Add to the pot for a challenge that's open.", "Paid only if they complete it", "Refunded if they miss"],
+  ["Request", "Ask for something specific and put money on it.", "Paid when the streamer takes it on and starts", "Refunded if they pass or never start"],
+  ["Back", "Add to the pot for a challenge that's open.", "Paid only if they complete it", "Refunded if they miss"],
   ["Tip", "Support the streamer directly, no challenge attached.", "Paid straight away", "Not refundable"],
 ];
 

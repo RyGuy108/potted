@@ -12,11 +12,12 @@ import { AutoRefresh, Countdown } from "@/components/Live";
 import { GroupedByGame } from "@/components/GroupedByGame";
 import { PastTile } from "@/components/PastTile";
 import { ScoutPanel } from "@/components/ScoutPanel";
+import { GoLiveCard } from "@/components/GoLiveCard";
 import { ApprovalQueue } from "@/components/StreamerPanels";
 import { adapterStatus, gameOf, groupByGame } from "@/lib/format";
 import { pointsConfig, redemptionsFor } from "@/lib/points";
 import { pitchFields, scoutOf } from "@/lib/scout";
-import { backersOf, bountiesSupported, bountyTotal, expireBounties, getSuggestion, getUser, invitesFor, listChallenges, listStreamers, openBounties, pendingSuggestions, settingsOf, shareOf, simulatedResultsAllowed, stageChallenges } from "@/lib/service";
+import { backersOf, bountiesSupported, bountyTotal, expireBounties, getSuggestion, getUser, invitesFor, listChallenges, listStreamers, liveSessionOf, openBounties, pendingSuggestions, settingsOf, shareOf, simulatedResultsAllowed, stageChallenges } from "@/lib/service";
 import { currentUser } from "@/lib/session";
 import { publicBase } from "@/lib/url";
 
@@ -52,11 +53,20 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const invites = invitesFor(user);
   const guesting = stageChallenges(user.id).filter((c) => c.streamerId !== user.id);
   const partners = listStreamers().filter((s) => s.id !== user.id).map((s) => ({ handle: s.handle!, name: s.name }));
+  const session = liveSessionOf(user) ?? null;
+  const sessionGame = session && session.gameId !== "other" ? GAMES.find((g) => g.id === session.gameId) : undefined;
   const draft = pickedPitch
     ? { gameId: pickedPitch.gameId, fields: pitchFields(user, pickedPitch), note: `From the scout: ${pickedPitch.why}`, source: scoutRun!.source }
     : seed
       ? await draftTerms({ gameId: seed.gameId, text: seed.text })
-      : undefined;
+      : session
+        ? {
+            gameId: session.gameId,
+            fields: session.customGame ? { game: session.customGame } : {},
+            note: `From your ${session.platform === "youtube" ? "YouTube" : session.platform === "kick" ? "Kick" : "Twitch"} stream${session.title ? `: "${session.title}"` : ""}.`,
+            source: "rules" as const,
+          }
+        : undefined;
   const fanPage = `${await publicBase()}/s/${user.handle}`;
   const redemptions = redemptionsFor(user.id);
 
@@ -64,6 +74,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     <>
       <AutoRefresh pollIds={challenges.filter((c) => c.status === "locked").map((c) => c.id)} />
       <DashHead user={user} label="Challenges" title="Run your challenges" lede="What's running, what's waiting on you, a new challenge, and past ones to run again." />
+      <GoLiveCard session={session} gameName={session ? (session.customGame ?? sessionGame?.name ?? null) : null} />
 
       <div className="dash-stack">
         <ApprovalQueue

@@ -1,4 +1,4 @@
-import { briefWithGrok, draftWithGrok, recapWithGrok } from "./grok";
+import { briefWithGrok, draftWithGrok, recapWithGrok, translateWithGrok } from "./grok";
 import { briefWithRules, draftWithRules } from "./rules";
 import { type ScoutInput, type Scouting, scoutWithGrok, scoutWithRules } from "./scout";
 import type { Brief, Deps, DisputeCase, Draft, Idea, RecapFacts } from "./types";
@@ -75,5 +75,18 @@ export async function draftRecap(facts: RecapFacts, fallback: string, deps: Deps
     return { text: await recapWithGrok(facts, deps), source: "grok" };
   } catch {
     return { text: fallback, source: "rules" };
+  }
+}
+
+/**
+ * An announcer line in the stream's language. Grok translates it; with no
+ * key, or when the translation fails its checks, the line stays as written.
+ */
+export async function translateLine(text: string, language: string, deps: Deps = defaultDeps()): Promise<{ text: string; translated: boolean }> {
+  if (!usesGrok(deps) || !language || /^english$/i.test(language)) return { text, translated: false };
+  try {
+    return { text: await translateWithGrok(text, language, deps), translated: true };
+  } catch {
+    return { text, translated: false };
   }
 }

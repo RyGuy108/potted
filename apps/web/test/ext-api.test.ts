@@ -139,3 +139,38 @@ describe("extension browse, search and top planters", () => {
     expect(stream.topPlanters[1]!.you).toBe(true);
   });
 });
+
+describe("extension for climbers and keepers", () => {
+  it("lets a climber go live, see their queue, and a keeper rule on a disputed clip", async () => {
+    const ryan = await demo("ryan");
+    const pia = await demo("planter", "Pia");
+    const keeper = await demo("keeper", "Kim");
+
+    const live = (await call("POST", "golive", { link: "https://www.twitch.tv/RyanTestLive" }, ryan)).json as { watch: { platform: string; url: string } };
+    expect(live.watch).toMatchObject({ platform: "twitch", url: "https://www.twitch.tv/ryantestlive" });
+    expect(((await call("GET", "stream", {}, null, new URLSearchParams({ platform: "twitch", channel: "ryantestlive" }))).json as { watch: unknown }).watch).toMatchObject({ platformName: "Twitch" });
+
+    await call("POST", "ideas", { handle: "ryan", gameId: "gta6", text: "No-wanted-level run" }, pia);
+    const channel = (await call("GET", "channel", {}, ryan)).json as { ideas: { id: string; text: string }[]; announcer: boolean; overlay: string };
+    expect(channel).toMatchObject({ announcer: true, overlay: "/overlay/ryan" });
+    expect(channel.ideas[0]!.text).toBe("No-wanted-level run");
+    await call("POST", `ideas/${channel.ideas[0]!.id}/dismiss`, {}, ryan);
+    expect(((await call("GET", "channel", {}, ryan)).json as { ideas: unknown[] }).ideas).toEqual([]);
+    expect(((await call("POST", "announcer", { on: false }, ryan)).json as { announcer: boolean }).announcer).toBe(false);
+    expect((await call("GET", "channel", {}, pia)).status).toBe(403);
+
+    const c = (await call("POST", "challenges", { gameId: "gta6", fields: { ...clipFields, upfrontPct: "0" } }, ryan)).json as { id: string };
+    await call("POST", `challenges/${c.id}/pledge`, { amountUsd: 4 }, pia);
+    await call("POST", `challenges/${c.id}/lock`, {}, ryan);
+    await call("POST", `challenges/${c.id}/claim`, { clipUrl: "https://clips.example.com/x" }, ryan);
+    await call("POST", `challenges/${c.id}/dispute`, {}, pia);
+    const reviews = (await call("GET", "reviews", {}, keeper)).json as { cases: { id: string; clipUrl: string; disputes: number }[] };
+    expect(reviews.cases).toEqual([expect.objectContaining({ id: c.id, clipUrl: "https://clips.example.com/x", disputes: 1 })]);
+    expect((await call("GET", "reviews", {}, pia)).status).toBe(403);
+    const ruled = (await call("POST", `challenges/${c.id}/rule`, { upheld: true }, keeper)).json as { status: string };
+    expect(ruled.status).toBe("paid");
+
+    await call("POST", "endstream", {}, ryan);
+    expect(((await call("GET", "channel", {}, ryan)).json as { watch: unknown }).watch).toBeNull();
+  });
+});

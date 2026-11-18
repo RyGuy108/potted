@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type Deps, disputeBrief, draftRecap, draftTerms, draftWithRules } from "../src/index";
+import { type Deps, disputeBrief, draftRecap, draftTerms, draftWithRules, translateLine } from "../src/index";
 
 const noKey: Deps = { fetch: () => Promise.reject(new Error("no network in tests")), env: {} };
 
@@ -110,5 +110,22 @@ describe("recap", () => {
   it("drafts Twitch terms from a loose idea without Grok", () => {
     expect(draftWithRules({ gameId: "twitch", text: "stay live for 4 hours" }).fields).toEqual({ goal: "live_minutes", count: "240" });
     expect(draftWithRules({ gameId: "twitch", text: "hit 300 viewers" }).fields).toEqual({ goal: "peak_viewers", count: "300" });
+  });
+});
+
+describe("translating announcer lines", () => {
+  const line = "Maya added $5.00. The pot is at $28.00.";
+  const reply = (text: string) => grok(JSON.stringify({ text }));
+
+  it("uses Grok's translation when every figure is kept", async () => {
+    const deps = reply("Maya añadió $5.00. El bote está en $28.00.");
+    expect(await translateLine(line, "Spanish", deps)).toEqual({ text: "Maya añadió $5.00. El bote está en $28.00.", translated: true });
+    expect(deps.calls[0]!.body.messages[1].content).toContain("Spanish");
+  });
+
+  it("keeps the English line when a figure changed, for English, or with no key", async () => {
+    expect(await translateLine(line, "Spanish", reply("Maya añadió 5 dólares. El bote está en $28.00."))).toEqual({ text: line, translated: false });
+    expect(await translateLine(line, "English", reply("anything"))).toEqual({ text: line, translated: false });
+    expect(await translateLine(line, "Spanish", noKey)).toEqual({ text: line, translated: false });
   });
 });

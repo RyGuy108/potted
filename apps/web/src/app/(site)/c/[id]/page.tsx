@@ -16,6 +16,8 @@ import { clock, gameOf, tierLabel } from "@/lib/format";
 import { explorerTxUrl, isSimTx } from "@/lib/ledger";
 import * as service from "@/lib/service";
 import { currentUser } from "@/lib/session";
+import { actionUrl, dialUrl, solanaLedger } from "@/lib/blinks";
+import { publicBase } from "@/lib/url";
 
 function rulesFor(challenge: Challenge): string[] {
   const c = challenge.condition;
@@ -287,6 +289,7 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
           )}
           <div className="detail-share">
             <CopyField label="Share" value={`/c/${challenge.id}`} />
+            {challenge.status === "open" && <BlinkShare challenge={challenge} />}
           </div>
         </div>
       </section>
@@ -328,5 +331,31 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
         </section>
       </div>
     </>
+  );
+}
+
+/**
+ * A Solana Action (Blink) for this challenge: posted on X, the link
+ * unfurls into a card where anyone can pledge from their own wallet.
+ */
+async function BlinkShare({ challenge }: { challenge: Challenge }) {
+  if (!solanaLedger()) return null;
+  const base = await publicBase();
+  const page = `${base}/c/${challenge.id}`;
+  const post = `https://x.com/intent/post?text=${encodeURIComponent(`Back "${challenge.title}" on Potted. It only pays if they pull it off:`)}&url=${encodeURIComponent(page)}`;
+  return (
+    <div className="blink-share">
+      <p className="eyebrow">Pledge from X</p>
+      <p className="muted small">Post this challenge and the link opens as a Blink: anyone can pledge from their own Solana wallet without leaving the post.</p>
+      <div className="row">
+        <a className="btn btn-primary" href={post} target="_blank" rel="noreferrer">
+          Post on X
+        </a>
+        <a className="btn btn-ghost" href={dialUrl(base, challenge.id)} target="_blank" rel="noreferrer">
+          Open the Blink
+        </a>
+      </div>
+      <CopyField label="Action link" value={actionUrl(base, challenge.id)} />
+    </div>
   );
 }

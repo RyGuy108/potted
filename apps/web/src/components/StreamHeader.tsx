@@ -1,3 +1,4 @@
+import type { LiveSession } from "@/lib/store";
 import type { TwitchChannel } from "@/lib/twitch";
 import { GameArt } from "./GameArt";
 
@@ -28,19 +29,47 @@ export function Avatar({ name, handle, src, size = 84 }: { name: string; handle:
 }
 
 /** The streamer's picture, name and where to watch. */
-export function StreamHeader({ name, handle, twitch, twitchLogin, follow }: { name: string; handle: string; twitch: TwitchChannel | null; twitchLogin: string; /** A follow button, for planters. */ follow?: React.ReactNode }) {
+const PLATFORM = { twitch: "Twitch", youtube: "YouTube", kick: "Kick" } as const;
+
+export function StreamHeader({
+  name,
+  handle,
+  twitch,
+  twitchLogin,
+  session,
+  follow,
+}: {
+  name: string;
+  handle: string;
+  twitch: TwitchChannel | null;
+  twitchLogin: string;
+  /** The stream the climber said they started, on any platform. */
+  session?: LiveSession;
+  /** A follow button, for planters. */
+  follow?: React.ReactNode;
+}) {
+  const live = Boolean(twitch?.live || session);
   return (
     <header className="stream-header">
-      <div className={`avatar-ring${twitch?.live ? " is-live" : ""}`}>
+      <div className={`avatar-ring${live ? " is-live" : ""}`}>
         <Avatar name={name} handle={handle} src={twitch?.profileImageUrl} />
-        {twitch?.live && <span className="live-pill">LIVE</span>}
+        {live && <span className="live-pill">LIVE</span>}
       </div>
       <div>
         <p className="eyebrow">Stream</p>
         <h1>{name}&apos;s challenges</h1>
         <p className="muted small">
           potted/s/{handle}
-          {twitchLogin && (
+          {session && (
+            <>
+              {" · "}
+              <a href={session.url} target="_blank" rel="noreferrer" className="watch-link" data-testid="watch-link">
+                Watch on {PLATFORM[session.platform]}
+                {session.title ? `: ${session.title}` : ""}
+              </a>
+            </>
+          )}
+          {twitchLogin && session?.platform !== "twitch" && (
             <>
               {" · "}
               <a href={`https://www.twitch.tv/${twitchLogin}`} target="_blank" rel="noreferrer">

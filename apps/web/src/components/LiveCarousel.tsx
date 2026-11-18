@@ -16,6 +16,8 @@ export interface CarouselStream {
   planters: number;
   status: "open" | "locked";
   reason?: string;
+  /** Where they're streaming, when they said. */
+  platform?: string;
 }
 
 /**
@@ -55,6 +57,7 @@ export function LiveCarousel({ streams, label, ranked = false }: { streams: Caro
           <p className="live-carousel-meta">
             {ranked && <span className="rank-badge static">#{active + 1}</span>}
             <span>{front.streamer}</span>
+            {front.platform && <span className="pill-tag pill-platform">On {front.platform}</span>}
             <span className="muted">· {front.game}</span>
             <span className="muted">
               · {front.pot} · {front.planters} {front.planters === 1 ? "planter" : "planters"}

@@ -1,10 +1,11 @@
 import { DEFAULT_BASE, getSettings, streamFromUrl } from "./shared.js";
 
 /**
- * The side panel, for planters. It follows the tab you are watching: on a
- * linked Twitch or YouTube channel (or a Potted stream page) it shows that
- * climber's live challenges so you can back them without leaving the
- * stream. Climbers and keepers do their work on the website.
+ * The side panel. Planters browse, back challenges and see their garden;
+ * on a linked Twitch, YouTube or Kick tab it opens that climber's stream.
+ * Climbers get the mid-stream essentials of their Challenges and Channel
+ * pages, and keepers get the clips waiting for a ruling. Everything else
+ * stays on the website.
  *
  * The panel holds no rules of its own: every action is a call to the
  * Potted server, which decides what is allowed.
@@ -194,9 +195,9 @@ function disconnectedView() {
   const samples = state.config?.samples ?? [];
   return `
     <section class="card">
-      <p class="eyebrow">For planters</p>
+      <p class="eyebrow">Potted beside the stream</p>
       <h2>Back challenges without leaving the stream</h2>
-      <span class="muted">Pledge to the climber you're watching, dispute a clip, and grow your garden.</span>
+      <span class="muted">Planters pledge and grow their garden. Climbers run their challenges mid-stream. Keepers rule on clips.</span>
       <button class="primary" data-action="connect">Log in or sign up</button>
       <details>
         <summary>Paste a connection code instead</summary>
@@ -209,7 +210,12 @@ function disconnectedView() {
       <span class="muted small">You start with $25 of test USDC.</span>
       ${
         samples.length
-          ? `<span class="muted small">Or use a ready-made planter:</span><div class="row">${samples.map((s) => `<button data-action="demo-sample" data-id="${esc(s.id)}" title="${esc(s.note)}">${esc(s.label)}</button>`).join("")}</div>`
+          ? [["fan", "Planters"], ["streamer", "Climbers"], ["mod", "Keepers"]]
+              .map(([role, label]) => {
+                const group = samples.filter((s) => (s.role ?? "fan") === role);
+                return group.length ? `<span class="muted small">${label}:</span><div class="row">${group.map((s) => `<button data-action="demo-sample" data-id="${esc(s.id)}" title="${esc(s.note)}">${esc(s.label)}</button>`).join("")}</div>` : "";
+              })
+              .join("")
           : ""
       }
     </section>
@@ -219,16 +225,124 @@ function disconnectedView() {
     </details>`;
 }
 
-/** Climbers and keepers get a pointer to the website, where their tools are. */
-function otherRoleView() {
-  const climber = state.me.role === "streamer";
+// --- Climbers --------------------------------------------------------------
+
+function goLiveCard(watch) {
+  if (watch) {
+    return `<section class="card live-now">
+      <div class="row between"><span class="live-tag">● Live on ${esc(watch.platformName)}</span><span class="muted small">${ago(watch.startedAt).replace(" ago", "")}</span></div>
+      <p class="title">${esc(watch.title ?? "Your stream")}</p>
+      ${watch.game ? `<span class="muted small">Playing ${esc(watch.game)}. New challenges start on it.</span>` : ""}
+      <div class="row"><a class="btn-link" href="${esc(watch.url)}" target="_blank" rel="noreferrer">Open stream</a><button data-action="end-stream">End stream</button></div>
+    </section>`;
+  }
+  return `<section class="card">
+    <p class="eyebrow">Going live?</p>
+    <span class="muted small">Paste your Twitch, YouTube or Kick link. Potted fills in the title and game.</span>
+    <div class="row"><input id="golive" placeholder="twitch.tv/yourname" aria-label="Stream link" /><button class="primary" data-action="go-live">Go live</button></div>
+  </section>`;
+}
+
+function climberCard(c) {
+  let controls = "";
+  if (c.status === "open") {
+    controls = `<div class="row"><button class="green" data-action="lock">Start the attempt</button><button class="danger" data-action="cancel">Cancel</button></div>`;
+  } else if (c.needsClip) {
+    controls = `<div class="row"><input data-clip placeholder="Link to the clip" aria-label="Clip link" /><button class="primary" data-action="claim">Post clip</button></div>
+      <span class="muted small">Planters get a window to dispute it before it settles.</span>`;
+  } else if (c.clipPosted) {
+    controls = `<span class="muted small">${c.disputeEndsAt && c.disputeEndsAt > Date.now() ? `Clip posted. Settles in ${timeLeft(c.disputeEndsAt)} unless disputed.` : "Clip posted. A keeper is reviewing a dispute, or it settles shortly."}</span>`;
+  } else {
+    controls = `<div class="row"><button data-action="check">Check the result now</button></div>`;
+  }
+  const open = c.goalMicro <= 0;
+  const pct = open ? Math.round((1 - 1 / (1 + c.totalMicro / 50_000_000)) * 100) : Math.min(100, Math.round((c.totalMicro / c.goalMicro) * 100));
+  return `<article class="card" data-challenge="${esc(c.id)}">
+    <div class="row between"><span class="pill ${esc(c.status)}">${STATUS[c.status]}</span>${c.status === "open" ? `<span class="muted small">${timeLeft(c.deadline)} left</span>` : ""}</div>
+    <p class="title">${esc(c.title)}</p>
+    <div class="pot"><span class="mono">${usd(c.totalMicro)}</span><span class="muted small">${open ? "open pot" : `of ${usd(c.goalMicro)}`} · ${c.planters} ${c.planters === 1 ? "planter" : "planters"}</span></div>
+    <div class="bar"><span style="width:${pct}%"></span></div>
+    ${controls}
+  </article>`;
+}
+
+async function climberChallengesView() {
+  const [{ live }, channel] = await Promise.all([api("mine"), api("channel")]);
+  return `
+    ${goLiveCard(channel.watch)}
+    <section>
+      <div class="section-head"><h3>Live challenges</h3><span class="muted small">${live.length} running</span></div>
+      <div class="list">${live.length ? live.map(climberCard).join("") : `<p class="muted small">Nothing running. Start one from an idea or the scout on the website.</p>`}</div>
+    </section>
+    <button class="link" data-open="/dashboard#new">New challenge on the website</button>`;
+}
+
+async function climberChannelView() {
+  const ch = await api("channel");
   return `
     <section class="card">
-      <p class="eyebrow">${climber ? "Climber account" : "Keeper account"}</p>
-      <h2>${climber ? "Run your challenges on the website" : "Review clips on the website"}</h2>
-      <span class="muted">The extension is for planters backing challenges while they watch. ${climber ? "Your dashboard has the scout, your challenges and your overlay." : "Disputed clips wait for you on the reviews page."}</span>
-      <button class="primary" data-open="${climber ? "/dashboard" : "/reviews"}">Open ${climber ? "the dashboard" : "reviews"}</button>
-    </section>`;
+      <div class="row between"><p class="eyebrow">Announcer</p><button data-action="announcer" data-on="${ch.announcer ? "0" : "1"}" class="${ch.announcer ? "green" : ""}">${ch.announcer ? "On" : "Off"}</button></div>
+      <span class="muted small">Reads pledges and milestones aloud on your overlay.</span>
+    </section>
+    <section>
+      <div class="section-head"><h3>Redemptions</h3><span class="muted small">${ch.redemptions.length} waiting</span></div>
+      <div class="list">${
+        ch.redemptions.length
+          ? ch.redemptions
+              .map(
+                (r) => `<div class="card queue" data-redemption="${esc(r.id)}">
+                  <div class="row between"><b>${esc(r.title)}</b><span class="muted small">${ago(r.at)}</span></div>
+                  <span class="muted small">${esc(r.fanName)}${r.input ? `: “${esc(r.input)}”` : ""}</span>
+                  <div class="row"><button class="green" data-action="redemption-done">Done</button><button data-action="redemption-refund">Refund points</button></div>
+                </div>`,
+              )
+              .join("")
+          : `<p class="muted small">No redemptions waiting.</p>`
+      }</div>
+    </section>
+    <section>
+      <div class="section-head"><h3>Ideas from fans</h3><span class="muted small">${ch.ideas.length} new</span></div>
+      <div class="list">${
+        ch.ideas.length
+          ? ch.ideas
+              .map(
+                (i) => `<div class="card queue" data-idea="${esc(i.id)}">
+                  <span class="muted small">${esc(i.fanName)} · ${esc(i.game)}</span>
+                  <b>${esc(i.text)}</b>
+                  <div class="row"><button class="primary" data-open="/dashboard?use=${esc(i.id)}#new">Use it</button><button data-action="idea-dismiss">Pass</button></div>
+                </div>`,
+              )
+              .join("")
+          : `<p class="muted small">No new ideas.</p>`
+      }</div>
+    </section>
+    <section class="card">
+      <p class="eyebrow">Links</p>
+      <div class="row between"><span class="small">Fan page</span><button class="link" data-copy="${esc(state.base + ch.fanPage)}">Copy</button></div>
+      <div class="row between"><span class="small">Overlay for OBS</span><button class="link" data-copy="${esc(state.base + ch.overlay)}">Copy</button></div>
+    </section>
+    <button class="link" data-open="/dashboard/channel">Channel settings on the website</button>`;
+}
+
+// --- Keepers ---------------------------------------------------------------
+
+async function keeperView() {
+  const { cases } = await api("reviews");
+  return `
+    <div><p class="eyebrow">Keeper</p><h2>${cases.length ? `${cases.length} ${cases.length === 1 ? "clip" : "clips"} to review` : "Nothing to review"}</h2>
+    <span class="muted small">Watch the clip, then decide. Upholding pays the climber; rejecting refunds every planter.</span></div>
+    ${cases
+      .map(
+        (c) => `<article class="card" data-challenge="${esc(c.id)}">
+          <span class="muted small">${esc(c.streamer)} · ${esc(c.game)}</span>
+          <p class="title">${esc(c.title)}</p>
+          <span class="muted small">${usd(c.totalMicro)} from ${c.planters} ${c.planters === 1 ? "planter" : "planters"} · disputed by ${c.disputes}</span>
+          ${c.clipUrl ? `<a class="watch" href="${esc(c.clipUrl)}" target="_blank" rel="noreferrer">▶ Watch the clip</a>` : ""}
+          <div class="row"><button class="green" data-action="uphold">Uphold: pay</button><button class="danger" data-action="reject">Reject: refund</button></div>
+        </article>`,
+      )
+      .join("")}
+    <button class="link" data-open="/reviews">Full reviews on the website</button>`;
 }
 
 async function streamView() {
@@ -246,6 +360,7 @@ async function streamView() {
         </div>
       </div>
       <div>
+        ${stream.watch ? `<a class="watch" href="${esc(stream.watch.url)}" target="_blank" rel="noreferrer">▶ Watch on ${esc(stream.watch.platformName)}${stream.watch.title ? ` · ${esc(stream.watch.title)}` : ""}</a>` : ""}
         ${stream.cause ? `<span class="muted small">Charity stream: ${stream.cause.pct}% of every completed pot goes to ${esc(stream.cause.name)}.</span>` : ""}
         ${state.picked ? `<button class="link" data-action="unpick">Back to ${state.tab ? "this tab's stream" : "live streams"}</button>` : `<button class="link" data-action="view-browse">Watching someone else? Search</button>`}
       </div>
@@ -256,7 +371,13 @@ async function streamView() {
       ${ideaForm(stream)}
       <button class="link" data-open="/s/${esc(stream.streamer.handle)}">Open ${esc(stream.streamer.name)}'s page</button>`;
   }
-  return browseView(state.tab ? "This channel hasn't linked Potted yet. Search for who you're watching, or pick someone live." : "");
+  return `
+    <section class="card empty">
+      <p class="eyebrow">${state.tab ? "Not on Potted yet" : "Nothing open"}</p>
+      <h2>Find a stream to back</h2>
+      <span class="muted small">${state.tab ? "This channel hasn't linked Potted yet. Search for who you're watching, or pick someone live." : "Open a stream from Browse and it shows up here, ready to back."}</span>
+      <button class="primary" data-action="view-browse">Browse now</button>
+    </section>`;
 }
 
 const SEARCH_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>`;
@@ -272,7 +393,7 @@ function streamRow(s) {
     <span class="body">
       <span class="name">${s.live === false ? "" : `<span class="dot" aria-label="Live"></span>`}${esc(s.name)}</span>
       <span class="sub">${s.title ? esc(s.title) : s.twitch ? `twitch.tv/${esc(s.twitch)}` : "Not live right now"}${s.game ? ` · ${esc(s.game)}` : ""}</span>
-      ${s.reason ? `<span class="why">${esc(s.reason)}</span>` : ""}
+      ${s.reason || s.platform ? `<span class="why">${s.platform ? `<span class="plat">On ${esc({ twitch: "Twitch", youtube: "YouTube", kick: "Kick" }[s.platform])}</span>` : ""}${esc(s.reason ?? "")}</span>` : ""}
     </span>
     ${s.live === false ? "" : `<span class="pot-mini">${usd(s.potMicro)}<small>${s.planters ?? ""}${s.planters != null ? (s.planters === 1 ? " planter" : " planters") : "in pots"}</small></span>`}
   </button>`;
@@ -368,12 +489,32 @@ async function gardenView() {
     <button class="link" data-open="/garden">Open your full garden</button>`;
 }
 
+const TABS = {
+  fan: [
+    ["stream", "Stream"],
+    ["browse", "Browse"],
+    ["garden", "Garden"],
+  ],
+  streamer: [
+    ["challenges", "Challenges"],
+    ["channel", "Channel"],
+  ],
+  mod: [],
+};
+
 function tabs() {
-  return `<div class="tabs" role="tablist">
-    <button role="tab" aria-selected="${state.view === "stream"}" data-action="view-stream">Stream</button>
-    <button role="tab" aria-selected="${state.view === "browse"}" data-action="view-browse">Browse</button>
-    <button role="tab" aria-selected="${state.view === "garden"}" data-action="view-garden">Garden</button>
+  const list = TABS[state.me.role] ?? [];
+  if (!list.length) return "";
+  return `<div class="tabs" role="tablist" style="grid-template-columns:repeat(${list.length},minmax(0,1fr))">
+    ${list.map(([key, label]) => `<button role="tab" aria-selected="${state.view === key}" data-action="view-${key}">${label}</button>`).join("")}
   </div>`;
+}
+
+/** The view to draw, kept within what this account's role has. */
+function viewFor(role) {
+  const keys = (TABS[role] ?? []).map(([k]) => k);
+  if (role === "mod") return "reviews";
+  return keys.includes(state.view) ? state.view : keys[0];
 }
 
 async function draw(force = false) {
@@ -388,11 +529,9 @@ async function draw(force = false) {
   }
   $("account").innerHTML = `${esc(state.me.name)}${state.me.role === "fan" ? `<br /><b>${usd(state.balanceMicro)}</b>` : ""}`;
   $("footer").innerHTML = `<button class="link" data-open="/">Open the full site</button><button class="link" data-action="disconnect">Disconnect</button>`;
-  if (state.me.role !== "fan") {
-    redraw(main, "other", otherRoleView(), force);
-    return;
-  }
-  const html = tabs() + (state.view === "garden" ? await gardenView() : state.view === "browse" ? await browseView() : await streamView());
+  state.view = viewFor(state.me.role);
+  const VIEWS = { stream: streamView, browse: browseView, garden: gardenView, challenges: climberChallengesView, channel: climberChannelView, reviews: keeperView };
+  const html = tabs() + (await VIEWS[state.view]());
   redraw(main, `${state.view}:${html}`, html, force);
 }
 
@@ -481,8 +620,53 @@ async function act(action, target) {
     case "view-stream":
     case "view-browse":
     case "view-garden":
+    case "view-challenges":
+    case "view-channel":
       state.view = action.slice(5);
       return draw(true);
+    case "go-live": {
+      const r = await post("golive", { link: $("golive").value });
+      notify(`You're live on ${r.watch.platformName}.`, true);
+      break;
+    }
+    case "end-stream":
+      await post("endstream");
+      notify("Stream ended. You're off Browse.", true);
+      break;
+    case "lock":
+      if (!confirm("Close pledging and start the attempt?")) return;
+      await post(`challenges/${id}/lock`);
+      notify("Started. Pledging is closed.", true);
+      break;
+    case "cancel":
+      if (!confirm("Cancel this challenge and refund every planter?")) return;
+      await post(`challenges/${id}/cancel`);
+      notify("Cancelled. Planters are refunded.", true);
+      break;
+    case "claim":
+      await post(`challenges/${id}/claim`, { clipUrl: card.querySelector("[data-clip]").value.trim() });
+      notify("Clip posted. The dispute window is open.", true);
+      break;
+    case "check":
+      await post(`challenges/${id}/check`);
+      notify("Checked the game data.", true);
+      break;
+    case "announcer":
+      await post("announcer", { on: target.dataset.on === "1" });
+      break;
+    case "redemption-done":
+    case "redemption-refund":
+      await post(`redemptions/${target.closest("[data-redemption]").dataset.redemption}`, { outcome: action === "redemption-done" ? "fulfilled" : "refunded" });
+      break;
+    case "idea-dismiss":
+      await post(`ideas/${target.closest("[data-idea]").dataset.idea}/dismiss`);
+      break;
+    case "uphold":
+    case "reject":
+      if (!confirm(action === "uphold" ? "Uphold the clip and pay the climber?" : "Reject the clip and refund every planter?")) return;
+      await post(`challenges/${id}/rule`, { upheld: action === "uphold" });
+      notify(action === "uphold" ? "Upheld. The climber is paid." : "Rejected. Planters are refunded.", true);
+      break;
     case "pick":
       state.picked = { handle: target.dataset.handle };
       state.ideaOpen = false;
@@ -536,6 +720,13 @@ async function act(action, target) {
 }
 
 document.addEventListener("click", async (event) => {
+  const copy = event.target.closest("[data-copy]");
+  if (copy) {
+    await navigator.clipboard.writeText(copy.dataset.copy).catch(() => {});
+    copy.textContent = "Copied";
+    setTimeout(() => (copy.textContent = "Copy"), 1500);
+    return;
+  }
   const open = event.target.closest("[data-open]");
   if (open) return chrome.tabs.create({ url: state.base + open.dataset.open });
   const target = event.target.closest("[data-action]");

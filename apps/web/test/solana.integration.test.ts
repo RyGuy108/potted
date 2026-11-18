@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createMint } from "@solana/spl-token";
-import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { Connection, Keypair, LAMPORTS_PER_SOL, Transaction } from "@solana/web3.js";
 import { beforeAll, describe, expect, it } from "vitest";
 
 /**
@@ -189,4 +189,25 @@ describe.skipIf(!RPC)("Solana ledger against a local validator", () => {
       fake.close();
     }
   }, 120_000);
+
+  it("builds a Blink pledge that a wallet Potted does not hold can sign, tops it up on devnet, and books it once", async () => {
+    const { SolanaLedger } = await import("../src/lib/solana-ledger");
+    const chain = ledger.ledger() as unknown as InstanceType<typeof SolanaLedger>;
+    const c = await service.createChallenge(streamer(), clip("Win the street race without crashing"));
+    const wallet = Keypair.generate();
+    const { transaction, toppedUpMicro } = await chain.pledgeTransactionFor(c, wallet.publicKey.toBase58(), usd(3));
+    expect(toppedUpMicro).toBe(usd(3));
+    const tx = Transaction.from(Buffer.from(transaction, "base64"));
+    tx.partialSign(wallet);
+    const signature = await chain.connection.sendRawTransaction(tx.serialize());
+    await chain.connection.confirmTransaction(signature, "confirmed");
+
+    const seen = await chain.pledgeIn(signature, c);
+    expect(seen).toMatchObject({ wallet: wallet.publicKey.toBase58(), amountMicro: usd(3) });
+    const booked = service.recordWalletPledge({ challengeAccount: service.chainAccountOf(c.ledgerRef!), signature, ...seen!, confirmedAt: Date.now(), streamAt: Date.now() });
+    expect(booked).toBeDefined();
+    expect(service.recordWalletPledge({ challengeAccount: service.chainAccountOf(c.ledgerRef!), signature, ...seen!, confirmedAt: Date.now() })).toBeUndefined();
+    expect(service.getChallenge(c.id).totalMicro).toBe(usd(3));
+    expect(await chain.pledgeIn(signature, await service.createChallenge(streamer(), clip("Another one entirely different")))).toBeUndefined();
+  }, 60_000);
 });

@@ -7,7 +7,7 @@ import { SignInPanel } from "@/components/SignInPanel";
 import { BountyBoard } from "@/components/BountyBoard";
 import { SuggestForm } from "@/components/SuggestForm";
 import { formatUsd } from "@potted/core";
-import { activeCampaign, bountiesSupported, campaignStats, expireBounties, getStreamer, openBounties, raisedFor, settingsOf, stageChallenges, topPlanters } from "@/lib/service";
+import { activeCampaign, bountiesSupported, campaignStats, expireBounties, getStreamer, liveSessionOf, openBounties, raisedFor, settingsOf, stageChallenges, topPlanters } from "@/lib/service";
 import { GrowBar } from "@/components/Motion";
 import { currentUser } from "@/lib/session";
 import { pointsConfig, pointsOf } from "@/lib/points";
@@ -67,6 +67,7 @@ export default async function StreamerPage({ params, searchParams }: { params: P
             handle={streamer.handle!}
             twitch={twitch}
             twitchLogin={cause.twitchChannel}
+            session={liveSessionOf(streamer)}
             follow={
               user?.role === "fan" ? (
                 <div className="row follow-row">

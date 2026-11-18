@@ -40,6 +40,7 @@ export function StreamCard({ listing, reason, rank }: { listing: StreamListing; 
             {listing.liveCount > 1 && <span className="pill-tag">{listing.liveCount} challenges</span>}
             {listing.charity && <span className="pill-tag">Charity</span>}
             {listing.collab && <span className="pill-tag">Collab</span>}
+            {listing.session && <span className="pill-tag pill-platform">On {listing.session.platform === "youtube" ? "YouTube" : listing.session.platform === "kick" ? "Kick" : "Twitch"}</span>}
           </span>
         </div>
       </div>
@@ -74,6 +75,7 @@ export function StreamRow({ listings, empty, label, ranked = false }: { listings
     planters: l.planters,
     status: l.headline.status === "locked" ? "locked" : "open",
     ...(l.reason ? { reason: l.reason } : {}),
+    ...(l.session ? { platform: l.session.platform === "youtube" ? "YouTube" : l.session.platform === "kick" ? "Kick" : "Twitch" } : {}),
   }));
   return <LiveCarousel streams={streams} label={label} ranked={ranked} />;
 }

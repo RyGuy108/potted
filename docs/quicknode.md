@@ -65,3 +65,17 @@ The decoder and the signature check are tested against payloads built in
 the test suite. They have not run against a live Stream, so the exact
 shape of the Block dataset (field names in the filter above) should be
 confirmed with the dashboard's "Test filter" button on first setup.
+
+
+## Pledge alerts through the Stream
+
+With `QUICKNODE_WEBHOOK_SECRET` set on the Solana ledger, a pledge's
+overlay line waits for the Stream instead of going up as soon as the app
+books it. When the delivery arrives, the line goes on screen with how long
+it took from confirmation, for example "⚡ 1.0s from confirmation · via
+QuickNode Streams". If the Stream has not delivered within 12 seconds, the
+line goes up anyway, without a time.
+
+The Stream also books pledges that wallets made on their own, from a
+Blink, if the wallet's confirmation call has not already. Each
+transaction is booked once, however many times it is delivered.

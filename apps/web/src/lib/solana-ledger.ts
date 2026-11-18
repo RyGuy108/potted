@@ -4,6 +4,8 @@ import path from "node:path";
 import { AnchorProvider, BN, Program, type Idl, Wallet } from "@coral-xyz/anchor";
 import {
   createAssociatedTokenAccountIdempotent,
+  createAssociatedTokenAccountIdempotentInstruction,
+  createMintToInstruction,
   createTransferInstruction,
   getAccount,
   getAssociatedTokenAddressSync,
@@ -13,6 +15,7 @@ import {
 } from "@solana/spl-token";
 import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
 import type { Challenge, Evidence } from "@potted/core";
+import { decodeLogs } from "@potted/chain";
 import baseIdl from "./escrow-idl.json";
 import type { Escrow } from "./escrow-types";
 import type { Ledger, Payout } from "./ledger";
@@ -231,6 +234,55 @@ export class SolanaLedger implements Ledger {
       })
       .transaction();
     return this.sendAs(tx, [fanWallet]);
+  }
+
+  /**
+   * A pledge for a wallet Potted does not hold: the transaction a Solana
+   * Action (Blink) hands to the planter's own wallet to sign. The server
+   * pays the fee and rent. On devnet, a wallet short of test USDC is topped
+   * up by the faucet in the same transaction, so a judge's fresh wallet works.
+   */
+  async pledgeTransactionFor(challenge: Challenge, fanWallet: string, amountMicro: number): Promise<{ transaction: string; toppedUpMicro: number }> {
+    const { account, vault } = this.accountsFor(challenge);
+    const fan = new PublicKey(fanWallet);
+    const fanToken = this.tokenAccount(fan);
+    const tx = new Transaction();
+    tx.add(createAssociatedTokenAccountIdempotentInstruction(this.server.publicKey, fanToken, fan, this.mint));
+    let have = 0;
+    try {
+      have = Number((await getAccount(this.connection, fanToken)).amount);
+    } catch (error) {
+      if (!(error instanceof TokenAccountNotFoundError)) throw error;
+    }
+    let toppedUpMicro = 0;
+    if (have < amountMicro && process.env.SOLANA_CLUSTER !== "mainnet-beta") {
+      const mint = await getMint(this.connection, this.mint);
+      if (mint.mintAuthority?.equals(this.server.publicKey)) {
+        toppedUpMicro = amountMicro - have;
+        tx.add(createMintToInstruction(this.mint, fanToken, this.server.publicKey, toppedUpMicro));
+      }
+    }
+    tx.add(
+      await this.program.methods
+        .pledge(new BN(amountMicro))
+        .accountsPartial({ payer: this.server.publicKey, fan, challenge: account, pledge: this.pledgeAddress(account, fan), fanToken, vault })
+        .instruction(),
+    );
+    const { blockhash } = await this.connection.getLatestBlockhash("confirmed");
+    tx.feePayer = this.server.publicKey;
+    tx.recentBlockhash = blockhash;
+    tx.partialSign(this.server);
+    return { transaction: tx.serialize({ requireAllSignatures: false, verifySignatures: false }).toString("base64"), toppedUpMicro };
+  }
+
+  /** Reads a confirmed transaction and returns the pledge it made to this challenge, if it made one. */
+  async pledgeIn(signature: string, challenge: Challenge): Promise<{ wallet: string; amountMicro: number; confirmedAt: number } | undefined> {
+    const { account } = this.accountsFor(challenge);
+    const tx = await this.connection.getTransaction(signature, { commitment: "confirmed", maxSupportedTransactionVersion: 0 });
+    if (!tx || tx.meta?.err) return undefined;
+    const event = decodeLogs(tx.meta?.logMessages ?? [], this.program.programId.toBase58()).find((e) => e.name === "Pledged" && e.challenge === account.toBase58());
+    if (!event) return undefined;
+    return { wallet: String(event.fields.fan), amountMicro: Number(event.fields.amount), confirmedAt: tx.blockTime ? tx.blockTime * 1000 : Date.now() };
   }
 
   /** The program pays the up-front share to the host; guest and cause shares follow from the host. */

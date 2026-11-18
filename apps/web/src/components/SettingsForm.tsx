@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { updateSettingsAction } from "@/app/actions";
 import type { StreamSettings } from "@/lib/store";
-import { VOICES, type VoiceKey } from "@/lib/voices";
+import { LANGUAGES, VOICES, type VoiceKey } from "@/lib/voices";
 
 const POSITIONS: [StreamSettings["overlayPosition"], string][] = [
   ["bottom-left", "Bottom left"],
@@ -62,10 +62,21 @@ export function SettingsForm({ initial, bounties = true }: { initial: StreamSett
         </label>
         <label className="field">
           <span>Announcer voice</span>
-          <select value={settings.voice} onChange={(e) => setSettings({ ...settings, voice: e.target.value as VoiceKey })}>
+          <select value={settings.voice} onChange={(e) => setSettings({ ...settings, voice: e.target.value as VoiceKey | "own" })}>
+            {settings.ownVoice && <option value="own">Your own voice</option>}
             {VOICES.map((voice) => (
               <option key={voice.key} value={voice.key}>
                 {voice.name} ({voice.note})
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span>Announcer language</span>
+          <select value={settings.language} onChange={(e) => setSettings({ ...settings, language: e.target.value })}>
+            {LANGUAGES.map((l) => (
+              <option key={l.code} value={l.code}>
+                {l.name}
               </option>
             ))}
           </select>
@@ -123,6 +134,10 @@ export function SettingsForm({ initial, bounties = true }: { initial: StreamSett
         <label className="field">
           <span>YouTube handle</span>
           <input value={settings.youtubeChannel} onChange={(e) => setSettings({ ...settings, youtubeChannel: e.target.value })} placeholder="@yourname" />
+        </label>
+        <label className="field">
+          <span>Kick channel</span>
+          <input value={settings.kickChannel} onChange={(e) => setSettings({ ...settings, kickChannel: e.target.value })} placeholder="yourname" />
         </label>
       </div>
       <h3 className="settings-sub">Charity stream</h3>

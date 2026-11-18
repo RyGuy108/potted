@@ -17,7 +17,7 @@ a commit or a pull request.
 | --- | --- | --- |
 | Google sign-in | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | console.cloud.google.com → APIs & Services → Credentials → Create credentials → OAuth client ID → Web application. Authorized redirect URI: `http://localhost:3000/api/auth/google/callback`. You are asked to set up the consent screen first; choose External and add your own address as a test user. |
 | Twitch sign-in | `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET` | dev.twitch.tv/console → Register Your Application. OAuth redirect URL: `http://localhost:3000/api/auth/twitch/callback`. Category: Website Integration. Then Manage → New Secret. |
-| Announcer voices | `ELEVENLABS_API_KEY` | elevenlabs.io → your profile → API Keys → Create. |
+| Announcer voices, milestone sound effects, streamers' own cloned voices | `ELEVENLABS_API_KEY` | elevenlabs.io → your profile → API Keys → Create. Give the key Text to Speech, Sound Effects and Voices (write) access. Voice cloning needs a plan that includes Instant Voice Cloning. |
 | Grok drafting and moderator checklist | `XAI_API_KEY` | console.x.ai → API Keys → Create. Set `XAI_MODEL` if your account lists a different model name than `grok-4.7`. |
 | Rehearsal buttons (simulate a win or a miss) | `POTTED_ALLOW_SIMULATED_RESULTS=true` | No account. Leave it `false` for anything public. |
 
@@ -70,7 +70,8 @@ their transactions. The demo and test accounts stay custodial.
 
 | Turns on | Variable | Where to get it |
 | --- | --- | --- |
-| On-chain activity page | `QUICKNODE_WEBHOOK_SECRET` | quicknode.com → Streams → create a Stream (steps in `docs/quicknode.md`) → Settings → Security token. Needs `POTTED_PROGRAM_ID` too. |
+| On-chain activity page, and pledge alerts carried by the Stream (with their speed on the overlay) | `QUICKNODE_WEBHOOK_SECRET` | quicknode.com → Streams → create a Stream (steps in `docs/quicknode.md`) → Settings → Security token. Needs `POTTED_PROGRAM_ID` too. |
+| Pledge from X (Solana Actions / Blinks) | `POTTED_PUBLIC_URL` | Nothing to sign up for. Wallets and X need a public https address, so run the app behind a tunnel (e.g. `cloudflared tunnel --url http://localhost:3000`) and set this to it. To unfurl on X itself, register the domain at dial.to/register; "Open the Blink" on a challenge page works without that. |
 
 ## Email sign-in
 

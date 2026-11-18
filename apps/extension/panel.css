@@ -720,3 +720,61 @@ details summary {
     text-align: left;
   }
 }
+
+/* Empty Stream tab */
+.card.empty {
+  justify-items: start;
+  padding: 1.4rem 1rem;
+  text-align: left;
+}
+
+.card.empty .primary {
+  margin-top: 0.3rem;
+}
+
+/* Where to watch */
+.watch,
+.btn-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: fit-content;
+  color: #ff8f86;
+  font-weight: 600;
+  font-size: 0.88rem;
+  text-decoration: none;
+}
+
+.btn-link {
+  min-height: 2.5rem;
+  padding: 0 0.9rem;
+  border-radius: 0.7rem;
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.watch:hover {
+  text-decoration: underline;
+}
+
+.plat {
+  margin-right: 0.4rem;
+  color: #ff8f86;
+}
+
+/* Climbers */
+.live-now {
+  border-color: rgba(255, 90, 79, 0.35);
+  background: linear-gradient(135deg, rgba(255, 90, 79, 0.1), transparent 60%), var(--surface);
+}
+
+.live-tag {
+  color: #ff8f86;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.card.queue {
+  gap: 0.4rem;
+  padding: 0.75rem;
+}

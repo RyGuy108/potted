@@ -4,11 +4,11 @@ import { gameOf } from "./format";
 import * as service from "./service";
 import { extToken, readExtToken } from "./session";
 import { give } from "./gifts";
-import { pointsConfig, pointsOf, redeem } from "./points";
+import { pointsConfig, pointsOf, redeem, redemptionsFor, resolveRedemption } from "./points";
 import { SAMPLE_SIGN_INS } from "./sample-data";
 import { TEST_ACCOUNTS } from "./test-accounts";
 import { twitchChannel } from "./twitch";
-import { DEMO_GUEST_ID, DEMO_STREAMER_ID, type User } from "./store";
+import { DEMO_GUEST_ID, DEMO_STREAMER_ID, type LiveSession, type User } from "./store";
 import { POT_FIELDS, conditionFromFields, termFields } from "./terms";
 
 /**
@@ -66,6 +66,18 @@ function viewOf(challenge: Challenge, viewer: User | undefined) {
   };
 }
 
+const PLATFORMS = { twitch: "Twitch", youtube: "YouTube", kick: "Kick" } as const;
+
+function sessionView(s: LiveSession) {
+  return { platform: s.platform, platformName: PLATFORMS[s.platform], url: s.url, title: s.title ?? null, game: s.customGame ?? (s.gameId === "other" ? null : (GAMES.find((g) => g.id === s.gameId)?.name ?? null)), startedAt: s.startedAt };
+}
+
+/** Where to watch a climber, when they said they're live. */
+function watchOf(streamer: User) {
+  const s = service.liveSessionOf(streamer);
+  return s ? sessionView(s) : null;
+}
+
 function userView(user: User) {
   return { id: user.id, name: user.name, role: user.role, handle: user.handle ?? null };
 }
@@ -83,6 +95,11 @@ export async function handleExt(method: string, path: string[], query: URLSearch
 async function route(method: string, path: string[], query: URLSearchParams, body: Record<string, unknown>, user: User | undefined): Promise<ApiResult> {
   const [head, id, action] = path;
   const need = (): User => user ?? fail(401, "Connect your Potted account first");
+  const climber = (): User => {
+    const me = need();
+    if (me.role !== "streamer") fail(403, "Only climbers can do that");
+    return me;
+  };
   const key = `${method} ${head}${id ? "/:id" : ""}${action ? `/${action}` : ""}`;
 
   switch (key) {
@@ -93,8 +110,8 @@ async function route(method: string, path: string[], query: URLSearchParams, bod
         rehearsal: service.simulatedResultsAllowed(),
         // Ready-made planters from the demo sample, when it is loaded.
         samples: [...TEST_ACCOUNTS.map((t) => ({ id: t.id, label: t.name, role: t.role, note: t.note })), ...SAMPLE_SIGN_INS]
-          .filter((s) => s.role === "fan" && service.getUser(s.id))
-          .map((s) => ({ id: s.id, label: s.label, note: s.note })),
+          .filter((s) => service.getUser(s.id))
+          .map((s) => ({ id: s.id, label: s.label, note: s.note, role: s.role })),
       });
 
     case "POST demo": {
@@ -105,9 +122,9 @@ async function route(method: string, path: string[], query: URLSearchParams, bod
           ? service.getUser(DEMO_STREAMER_ID)
           : as === "kai"
             ? service.getUser(DEMO_GUEST_ID)
-            : as === "planter"
-              ? await service.signIn(String(body.name ?? ""), "fan")
-              : [...SAMPLE_SIGN_INS, ...TEST_ACCOUNTS].some((s) => s.id === as && s.role === "fan")
+            : as === "planter" || as === "keeper"
+              ? await service.signIn(String(body.name ?? ""), as === "keeper" ? "mod" : "fan")
+              : [...SAMPLE_SIGN_INS, ...TEST_ACCOUNTS].some((s) => s.id === as)
                 ? service.getUser(as)
                 : undefined;
       if (!who) fail(400, "Unknown demo account");
@@ -124,7 +141,7 @@ async function route(method: string, path: string[], query: URLSearchParams, bod
       const platform = query.get("platform");
       const streamer = handle
         ? service.getStreamer(handle)
-        : platform === "twitch" || platform === "youtube"
+        : platform === "twitch" || platform === "youtube" || platform === "kick"
           ? service.streamerByChannel(platform, query.get("channel") ?? "")
           : undefined;
       if (!streamer) return ok({ streamer: null, challenges: [] });
@@ -133,7 +150,8 @@ async function route(method: string, path: string[], query: URLSearchParams, bod
       const points = pointsConfig(streamer.id);
       const twitch = settings.twitchChannel ? await twitchChannel(settings.twitchChannel) : null;
       return ok({
-        streamer: { name: streamer.name, handle: streamer.handle, avatarUrl: twitch?.profileImageUrl ?? null, live: Boolean(twitch?.live) },
+        streamer: { name: streamer.name, handle: streamer.handle, avatarUrl: twitch?.profileImageUrl ?? null, live: Boolean(twitch?.live || service.liveSessionOf(streamer)) },
+        watch: watchOf(streamer),
         points: points.on
           ? {
               perUsd: points.perUsd,
@@ -165,6 +183,7 @@ async function route(method: string, path: string[], query: URLSearchParams, bod
         potMicro: l.potMicro,
         planters: l.planters,
         charity: l.charity,
+        platform: l.session?.platform ?? null,
         reason,
       });
       return ok({
@@ -194,6 +213,67 @@ async function route(method: string, path: string[], query: URLSearchParams, bod
         .map((x) => x.row);
       return ok({ streamers });
     }
+
+    // --- Climbers: what they need mid-stream, the rest stays on the website ---
+
+    case "GET channel": {
+      const me = climber();
+      const settings = service.settingsOf(me);
+      return ok({
+        watch: watchOf(me),
+        announcer: settings.announcer,
+        fanPage: `/s/${me.handle}`,
+        overlay: `/overlay/${me.handle}`,
+        redemptions: redemptionsFor(me.id)
+          .filter((r) => r.status === "pending")
+          .map((r) => ({ id: r.id, title: r.title, input: r.input, fanName: r.fanName, cost: r.cost, at: r.at })),
+        ideas: service.pendingSuggestions(me.id).map((s) => ({ id: s.id, fanName: s.fanName, text: s.text, game: s.customGame ?? GAMES.find((g) => g.id === s.gameId)?.name ?? "" })),
+      });
+    }
+
+    case "POST golive":
+      return ok({ watch: sessionView(await service.goLive(climber(), String(body.link ?? ""))) });
+
+    case "POST endstream":
+      service.endStream(climber());
+      return ok({ watch: null });
+
+    case "POST announcer": {
+      const me = climber();
+      const settings = await service.updateSettings(me, { ...service.settingsOf(me), announcer: body.on === true });
+      return ok({ announcer: settings.announcer });
+    }
+
+    case "POST redemptions/:id":
+      await resolveRedemption(climber(), id!, body.outcome === "refunded" ? "refunded" : "fulfilled");
+      return ok({ done: true });
+
+    case "POST ideas/:id/dismiss":
+      await service.resolveSuggestion(climber(), id!, "dismissed");
+      return ok({ done: true });
+
+    // --- Keepers: disputed clips to rule on ---
+
+    case "GET reviews": {
+      const me = need();
+      if (me.role !== "mod") fail(403, "Reviews are for keepers");
+      return ok({
+        cases: service.disputesWaiting().map((c) => ({
+          id: c.id,
+          title: c.title,
+          game: gameOf(c).name,
+          streamer: service.getUser(c.streamerId)?.name ?? "A climber",
+          totalMicro: c.totalMicro,
+          planters: service.fundersOf(c.id).length,
+          clipUrl: c.claim?.clipUrl ?? null,
+          disputes: c.claim?.disputedBy.length ?? 0,
+          claimedAt: c.claim?.claimedAt ?? null,
+        })),
+      });
+    }
+
+    case "POST challenges/:id/rule":
+      return ok(viewOf(await service.rule(need(), id!, body.upheld === true), user));
 
     case "GET garden": {
       const me = need();

@@ -14,6 +14,8 @@ export async function GET(request: Request) {
   if (!streamer?.handle) return NextResponse.json({ error: "Unknown streamer" }, { status: 404 });
 
   await service.tick(streamer.id);
+  // Pledge lines the QuickNode Stream has not delivered within a few seconds go on screen anyway.
+  service.releaseStaleEvents();
   // With autopilot on, an empty stage gets the scout's next pitch.
   await autopilotTick(streamer).catch(() => undefined);
 
@@ -35,7 +37,9 @@ export async function GET(request: Request) {
     },
     seq: service.latestSeq(),
     // A first poll (since < 0) only syncs the cursor, so old events never replay.
-    events: since < 0 ? [] : service.eventsSince(streamer.handle, since).map(({ seq, type, message }) => ({ seq, type, message })),
+    events: since < 0 ? [] : service.eventsSince(streamer.handle, since).map(({ seq, type, message, sfx, by, chain }) => ({ seq, type, message, sfx, by, chain })),
+    // The server's clock, so the overlay can time a pledge against when it was confirmed.
+    now: Date.now(),
     challenges,
   });
 }

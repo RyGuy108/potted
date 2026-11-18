@@ -1,6 +1,7 @@
 import { gunzipSync } from "node:zlib";
 import { parseDelivery, verifySignature } from "@potted/chain";
 import { recordChainEvents } from "@/lib/chain";
+import * as service from "@/lib/service";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,26 @@ export async function POST(request: Request) {
   } catch {
     return Response.json({ error: "Body is not JSON" }, { status: 400 });
   }
+  const arrived = Date.now();
   const events = parseDelivery(payload, programId);
-  return Response.json({ decoded: events.length, stored: recordChainEvents(events) });
+  const stored = recordChainEvents(events);
+  // Pledges: put the overlay line for a pledge made here on screen now, and
+  // book a pledge someone signed with their own wallet (a Blink) if the
+  // wallet's confirmation call has not already.
+  let shown = 0;
+  let booked = 0;
+  for (const e of events) {
+    if (e.name !== "Pledged") continue;
+    shown += service.releaseChainEvents(e.signature, arrived);
+    const fresh = service.recordWalletPledge({
+      challengeAccount: e.challenge,
+      wallet: String(e.fields.fan),
+      amountMicro: Number(e.fields.amount),
+      signature: e.signature,
+      confirmedAt: e.at || arrived,
+      streamAt: arrived,
+    });
+    if (fresh) booked++;
+  }
+  return Response.json({ decoded: events.length, stored, shown, booked });
 }

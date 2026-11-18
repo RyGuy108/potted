@@ -33,5 +33,6 @@ export function streamFromUrl(url, base) {
     if (!reserved.has(parts[0].toLowerCase())) return { platform: "twitch", channel: parts[0].toLowerCase() };
   }
   if (host === "youtube.com" && parts[0]?.startsWith("@")) return { platform: "youtube", channel: parts[0].slice(1).toLowerCase() };
+  if (host === "kick.com" && parts[0]) return { platform: "kick", channel: parts[0].toLowerCase() };
   return null;
 }

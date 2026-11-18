@@ -25,8 +25,12 @@ export interface StreamSettings {
   /** Smallest single pledge, in dollars. */
   minPledgeUsd: number;
   announcer: boolean;
-  /** Which announcer voice reads events. */
-  voice: VoiceKey;
+  /** Which announcer voice reads events: a stock voice, or "own" for the streamer's cloned voice. */
+  voice: VoiceKey | "own";
+  /** The streamer's own voice, cloned on ElevenLabs with their consent. */
+  ownVoice: { id: string; consentAt: number } | null;
+  /** The language the announcer speaks (ISO 639-1). Lines are translated by Grok. */
+  language: string;
   overlayPosition: OverlayPosition;
   /** How many live challenges the overlay shows at once. */
   overlayCards: 1 | 2;
@@ -35,6 +39,7 @@ export interface StreamSettings {
   /** The streamer's Twitch login and YouTube handle, so the extension can match a tab to this stream. */
   twitchChannel: string;
   youtubeChannel: string;
+  kickChannel: string;
   /** Charity stream: while on, every new challenge sends a share of a completed pot to the cause. */
   causeOn: boolean;
   causeName: string;
@@ -58,11 +63,14 @@ export const DEFAULT_SETTINGS: StreamSettings = {
   minPledgeUsd: 1,
   announcer: true,
   voice: "george",
+  ownVoice: null,
+  language: "en",
   overlayPosition: "bottom-left",
   overlayCards: 2,
   overlayQr: true,
   twitchChannel: "",
   youtubeChannel: "",
+  kickChannel: "",
   causeOn: false,
   causeName: "",
   causeUrl: "",
@@ -133,6 +141,8 @@ export interface User {
   handle?: string;
   /** Streamers only. Missing fields fall back to DEFAULT_SETTINGS. */
   settings?: Partial<StreamSettings>;
+  /** The stream a climber said they started, from the link they pasted. */
+  liveSession?: LiveSession;
   wallet: string;
   createdAt: number;
   /** Accounts this user signs in with, e.g. Google. Demo users have none. */
@@ -147,6 +157,18 @@ export interface User {
 export type EventType = "created" | "pledged" | "locked" | "claimed" | "disputed" | "paid" | "failed" | "refunded" | "milestone" | "recap" | "bounty" | "redeemed" | "gift";
 
 /** What the overlay shows and reads aloud. */
+export interface LiveSession {
+  platform: "twitch" | "youtube" | "kick";
+  channel: string;
+  url: string;
+  title?: string;
+  /** The platform's category, and the Potted game it maps to. */
+  category?: string;
+  gameId: string;
+  customGame?: string;
+  startedAt: number;
+}
+
 export interface StreamEvent {
   seq: number;
   at: number;
@@ -155,6 +177,16 @@ export interface StreamEvent {
   /** Empty for stream-wide events such as the recap. */
   challengeId: string;
   message: string;
+  /** A sound effect the overlay plays before the line: half way to the goal, or the goal reached. */
+  sfx?: "half" | "goal";
+  /** Who wrote the line, when it was not a fixed sentence. */
+  by?: "grok";
+  /**
+   * For a pledge made on Solana: when the transaction was confirmed and
+   * when the QuickNode Stream delivered it (server clock, ms), so the
+   * overlay can show how fast it got on screen.
+   */
+  chain?: { signature: string; confirmedAt: number; streamAt?: number };
 }
 
 export interface Db {

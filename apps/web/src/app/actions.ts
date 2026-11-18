@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { checkCode, sendCode } from "@/lib/email-auth";
+import { cloneVoice, deleteVoice } from "@/lib/elevenlabs";
 import * as service from "@/lib/service";
 import { currentUser, endSession, startSession } from "@/lib/session";
 import { SAMPLE_SIGN_INS } from "@/lib/sample-data";
@@ -147,6 +148,41 @@ export async function dismissSuggestionAction(id: string): Promise<ActionResult>
 
 export async function updateSettingsAction(input: Record<string, unknown>): Promise<ActionResult> {
   return run(async () => service.updateSettings(await requireUser(), input));
+}
+
+/**
+ * Clones the streamer's own voice from their recordings for the announcer.
+ * The consent box must be ticked; the time of consent is kept with the voice.
+ */
+export async function cloneVoiceAction(form: FormData): Promise<ActionResult> {
+  return run(async () => {
+    const user = await requireUser();
+    if (user.role !== "streamer") throw new Error("Only a streamer can set an announcer voice");
+    const consent = form.get("consent") === "on";
+    if (!consent) throw new Error("Confirm that the recordings are your own voice and that you agree to cloning it");
+    const samples = form.getAll("samples").filter((f): f is File => f instanceof File && f.size > 0);
+    const old = service.settingsOf(user).ownVoice?.id;
+    const id = await cloneVoice(user.name, samples);
+    service.setOwnVoice(user, id, consent);
+    if (old && old !== id) await deleteVoice(old).catch(() => undefined);
+  });
+}
+
+/** Deletes the streamer's cloned voice from ElevenLabs and from Potted. */
+export async function removeVoiceAction(): Promise<ActionResult> {
+  return run(async () => {
+    const id = service.clearOwnVoice(await requireUser());
+    if (id) await deleteVoice(id);
+  });
+}
+
+/** A climber pastes their stream's link to show they are live; Potted fills in the rest. */
+export async function goLiveAction(link: string): Promise<ActionResult> {
+  return run(async () => service.goLive(await requireUser(), String(link)));
+}
+
+export async function endStreamAction(): Promise<ActionResult> {
+  return run(async () => service.endStream(await requireUser()));
 }
 
 export async function pledgeAction(challengeId: string, amountUsd: number): Promise<ActionResult> {

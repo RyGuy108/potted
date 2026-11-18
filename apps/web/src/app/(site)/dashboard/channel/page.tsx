@@ -2,6 +2,8 @@ import { DashHead, NotAClimber } from "@/components/DashHead";
 import { CopyField } from "@/components/Live";
 import { PointsPanel } from "@/components/PointsPanel";
 import { SettingsForm } from "@/components/SettingsForm";
+import { VoiceCard } from "@/components/VoiceCard";
+import { elevenLabsKey } from "@/lib/elevenlabs";
 import { CampaignPanel, PayoutsPanel } from "@/components/StreamerPanels";
 import { pointsConfig, redemptionsFor } from "@/lib/points";
 import { bountiesSupported, settingsOf } from "@/lib/service";
@@ -34,6 +36,8 @@ export default async function Channel() {
         <div id="settings">
           <SettingsForm initial={settingsOf(user)} bounties={bountiesSupported()} />
         </div>
+
+        <VoiceCard own={Boolean(settingsOf(user).ownVoice)} consentAt={settingsOf(user).ownVoice?.consentAt ?? null} ready={Boolean(elevenLabsKey())} />
 
       </div>
     </>

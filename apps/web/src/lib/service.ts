@@ -25,13 +25,15 @@ import {
 import { type Deps as CoordinatorDeps, type RecapFacts, defaultDeps as coordinatorDeps, draftRecap } from "@potted/coordinator";
 import { type Deps, defaultDeps, snapshot, verify } from "@potted/verifier";
 import * as notifications from "./notifications";
-import { ledger } from "./ledger";
+import { isSimTx, ledger } from "./ledger";
+import { type StreamInfo, type StreamLink, gameFor, lookupStream, parseStreamLink } from "./streams";
 import { createPrivyWallet, privyConfigured } from "./privy";
-import { VOICES, type VoiceKey } from "./voices";
+import { LANGUAGES, VOICES, type VoiceKey } from "./voices";
 import {
   DEFAULT_SETTINGS,
   type EventType,
   type OverlayPosition,
+  type LiveSession,
   type Role,
   type StreamEvent,
   type StreamSettings,
@@ -71,11 +73,59 @@ export function getStreamer(handle: string): User | undefined {
   return db().users.find((u) => u.role === "streamer" && u.handle === handle.toLowerCase());
 }
 
-/** The climber who linked this Twitch or YouTube channel in their settings. */
-export function streamerByChannel(platform: "twitch" | "youtube", name: string): User | undefined {
+const CHANNEL_KEYS = { twitch: "twitchChannel", youtube: "youtubeChannel", kick: "kickChannel" } as const;
+
+/** The climber who linked this Twitch, YouTube or Kick channel in their settings. */
+export function streamerByChannel(platform: "twitch" | "youtube" | "kick", name: string): User | undefined {
   const clean = name.trim().toLowerCase().replace(/^@/, "");
   if (!clean) return undefined;
-  return listStreamers().find((s) => settingsOf(s)[platform === "twitch" ? "twitchChannel" : "youtubeChannel"] === clean);
+  return listStreamers().find((s) => settingsOf(s)[CHANNEL_KEYS[platform]] === clean);
+}
+
+/** A session counts as live for 12 hours after it starts, unless ended sooner. */
+const SESSION_MS = 12 * 60 * 60_000;
+
+/** The stream a climber is on right now, if they said they started one. */
+export function liveSessionOf(streamer: User, now = Date.now()): LiveSession | undefined {
+  const s = streamer.liveSession;
+  return s && now - s.startedAt < SESSION_MS ? s : undefined;
+}
+
+/**
+ * A climber starts a stream by pasting its link. Potted links that channel
+ * to their account (so the extension knows the tab), and keeps the title
+ * and game the platform reports, to fill in their next challenge.
+ */
+export async function goLive(actor: User, link: string, lookup: (l: StreamLink) => Promise<StreamInfo> = lookupStream, now = Date.now()): Promise<LiveSession> {
+  if (actor.role !== "streamer") fail("Only a climber can go live");
+  const parsed = parseStreamLink(link);
+  const info = await lookup(parsed);
+  const key = CHANNEL_KEYS[parsed.platform];
+  if (parsed.channel) {
+    const other = streamerByChannel(parsed.platform, parsed.channel);
+    if (other && other.id !== actor.id) fail("Another climber has already linked that channel");
+  }
+  const game = gameFor(info.category, info.title);
+  const session: LiveSession = {
+    platform: parsed.platform,
+    channel: parsed.channel,
+    url: parsed.url,
+    ...(info.title ? { title: info.title.slice(0, 140) } : {}),
+    ...(info.category ? { category: info.category.slice(0, 60) } : {}),
+    gameId: game.gameId,
+    ...(game.customGame ? { customGame: game.customGame } : {}),
+    startedAt: now,
+  };
+  actor.liveSession = session;
+  if (parsed.channel) actor.settings = { ...settingsOf(actor), [key]: parsed.channel };
+  save();
+  return session;
+}
+
+export function endStream(actor: User): void {
+  if (actor.role !== "streamer") fail("Only a climber can end a stream");
+  delete actor.liveSession;
+  save();
 }
 
 export function getChallenge(id: string): Challenge {
@@ -192,16 +242,72 @@ export function announce(type: EventType, challenge: Challenge, message: string)
   emit(type, challenge, message);
 }
 
-function emit(type: EventType, challenge: Challenge, message: string): void {
-  for (const streamer of streamersOf(challenge)) emitTo(streamer.handle ?? "", type, challenge.id, message);
+type EventExtra = Pick<StreamEvent, "sfx" | "by" | "chain"> & {
+  /** Keep the line off the overlay until the QuickNode Stream delivers this transaction. */
+  hold?: boolean;
+};
+
+function emit(type: EventType, challenge: Challenge, message: string, extra: EventExtra = {}): void {
+  for (const streamer of streamersOf(challenge)) emitTo(streamer.handle ?? "", type, challenge.id, message, extra);
   notifications.onChallengeEvent(type, challenge, message);
 }
 
-function emitTo(handle: string, type: EventType, challengeId: string, message: string): void {
+/** Lines waiting for the QuickNode Stream. Kept in memory: after a restart they are simply not shown. */
+const heldEvents = ((globalThis as { __pottedHeld?: StreamEvent[] }).__pottedHeld ??= []);
+
+/** How long a line waits for the Stream before it is shown anyway. */
+export const HOLD_MS = 12_000;
+
+function emitTo(handle: string, type: EventType, challengeId: string, message: string, extra: EventExtra = {}): void {
   const state = db();
-  const event: StreamEvent = { seq: ++state.seq, at: Date.now(), type, handle, challengeId, message };
+  const { hold, ...rest } = extra;
+  const event: StreamEvent = { seq: 0, at: Date.now(), type, handle, challengeId, message, ...rest };
+  if (hold && event.chain) {
+    heldEvents.push(event);
+    return;
+  }
+  publish(event);
+}
+
+function publish(event: StreamEvent): void {
+  const state = db();
+  event.seq = ++state.seq;
   state.events.push(event);
   if (state.events.length > 500) state.events.splice(0, state.events.length - 500);
+}
+
+/** The QuickNode Stream delivered this transaction: put its held lines on the overlay, stamped with when it arrived. */
+export function releaseChainEvents(signature: string, streamAt = Date.now()): number {
+  let released = 0;
+  for (let i = 0; i < heldEvents.length; ) {
+    const event = heldEvents[i]!;
+    if (event.chain?.signature === signature) {
+      heldEvents.splice(i, 1);
+      event.chain = { ...event.chain, streamAt };
+      publish(event);
+      released++;
+    } else i++;
+  }
+  if (released) save();
+  return released;
+}
+
+/** Lines the Stream never delivered go on screen anyway after a short wait, without a speed. */
+export function releaseStaleEvents(now = Date.now()): void {
+  let released = 0;
+  for (let i = 0; i < heldEvents.length; ) {
+    if (now - heldEvents[i]!.at >= HOLD_MS) {
+      publish(heldEvents.splice(i, 1)[0]!);
+      released++;
+    } else i++;
+  }
+  if (released) save();
+}
+
+/** Whether pledge lines wait for the QuickNode Stream: only on Solana, with a Stream set up. */
+export function streamsCarryPledges(): boolean {
+  // Tests run on the simulated ledger and exercise the hold with a fake Stream.
+  return Boolean(process.env.QUICKNODE_WEBHOOK_SECRET) && (ledger().kind === "solana" || process.env.VITEST === "true");
 }
 
 /** A stream-wide line on a climber's overlay, not tied to a challenge. */
@@ -262,9 +368,11 @@ export async function updateSettings(actor: User, input: Partial<Record<keyof St
     .filter((word) => word.length >= 2 && word.length <= 30)
     .slice(0, 50);
   // Settings saved before voices existed carry no voice; keep the current one.
-  const voice = (input.voice ?? settingsOf(actor).voice) as VoiceKey;
-  if (!VOICES.some((v) => v.key === voice)) fail("Unknown announcer voice");
   const current = settingsOf(actor);
+  const voice = (input.voice ?? current.voice) as VoiceKey | "own";
+  if (voice === "own" ? !current.ownVoice : !VOICES.some((v) => v.key === voice)) fail(voice === "own" ? "Clone your voice before choosing it" : "Unknown announcer voice");
+  const language = input.language === undefined ? current.language : String(input.language);
+  if (!LANGUAGES.some((l) => l.code === language)) fail("Unknown announcer language");
   const causeOn = input.causeOn === undefined ? current.causeOn : input.causeOn === true;
   const causeName = input.causeName === undefined ? current.causeName : String(input.causeName).trim().replace(/\s+/g, " ");
   const causeUrl = input.causeUrl === undefined ? current.causeUrl : String(input.causeUrl).trim();
@@ -284,10 +392,15 @@ export async function updateSettings(actor: User, input: Partial<Record<keyof St
   };
   const twitchChannel = channel(input.twitchChannel, current.twitchChannel);
   const youtubeChannel = channel(input.youtubeChannel, current.youtubeChannel);
+  const kickChannel = channel(input.kickChannel, current.kickChannel);
   for (const other of listStreamers()) {
     if (other.id === actor.id) continue;
     const theirs = settingsOf(other);
-    if ((twitchChannel && theirs.twitchChannel === twitchChannel) || (youtubeChannel && theirs.youtubeChannel === youtubeChannel)) {
+    if (
+      (twitchChannel && theirs.twitchChannel === twitchChannel) ||
+      (youtubeChannel && theirs.youtubeChannel === youtubeChannel) ||
+      (kickChannel && theirs.kickChannel === kickChannel)
+    ) {
       fail("Another climber has already linked that channel");
     }
   }
@@ -295,6 +408,7 @@ export async function updateSettings(actor: User, input: Partial<Record<keyof St
     acceptingBounties: input.acceptingBounties === undefined ? current.acceptingBounties : input.acceptingBounties === true,
     twitchChannel,
     youtubeChannel,
+    kickChannel,
     causeOn,
     causeName,
     causeUrl,
@@ -303,6 +417,8 @@ export async function updateSettings(actor: User, input: Partial<Record<keyof St
     minPledgeUsd,
     announcer: input.announcer === true,
     voice,
+    ownVoice: current.ownVoice,
+    language,
     overlayPosition: position,
     overlayCards: Number(input.overlayCards) === 1 ? 1 : 2,
     // Absent in settings saved before the QR existed; keep the current value then.
@@ -572,9 +688,20 @@ export async function pledge(actor: User, challengeId: string, amountUsd: number
   if (amountMicro < minMicro) fail(`The smallest pledge on this stream is ${formatUsd(minMicro)}`);
 
   const tx = await ledger().pledge(challenge, actor.wallet, amountMicro);
+  const record = applyPledge(challenge, actor, amountMicro, tx, { confirmedAt: Date.now(), hold: streamsCarryPledges() });
+  save();
+  return record;
+}
+
+/**
+ * Books a pledge that is already on the ledger and announces it. On Solana
+ * the lines carry the transaction, so the overlay can show how fast the
+ * QuickNode Stream got it on screen.
+ */
+function applyPledge(challenge: Challenge, actor: User, amountMicro: number, tx: string, timing: { confirmedAt: number; streamAt?: number; hold?: boolean }): Pledge {
   const record: Pledge = {
     id: newId("p"),
-    challengeId,
+    challengeId: challenge.id,
     userId: actor.id,
     amountMicro,
     refunded: false,
@@ -583,13 +710,47 @@ export async function pledge(actor: User, challengeId: string, amountUsd: number
   };
   db().pledges.push(record);
   const before = growthOf(challenge.totalMicro, challenge.goalMicro).index;
+  const ratioBefore = challenge.goalMicro > 0 ? challenge.totalMicro / challenge.goalMicro : 0;
   challenge.totalMicro += amountMicro;
-  emit("pledged", challenge, `${actor.name} added ${formatUsd(amountMicro)}. The pot is at ${formatUsd(challenge.totalMicro)}.`);
+  const onChain = !isSimTx(tx);
+  const chain = onChain ? { signature: tx, confirmedAt: timing.confirmedAt, ...(timing.streamAt ? { streamAt: timing.streamAt } : {}) } : undefined;
+  const extra: EventExtra = chain ? { chain, hold: Boolean(timing.hold) && !timing.streamAt } : {};
+  emit("pledged", challenge, `${actor.name} added ${formatUsd(amountMicro)}. The pot is at ${formatUsd(challenge.totalMicro)}.`, extra);
   // One line for the highest stage this pledge reached, so a big pledge
-  // that jumps two stages is announced once.
+  // that jumps two stages is announced once. Crossing half way or the goal
+  // also plays a sound effect before the line.
   const after = growthOf(challenge.totalMicro, challenge.goalMicro).index;
+  const ratioAfter = challenge.goalMicro > 0 ? challenge.totalMicro / challenge.goalMicro : 0;
+  const sfx = ratioBefore < 1 && ratioAfter >= 1 ? "goal" : ratioBefore < 0.5 && ratioAfter >= 0.5 ? "half" : undefined;
   const line = after > before ? (isOpenPot(challenge) ? OPEN_POT_LINES : MILESTONE_LINES)[after] : undefined;
-  if (line) emit("milestone", challenge, line(challenge));
+  if (line) emit("milestone", challenge, line(challenge), { ...extra, ...(sfx ? { sfx } : {}) });
+  else if (sfx === "half") emit("milestone", challenge, `Half way there! ${formatUsd(challenge.totalMicro)} of ${formatUsd(challenge.goalMicro)}.`, { ...extra, sfx });
+  return record;
+}
+
+/** Shortens a wallet address for a name: "7xKX…3fAq". */
+export function walletName(address: string): string {
+  return `${address.slice(0, 4)}…${address.slice(-4)}`;
+}
+
+/**
+ * A pledge someone signed with their own wallet, from a Solana Action
+ * (Blink) on X or anywhere else. It is already in escrow on chain; this
+ * books it once, under a planter account tied to that wallet, whether the
+ * wallet's confirmation call or the QuickNode Stream reports it first.
+ */
+export function recordWalletPledge(input: { challengeAccount: string; wallet: string; amountMicro: number; signature: string; confirmedAt: number; streamAt?: number }): Pledge | undefined {
+  if (db().pledges.some((p) => p.tx === input.signature)) return undefined;
+  const challenge = db().challenges.find((c) => c.ledgerRef && chainAccountOf(c.ledgerRef) === input.challengeAccount);
+  if (!challenge) return undefined;
+  let fan = db().users.find((u) => u.wallet === input.wallet);
+  if (!fan) {
+    fan = { id: newId("u"), name: walletName(input.wallet), role: "fan", wallet: input.wallet, createdAt: Date.now(), onboarded: false };
+    db().users.push(fan);
+  }
+  if (fan.role !== "fan") return undefined;
+  // From the Stream the pledge is shown as it arrives; from the wallet's call it waits briefly for the Stream.
+  const record = applyPledge(challenge, fan, input.amountMicro, input.signature, { confirmedAt: input.confirmedAt, streamAt: input.streamAt, hold: !input.streamAt && streamsCarryPledges() });
   save();
   return record;
 }
@@ -682,8 +843,8 @@ export function recapFacts(streamer: User, now = Date.now()): RecapFacts {
 /** Sends the recap to the overlay, where the announcer reads it. Grok drafts it when a key is set. */
 export async function announceRecap(actor: User, deps: CoordinatorDeps = coordinatorDeps()): Promise<string> {
   if (actor.role !== "streamer" || !actor.handle) fail("Only a streamer can read the recap");
-  const { text } = await draftRecap(recapFacts(actor), recapText(actor), deps);
-  emitTo(actor.handle, "recap", "", text);
+  const { text, source } = await draftRecap(recapFacts(actor), recapText(actor), deps);
+  emitTo(actor.handle, "recap", "", text, source === "grok" ? { by: "grok" } : {});
   save();
   return text;
 }
@@ -1179,6 +1340,8 @@ export interface StreamListing {
   planters: number;
   charity: boolean;
   collab: boolean;
+  /** The stream they said they started, if any. */
+  session?: LiveSession;
 }
 
 const isLive = (c: Challenge) => c.status === "open" || c.status === "locked";
@@ -1208,6 +1371,7 @@ export function liveStreams(gameId?: string): StreamListing[] {
       planters: new Set(db().pledges.filter((p) => ids.has(p.challengeId)).map((p) => p.userId)).size,
       charity: challenges.some((c) => c.splits?.some((s) => s.kind === "cause")),
       collab: challenges.some((c) => c.splits?.some((s) => s.kind === "guest")),
+      ...(liveSessionOf(streamer) ? { session: liveSessionOf(streamer) } : {}),
     });
   }
   return listings.sort((a, b) => b.potMicro - a.potMicro || b.planters - a.planters);
@@ -1740,4 +1904,41 @@ export function payoutsFor(streamer: User, limit = 40): { rows: PayoutRow[]; tot
   }
   rows.sort((a, b) => b.at - a.at);
   return { rows: rows.slice(0, limit), totalMicro: rows.reduce((sum, r) => sum + r.amountMicro, 0) };
+}
+
+// ---------------------------------------------------------------------------
+// The streamer's own announcer voice
+// ---------------------------------------------------------------------------
+
+/** Saves a voice cloned from the streamer's own recordings and makes it the announcer. Needs their consent, recorded with the time. */
+export function setOwnVoice(actor: User, voiceId: string, consent: boolean, now = Date.now()): StreamSettings {
+  if (actor.role !== "streamer") fail("Only a streamer can set an announcer voice");
+  if (!consent) fail("Confirm that the recordings are your own voice and that you agree to cloning it");
+  actor.settings = { ...settingsOf(actor), ownVoice: { id: voiceId, consentAt: now }, voice: "own" };
+  save();
+  return settingsOf(actor);
+}
+
+/** Forgets the streamer's cloned voice and goes back to a stock voice. Returns the id to delete on ElevenLabs. */
+export function clearOwnVoice(actor: User): string | undefined {
+  if (actor.role !== "streamer") fail("Only a streamer can change the announcer voice");
+  const current = settingsOf(actor);
+  const id = current.ownVoice?.id;
+  actor.settings = { ...current, ownVoice: null, voice: current.voice === "own" ? "george" : current.voice };
+  save();
+  return id;
+}
+
+/** Why a wallet's pledge (from a Blink) would be refused, by the same rules as a pledge on the site; undefined if it is fine. */
+export function walletPledgeProblem(challenge: Challenge, wallet: string, amountMicro: number): string | undefined {
+  const fan = db().users.find((u) => u.wallet === wallet);
+  if (fan && fan.role !== "fan") return "This wallet belongs to a streamer or keeper account";
+  const already = fan ? db().pledges.filter((p) => p.challengeId === challenge.id && p.userId === fan.id).reduce((sum, p) => sum + p.amountMicro, 0) : 0;
+  const problem = pledgeError(challenge, already, amountMicro, Date.now());
+  if (problem) return problem;
+  if (isOpenPot(challenge) && amountMicro > toMicro(10_000)) return "One pledge can be up to $10,000";
+  const streamer = getUser(challenge.streamerId);
+  const minMicro = toMicro(streamer ? settingsOf(streamer).minPledgeUsd : DEFAULT_SETTINGS.minPledgeUsd);
+  if (amountMicro < minMicro) return `The smallest pledge on this stream is ${formatUsd(minMicro)}`;
+  return undefined;
 }
