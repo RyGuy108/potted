@@ -4150,3 +4150,74 @@ a.card:hover,
 .site-footer {
   border-top: 1px solid var(--wood-line);
 }
+
+/* ------------------------------------------------------------------------
+   Warmth: the base itself leans warm (dark walnut black, stone greys,
+   faintly wood-tinted dividers) so the wood accents belong to the page
+   rather than sitting on cold black.
+   ------------------------------------------------------------------------ */
+:root {
+  --bg: #0c0a08;
+  --bg-raise: #120f0c;
+  --glass: #161310;
+  --glass-strong: #1e1a16;
+  --line: rgba(255, 236, 214, 0.11);
+  --line-strong: rgba(255, 236, 214, 0.2);
+  --ink: #faf7f2;
+  --muted: #aaa298;
+  --faint: #7a7167;
+}
+
+.site-header {
+  background: rgba(12, 10, 8, 0.84);
+  border-bottom-color: rgba(180, 135, 90, 0.22);
+}
+
+input,
+select,
+textarea {
+  background: #0f0d0a;
+}
+
+/* Dividers in lists and accordions carry a hint of wood. */
+.steps-list,
+.steps-list li,
+.accordion,
+.accordion details,
+.closing,
+.table-row,
+.queue li {
+  border-color: rgba(180, 135, 90, 0.2);
+}
+
+/* Secondary controls pick up the wood on hover; primary stays white. */
+.btn-ghost:hover:not(:disabled),
+.tab:hover:not([aria-selected="true"]):not(.tab-on) {
+  border-color: var(--wood-line);
+  background: var(--wood-soft);
+}
+
+.btn-primary {
+  background: var(--ink);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #ece5da;
+}
+
+/* Quiet tags lean warm too. */
+.tag,
+.tag-quiet {
+  border-color: rgba(180, 135, 90, 0.28);
+}
+
+/* The example pot on the marketing page sits on a wooden base. */
+.preview {
+  border-bottom: 3px solid var(--wood-deep);
+}
+
+.bell-panel,
+.bell-toast,
+.bell-head {
+  background: #1a1612;
+}
