@@ -2847,3 +2847,13 @@ a.card.role {
   height: 100%;
   object-fit: cover;
 }
+
+.more-accounts {
+  margin-top: 14px;
+}
+
+.more-accounts summary {
+  cursor: pointer;
+  color: var(--muted, #9db0cc);
+  margin-bottom: 10px;
+}

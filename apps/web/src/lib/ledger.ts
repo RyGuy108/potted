@@ -1,5 +1,6 @@
 import type { Challenge, Evidence } from "@potted/core";
 import { SolanaLedger } from "./solana-ledger";
+import { ensureTestAccounts } from "./test-accounts";
 import { db, newId, save } from "./store";
 
 /**
@@ -123,7 +124,10 @@ let solana: SolanaLedger | undefined;
  */
 export function ledger(): Ledger {
   const mode = process.env.POTTED_LEDGER ?? "sim";
-  if (mode === "sim") return sim;
+  if (mode === "sim") {
+    ensureTestAccounts(sim);
+    return sim;
+  }
   if (mode !== "solana") throw new Error(`Unknown POTTED_LEDGER "${mode}". Use "sim" or "solana".`);
   if (!solana) {
     solana = new SolanaLedger();
@@ -143,6 +147,7 @@ export function ledger(): Ledger {
     }
     if (changed) save();
   }
+  ensureTestAccounts(solana);
   return solana;
 }
 

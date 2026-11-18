@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import { type DemoAccount, DemoAccounts } from "@/components/DemoAccounts";
 import { ProviderButtons } from "@/components/ProviderButtons";
 import { SAMPLE_SIGN_INS } from "@/lib/sample-data";
+import { ledger } from "@/lib/ledger";
 import { getUser } from "@/lib/service";
+import { TEST_ACCOUNTS } from "@/lib/test-accounts";
 import { currentUser } from "@/lib/session";
 import { DEMO_GUEST_ID, DEMO_STREAMER_ID } from "@/lib/store";
 
@@ -20,6 +22,9 @@ const HOME = { streamer: "/dashboard", fan: "/", mod: "/reviews" } as const;
 export default async function Login({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   if (await currentUser()) redirect("/");
   const { error } = await searchParams;
+  // Make sure the test accounts exist before listing them.
+  ledger();
+  const testing: DemoAccount[] = TEST_ACCOUNTS.filter((t) => getUser(t.id)).map((t) => ({ id: t.id, label: t.name, note: t.note, group: GROUP[t.role], home: HOME[t.role] }));
   const demo: DemoAccount[] = [
     { id: DEMO_STREAMER_ID, label: "Ryan", note: "Demo climber", group: GROUP.streamer, home: HOME.streamer },
     { id: DEMO_GUEST_ID, label: "Kai", note: "Demo climber, for collabs", group: GROUP.streamer, home: HOME.streamer },
@@ -44,9 +49,15 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
         <div className="signin-ways">
           <ProviderButtons />
           <div className="divider">
-            <span>or use a demo account</span>
+            <span>or use a test account</span>
           </div>
-          <DemoAccounts accounts={demo} />
+          <DemoAccounts accounts={testing} />
+          {demo.length > 0 && (
+            <details className="more-accounts">
+              <summary>More demo accounts (Ryan, Kai and the sample)</summary>
+              <DemoAccounts accounts={demo} />
+            </details>
+          )}
         </div>
       </section>
     </div>

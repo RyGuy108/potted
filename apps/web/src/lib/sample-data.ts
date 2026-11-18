@@ -34,10 +34,7 @@ export const isSampleId = (id: string | undefined) => !!id && id.includes(SAMPLE
 export const SAMPLE_SIGN_INS: { id: string; label: string; role: Role; note: string }[] = [
   { id: "u_s_juniper", label: "Juniper", role: "streamer", note: "Climber with a disputed clip live" },
   { id: "u_s_maya", label: "Maya", role: "fan", note: "Planter with six weeks of history" },
-  { id: "u_s_tester1", label: "Tester One", role: "fan", note: "Fresh planter, $50 test USDC" },
-  { id: "u_s_tester2", label: "Tester Two", role: "fan", note: "Fresh planter, $50 test USDC" },
   { id: "u_s_hazel", label: "Hazel", role: "mod", note: "Keeper with past rulings" },
-  { id: "u_s_keeper", label: "Keeper Test", role: "mod", note: "Fresh keeper" },
 ];
 
 interface StreamerSpec {
@@ -243,9 +240,6 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
     users.push({ id: planterId(name), name, role: "fan", wallet: `sim:${planterId(name)}`, createdAt: joined(name === "Maya" ? 52 : r.int(10, 50)) });
   }
   for (const k of KEEPERS) users.push({ id: k.id, name: k.name, role: "mod", wallet: `sim:${k.id}`, createdAt: joined(r.int(45, 60)) });
-  users.push({ id: "u_s_tester1", name: "Tester One", role: "fan", wallet: "sim:u_s_tester1", createdAt: now - 2 * DAY });
-  users.push({ id: "u_s_tester2", name: "Tester Two", role: "fan", wallet: "sim:u_s_tester2", createdAt: now - 2 * DAY });
-  users.push({ id: "u_s_keeper", name: "Keeper Test", role: "mod", wallet: "sim:u_s_keeper", createdAt: now - 2 * DAY });
 
   const everyone = [...existing, ...users];
   const nameOf = (uid: string) => everyone.find((u) => u.id === uid)?.name ?? "A climber";
@@ -518,7 +512,7 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
   // Simulated-ledger balances: climbers hold what they earned, planters some change.
   const balances: Record<string, number> = {};
   for (const u of users) {
-    if (u.role === "fan" && !u.id.startsWith("u_s_tester")) balances[u.wallet] = usd(r.int(6, 60));
+    if (u.role === "fan") balances[u.wallet] = usd(r.int(6, 60));
     if (u.role === "streamer") {
       let earned = 0;
       for (const c of challenges) {

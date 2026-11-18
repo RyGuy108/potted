@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import * as service from "@/lib/service";
 import { currentUser, endSession, startSession } from "@/lib/session";
 import { SAMPLE_SIGN_INS } from "@/lib/sample-data";
+import { isTestAccount } from "@/lib/test-accounts";
 import * as scouting from "@/lib/scout";
 import * as points from "@/lib/points";
 import { DEMO_GUEST_ID, DEMO_STREAMER_ID, type Role } from "@/lib/store";
@@ -48,7 +49,7 @@ export async function useDemoStreamerAction(): Promise<ActionResult> {
 /** Signs in to one of the demo's ready-made accounts. Only listed accounts can be used this way. */
 export async function useDemoAccountAction(id: string): Promise<ActionResult> {
   return run(async () => {
-    const allowed = id === DEMO_STREAMER_ID || id === DEMO_GUEST_ID || SAMPLE_SIGN_INS.some((s) => s.id === id);
+    const allowed = id === DEMO_STREAMER_ID || id === DEMO_GUEST_ID || SAMPLE_SIGN_INS.some((s) => s.id === id) || isTestAccount(id);
     if (!allowed || !service.getUser(id)) throw new Error("That demo account is not loaded");
     await startSession(id);
   });

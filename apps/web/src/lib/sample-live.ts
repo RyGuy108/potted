@@ -92,8 +92,6 @@ export async function addSampleLive({ minutes, log = () => {} }: LiveOptions): P
   for (const plan of plans) for (const [fan, amount] of plan.pledges) needs.set(fan, (needs.get(fan) ?? 0) + amount);
   for (const fan of [p("noor"), p("benji"), p("chloe.mp4"), p("samwise"), p("tess"), p("omar.gg")]) needs.set(fan, (needs.get(fan) ?? 0) + 20);
   needs.set(p("Maya"), (needs.get(p("Maya")) ?? 0) + 30);
-  needs.set("u_s_tester1", 50);
-  needs.set("u_s_tester2", 50);
   const L = ledger();
   for (const [fan, usd] of needs) {
     await step(() => L.faucet(user(fan).wallet, Math.round(usd * 1_000_000)));

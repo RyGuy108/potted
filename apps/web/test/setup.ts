@@ -4,3 +4,6 @@ import path from "node:path";
 
 // Each test worker gets its own data folder, so parallel test files never share a store file.
 process.env.POTTED_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "potted-test-"));
+
+// The hand-testing accounts would change user counts the tests check.
+process.env.POTTED_TEST_ACCOUNTS = "off";

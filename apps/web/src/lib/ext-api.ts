@@ -4,6 +4,7 @@ import * as service from "./service";
 import { extToken, readExtToken } from "./session";
 import { pointsConfig, pointsOf, redeem } from "./points";
 import { SAMPLE_SIGN_INS } from "./sample-data";
+import { TEST_ACCOUNTS } from "./test-accounts";
 import { twitchChannel } from "./twitch";
 import { DEMO_GUEST_ID, DEMO_STREAMER_ID, type User } from "./store";
 import { POT_FIELDS, conditionFromFields, termFields } from "./terms";
@@ -89,7 +90,9 @@ async function route(method: string, path: string[], query: URLSearchParams, bod
         potFields: POT_FIELDS,
         rehearsal: service.simulatedResultsAllowed(),
         // Ready-made planters from the demo sample, when it is loaded.
-        samples: SAMPLE_SIGN_INS.filter((s) => s.role === "fan" && service.getUser(s.id)).map((s) => ({ id: s.id, label: s.label, note: s.note })),
+        samples: [...TEST_ACCOUNTS.map((t) => ({ id: t.id, label: t.name, role: t.role, note: t.note })), ...SAMPLE_SIGN_INS]
+          .filter((s) => s.role === "fan" && service.getUser(s.id))
+          .map((s) => ({ id: s.id, label: s.label, note: s.note })),
       });
 
     case "POST demo": {
@@ -102,7 +105,7 @@ async function route(method: string, path: string[], query: URLSearchParams, bod
             ? service.getUser(DEMO_GUEST_ID)
             : as === "planter"
               ? await service.signIn(String(body.name ?? ""), "fan")
-              : SAMPLE_SIGN_INS.some((s) => s.id === as && s.role === "fan")
+              : [...SAMPLE_SIGN_INS, ...TEST_ACCOUNTS].some((s) => s.id === as && s.role === "fan")
                 ? service.getUser(as)
                 : undefined;
       if (!who) fail(400, "Unknown demo account");
