@@ -47,7 +47,10 @@ function viewOf(challenge: Challenge, viewer: User | undefined) {
     needsClip: clip && challenge.status === "locked" && !challenge.claim,
     clipPosted: Boolean(challenge.claim),
     note: challenge.verdict?.reason ?? null,
-    splits: (challenge.splits ?? []).map((s) => `${s.kind === "guest" ? "Collab with" : "For"} ${s.name} · ${s.pct}%`),
+    splits: [
+      ...(challenge.splits ?? []).map((s) => `${s.kind === "guest" ? "Collab with" : "For"} ${s.name} · ${s.pct}%`),
+      ...(challenge.upfrontPct ? [`${challenge.upfrontPct}% paid when the attempt starts; the rest only on completion`] : []),
+    ],
   };
 }
 
@@ -147,6 +150,7 @@ async function route(method: string, path: string[], query: URLSearchParams, bod
         goalUsd: Number(fields.goalUsd),
         pledgeCapUsd: Number(fields.pledgeCapUsd),
         minutes: Number(fields.minutes),
+        upfrontPct: Number(fields.upfrontPct ?? 0),
       });
       return ok(viewOf(created, me));
     }

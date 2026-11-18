@@ -95,6 +95,7 @@ export async function createChallengeAction(
       goalUsd: Number(input.goalUsd),
       pledgeCapUsd: Number(input.pledgeCapUsd),
       minutes: Number(input.minutes),
+      upfrontPct: Number(input.upfrontPct ?? 0),
     });
     if (fromSuggestionId) await service.resolveSuggestion(user, String(fromSuggestionId), "used");
   });

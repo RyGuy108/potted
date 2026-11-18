@@ -159,6 +159,7 @@ export class SolanaLedger implements Ledger {
         seconds(challenge.deadline),
         seconds(challenge.settleBy),
         new BN(challenge.pledgeCapMicro),
+        challenge.upfrontPct ?? 0,
       )
       .accountsPartial({
         payer: this.server.publicKey,
@@ -191,9 +192,28 @@ export class SolanaLedger implements Ledger {
       .rpc();
   }
 
-  async lock(challenge: Challenge): Promise<string> {
+  /** The program pays the up-front share to the host; guest and cause shares follow from the host. */
+  async lock(challenge: Challenge, upfront: Payout[]): Promise<string> {
+    const { streamer, account, vault } = this.accountsFor(challenge);
+    for (const p of upfront) new PublicKey(p.wallet);
+    const streamerToken = await this.ensureTokenAccount(streamer.toBase58());
     // The program accepts the verifier as well as the streamer here.
-    return this.program.methods.lock().accountsPartial({ authority: this.server.publicKey, challenge: this.accountsFor(challenge).account }).rpc();
+    const tx = await this.program.methods.lock().accountsPartial({ authority: this.server.publicKey, challenge: account, vault, streamerToken }).rpc();
+    await this.sendShares(streamer, streamerToken, upfront);
+    return tx;
+  }
+
+  /** Sends guest and cause shares out of the host's wallet after the program has paid the host. */
+  private async sendShares(host: PublicKey, hostToken: PublicKey, payouts: Payout[]): Promise<void> {
+    const shares = payouts.filter((p) => p.wallet !== host.toBase58() && p.amountMicro > 0);
+    if (shares.length === 0) return;
+    const transfer = new Transaction();
+    for (const share of shares) {
+      const to = await this.ensureTokenAccount(share.wallet);
+      transfer.add(createTransferInstruction(hostToken, to, host, share.amountMicro));
+    }
+    transfer.feePayer = this.server.publicKey;
+    await sendAndConfirmTransaction(this.connection, transfer, [this.server, this.signer(host.toBase58())], { commitment: "confirmed" });
   }
 
   /**
@@ -214,25 +234,14 @@ export class SolanaLedger implements Ledger {
       .settle(success, evidenceRef, sha256(JSON.stringify(evidence ?? null)))
       .accountsPartial({ verifier: this.server.publicKey, challenge: account, vault, streamerToken })
       .rpc();
-    if (!success) return tx;
-
-    const host = streamer.toBase58();
-    const shares = payouts.filter((p) => p.wallet !== host && p.amountMicro > 0);
-    if (shares.length === 0) return tx;
-    const transfer = new Transaction();
-    for (const share of shares) {
-      const to = await this.ensureTokenAccount(share.wallet);
-      transfer.add(createTransferInstruction(streamerToken, to, streamer, share.amountMicro));
-    }
-    transfer.feePayer = this.server.publicKey;
-    await sendAndConfirmTransaction(this.connection, transfer, [this.server, this.signer(host)], { commitment: "confirmed" });
+    if (success) await this.sendShares(streamer, streamerToken, payouts);
     return tx;
   }
 
   /**
-   * The program refunds a fan's whole pledge at once, while the app keeps
-   * one record per pledge. The first call refunds everything; later calls
-   * for the same fan find it already done and return a marker.
+   * The program refunds a fan's whole pledge at once (less their share of
+   * anything paid up front, which it works out itself). The app calls this
+   * once per fan; a repeat finds it already done and returns a marker.
    */
   async refund(challenge: Challenge, fanWallet: string): Promise<string> {
     const { account, vault } = this.accountsFor(challenge);

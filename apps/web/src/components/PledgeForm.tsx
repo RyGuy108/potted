@@ -6,7 +6,7 @@ import { pledgeAction } from "@/app/actions";
 
 const QUICK = [1, 2, 5];
 
-export function PledgeForm({ challengeId, remainingUsd }: { challengeId: string; remainingUsd: number }) {
+export function PledgeForm({ challengeId, remainingUsd, upfrontPct = 0 }: { challengeId: string; remainingUsd: number; upfrontPct?: number }) {
   const router = useRouter();
   const [custom, setCustom] = useState("");
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -16,7 +16,9 @@ export function PledgeForm({ challengeId, remainingUsd }: { challengeId: string;
     setMessage(null);
     start(async () => {
       const result = await pledgeAction(challengeId, amount);
-      setMessage(result.ok ? { ok: true, text: `You added $${amount}. It comes back if the challenge fails.` } : { ok: false, text: result.error });
+      setMessage(result.ok ? { ok: true, text: upfrontPct > 0
+              ? `You added $${amount}. If the challenge is missed, the ${100 - upfrontPct}% not paid up front comes back.`
+              : `You added $${amount}. It comes back if the challenge fails.` } : { ok: false, text: result.error });
       if (result.ok) setCustom("");
       router.refresh();
     });

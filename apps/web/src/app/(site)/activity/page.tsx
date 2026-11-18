@@ -16,7 +16,7 @@ function describe(event: ChainEvent): string {
     case "Pledged":
       return `${short(String(f.fan))} pledged ${formatUsd(Number(f.amount))}; pot at ${formatUsd(Number(f.totalPledged))}`;
     case "Locked":
-      return `Pledging closed with ${formatUsd(Number(f.totalPledged))} in the pot`;
+      return `Pledging closed with ${formatUsd(Number(f.totalPledged))} in the pot${Number(f.upfrontPaid) > 0 ? `; ${formatUsd(Number(f.upfrontPaid))} paid up front` : ""}`;
     case "Cancelled":
       return `Cancelled by the streamer; ${formatUsd(Number(f.totalPledged))} open for refunds`;
     case "Settled":

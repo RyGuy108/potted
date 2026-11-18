@@ -96,3 +96,20 @@ describe("payout splits", () => {
     expect(splitsError([guest(60), guest(40)])).toContain("90%");
   });
 });
+
+describe("up-front share", () => {
+  it("pays up front rounded down and keeps on refund rounded up, so the vault always covers refunds", async () => {
+    const { upfrontOf, keptOnRefund } = await import("../src/challenge");
+    expect(upfrontOf(1_000_004, 25)).toBe(250_001);
+    expect(keptOnRefund(1_000_001, 25)).toBe(250_001);
+    expect(keptOnRefund(3, 25)).toBe(1);
+    // For any split of a pot among fans, refunds never exceed what is left.
+    for (const pledges of [[1, 1, 1], [3, 1_000_001], [7, 9, 11, 13], [5_000_000]]) {
+      for (const pct of [10, 25, 33, 50]) {
+        const total = pledges.reduce((a, b) => a + b, 0);
+        const refunds = pledges.reduce((sum, p) => sum + p - keptOnRefund(p, pct), 0);
+        expect(refunds).toBeLessThanOrEqual(total - upfrontOf(total, pct));
+      }
+    }
+  });
+});

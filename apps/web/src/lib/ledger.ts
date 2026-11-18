@@ -15,7 +15,8 @@ export interface Ledger {
   balanceOf(wallet: string): Promise<number>;
   createChallenge(challenge: Challenge, streamerWallet: string): Promise<{ ref: string; tx: string }>;
   pledge(challenge: Challenge, fanWallet: string, amountMicro: number): Promise<string>;
-  lock(challenge: Challenge): Promise<string>;
+  /** Closes pledging. Pays the up-front share out as listed, if there is one. */
+  lock(challenge: Challenge, upfront: Payout[]): Promise<string>;
   /**
    * Success pays the pot out as listed; the amounts must add up to the
    * pot. Failure pays no one and only opens refunds.
@@ -81,7 +82,8 @@ class SimLedger implements Ledger {
     return this.move(fanWallet, this.vault(challenge), amountMicro);
   }
 
-  async lock() {
+  async lock(challenge: Challenge, upfront: Payout[]) {
+    for (const p of upfront) if (p.amountMicro > 0) this.move(this.vault(challenge), p.wallet, p.amountMicro);
     return newId("sim-tx");
   }
 

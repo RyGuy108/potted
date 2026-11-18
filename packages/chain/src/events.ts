@@ -5,7 +5,7 @@ import { base58 } from "./base58";
 const LAYOUTS = {
   ChallengeCreated: [["challenge", "pubkey"], ["streamer", "pubkey"], ["id", "u64"], ["deadline", "i64"], ["settleBy", "i64"]],
   Pledged: [["challenge", "pubkey"], ["fan", "pubkey"], ["amount", "u64"], ["totalPledged", "u64"]],
-  Locked: [["challenge", "pubkey"], ["totalPledged", "u64"]],
+  Locked: [["challenge", "pubkey"], ["totalPledged", "u64"], ["upfrontPaid", "u64"]],
   Cancelled: [["challenge", "pubkey"], ["totalPledged", "u64"]],
   Settled: [["challenge", "pubkey"], ["success", "bool"], ["paidOut", "u64"], ["evidenceRef", "string"]],
   Refunded: [["challenge", "pubkey"], ["fan", "pubkey"], ["amount", "u64"]],

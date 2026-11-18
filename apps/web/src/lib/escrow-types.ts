@@ -15,12 +15,6 @@ export type Escrow = {
   "instructions": [
     {
       "name": "cancel",
-      "docs": [
-        "Reports the result. Works exactly once, and only until `settle_by`,",
-        "so a late result can never race the timeout refunds.",
-        "The streamer calls the challenge off. It can only ever send money back",
-        "to fans: the status goes to Failed, which opens `refund` for everyone."
-      ],
       "discriminator": [
         232,
         219,
@@ -171,6 +165,10 @@ export type Escrow = {
         {
           "name": "pledgeCap",
           "type": "u64"
+        },
+        {
+          "name": "upfrontPct",
+          "type": "u8"
         }
       ]
     },
@@ -198,6 +196,39 @@ export type Escrow = {
         {
           "name": "challenge",
           "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "challenge"
+              }
+            ]
+          }
+        },
+        {
+          "name": "streamerToken",
+          "docs": [
+            "The streamer's own token account; the up-front share can go nowhere else."
+          ],
+          "writable": true
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         }
       ],
       "args": []
@@ -644,6 +675,11 @@ export type Escrow = {
       "code": 6012,
       "name": "alreadyRefunded",
       "msg": "This pledge was already refunded"
+    },
+    {
+      "code": 6013,
+      "name": "upfrontTooHigh",
+      "msg": "At most half the pot can be paid up front"
     }
   ],
   "types": [
@@ -757,6 +793,20 @@ export type Escrow = {
           {
             "name": "vaultBump",
             "type": "u8"
+          },
+          {
+            "name": "upfrontPct",
+            "docs": [
+              "Share of the pot, 0 to MAX_UPFRONT_PCT, paid to the streamer at lock."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "upfrontPaid",
+            "docs": [
+              "What lock actually paid out up front."
+            ],
+            "type": "u64"
           }
         ]
       }
@@ -800,6 +850,10 @@ export type Escrow = {
           },
           {
             "name": "totalPledged",
+            "type": "u64"
+          },
+          {
+            "name": "upfrontPaid",
             "type": "u64"
           }
         ]

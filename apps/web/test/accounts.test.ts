@@ -325,3 +325,100 @@ describe("bounties", () => {
     await expect(post(ben, 1)).rejects.toThrow("not taking bounties");
   });
 });
+
+describe("up-front share", () => {
+  beforeEach(() => {
+    process.env.POTTED_ALLOW_SIMULATED_RESULTS = "true";
+  });
+  const streamer = () => service.getUser(DEMO_STREAMER_ID)!;
+  const terms = (upfrontPct: number) => ({
+    gameId: "gta6",
+    condition: { kind: "optimistic", game: "GTA VI", statement: "Finish the first heist without getting busted", disputeWindowSecs: 60 },
+    goalUsd: 20,
+    pledgeCapUsd: 10,
+    minutes: 30,
+    upfrontPct,
+  });
+
+  it("pays the share when the attempt starts and the rest on completion", async () => {
+    const maya = await service.signIn("Maya", "fan");
+    const ben = await service.signIn("Ben", "fan");
+    const c = await service.createChallenge(streamer(), terms(50));
+    await service.pledge(maya, c.id, 6);
+    await service.pledge(ben, c.id, 4);
+    await service.lock(streamer(), c.id);
+    expect(c.upfrontPaidMicro).toBe(5_000_000);
+    expect(await service.balanceOf(streamer())).toBe(5_000_000);
+    expect(service.eventsSince("ryan", 0).find((e) => e.type === "locked")!.message).toBe(
+      "Pledging is closed. Ryan got $5 for starting; the other $5 pays out only if they finish.",
+    );
+    await service.simulateResult(streamer(), c.id, true);
+    expect(await service.balanceOf(streamer())).toBe(10_000_000);
+    expect(service.earnedBy(c, streamer().id)).toBe(10_000_000);
+  });
+
+  it("refunds only the part not paid up front on a miss, one refund per fan", async () => {
+    const maya = await service.signIn("Maya", "fan");
+    const c = await service.createChallenge(streamer(), terms(25));
+    await service.pledge(maya, c.id, 3);
+    await service.pledge(maya, c.id, 1);
+    await service.lock(streamer(), c.id);
+    await service.simulateResult(streamer(), c.id, false);
+    // Maya pledged $4; $1 went up front, $3 came back.
+    expect(await service.balanceOf(maya)).toBe(24_000_000);
+    expect(await service.balanceOf(streamer())).toBe(1_000_000);
+    expect(service.gardenOf(maya).returnedMicro).toBe(3_000_000);
+    expect(service.climberStats(streamer())).toMatchObject({ earnedMicro: 1_000_000, refundedMicro: 3_000_000, completed: 0, missed: 1 });
+    expect(service.planterActivity(maya)[0]!.text).toBe("Missed: the part not paid up front came back");
+  });
+
+  it("refunds in full when cancelled before the start, and keeps the share after it", async () => {
+    const maya = await service.signIn("Maya", "fan");
+    const early = await service.createChallenge(streamer(), terms(50));
+    await service.pledge(maya, early.id, 4);
+    await service.cancel(streamer(), early.id);
+    expect(await service.balanceOf(maya)).toBe(25_000_000);
+    const late = await service.createChallenge(streamer(), terms(50));
+    await service.pledge(maya, late.id, 4);
+    await service.lock(streamer(), late.id);
+    await service.cancel(streamer(), late.id);
+    expect(await service.balanceOf(maya)).toBe(23_000_000);
+    expect(await service.balanceOf(streamer())).toBe(2_000_000);
+  });
+
+  it("splits the up-front share with a collab guest and a cause", async () => {
+    const kai = service.getStreamer("kai")!;
+    const maya = await service.signIn("Maya", "fan");
+    await service.updateSettings(streamer(), { ...service.settingsOf(streamer()), causeOn: true, causeName: "Austin Pets Alive", causePct: 20 });
+    const c = (await service.respondInvite(kai, (await service.invite(streamer(), "kai", 30, terms(50))).id, true))!;
+    await service.pledge(maya, c.id, 10);
+    await service.lock(streamer(), c.id);
+    // $5 up front: Kai 30% = $1.50, cause 20% = $1, Ryan the rest = $2.50.
+    expect([await service.balanceOf(streamer()), await service.balanceOf(kai)]).toEqual([2_500_000, 1_500_000]);
+    await service.simulateResult(streamer(), c.id, true);
+    expect([await service.balanceOf(streamer()), await service.balanceOf(kai)]).toEqual([5_000_000, 3_000_000]);
+    expect(service.raisedFor(streamer(), "Austin Pets Alive").raisedMicro).toBe(2_000_000);
+  });
+
+  it("refuses more than half up front", async () => {
+    await expect(service.createChallenge(streamer(), terms(60))).rejects.toThrow("0 to 50");
+    await expect(service.createChallenge(streamer(), terms(12.5))).rejects.toThrow("whole percent");
+  });
+});
+
+describe("up-front share carries over", () => {
+  it("keeps the setting on a rerun", async () => {
+    process.env.POTTED_ALLOW_SIMULATED_RESULTS = "true";
+    const s = service.getUser(DEMO_STREAMER_ID)!;
+    const c = await service.createChallenge(s, {
+      gameId: "gta6",
+      condition: { kind: "optimistic", game: "GTA VI", statement: "Finish the first heist without getting busted", disputeWindowSecs: 60 },
+      goalUsd: 20,
+      pledgeCapUsd: 10,
+      minutes: 30,
+      upfrontPct: 25,
+    });
+    await service.cancel(s, c.id);
+    expect((await service.runAgain(s, c.id)).upfrontPct).toBe(25);
+  });
+});

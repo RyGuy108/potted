@@ -1,6 +1,6 @@
 "use client";
 
-import { conditionFromFields } from "@/lib/terms";
+import { UPFRONT_OPTIONS, conditionFromFields } from "@/lib/terms";
 import { formatUsd, GAMES } from "@potted/core";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -29,6 +29,7 @@ const DEFAULTS: Fields = {
   disputeWindowSecs: "120",
   goalUsd: "20",
   pledgeCapUsd: "10",
+  upfrontPct: "0",
   minutes: "30",
 };
 
@@ -109,6 +110,7 @@ export function CreateChallengeForm({
             condition: conditionFor(gameId, fields),
             goalUsd: Number(fields.goalUsd),
             pledgeCapUsd: Number(fields.pledgeCapUsd),
+            upfrontPct: Number(fields.upfrontPct),
             minutes: Number(fields.minutes),
           };
           const result =
@@ -227,6 +229,22 @@ export function CreateChallengeForm({
         {input("pledgeCapUsd", "Per-fan limit ($)", { inputMode: "decimal", required: true })}
         {input("minutes", "Deadline (minutes from now)", { inputMode: "numeric", required: true })}
       </div>
+
+      <label className="field upfront-field">
+        <span>Paid to you when you start</span>
+        <select value={fields.upfrontPct} onChange={(e) => setFields({ ...fields, upfrontPct: e.target.value })}>
+          {UPFRONT_OPTIONS.map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <span className="muted small">
+          {fields.upfrontPct === "0"
+            ? "The whole pot pays out only if you complete the challenge; a miss refunds every fan in full."
+            : `${fields.upfrontPct}% of the pot comes to you when you press Start attempt. The rest pays out only if you complete it; on a miss, fans get that part back.`}
+        </span>
+      </label>
 
       {partners.length > 0 && suggestion?.kind !== "bounty" && (
         <div className="grid collab-fields">

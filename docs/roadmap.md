@@ -27,6 +27,7 @@ request shows one change. Merge from the top of the list down.
 | 16c | `feat/extension` | Chrome side-panel extension and the JSON API it uses | Done; tested as an unpacked extension in Chrome for Testing |
 | 16d | `feat/bounty-board` | Planters put money on an idea; it becomes a challenge if the climber takes it on, or is refunded on decline or expiry | Done on the simulated ledger |
 | 16e | `feat/solana-ledger` | Real transactions through the escrow program, custodial devnet wallets, sponsored fees, a test USDC faucet, explorer links on receipts | Done; tested on a local validator, not yet on devnet |
+| 16f | `feat/upfront` | Up-front share: up to half the pot goes to the climber when the attempt starts, the rest only on completion | Done; program change tested on a local validator |
 | 17 | `feat/program-splits` | Guest and cause shares paid by the escrow program itself (today the host's custodial wallet sends them after payout) | Touches the program |
 | 17b | `feat/program-bounties` | Bounty money held by the program until a climber takes it on | Touches the program; bounties are refused on Solana until then |
 | 18 | `feat/solana-pay` | Pledge from a QR code or a link (Solana Pay, Blinks) | After 16 |

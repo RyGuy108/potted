@@ -99,6 +99,21 @@ describe.skipIf(!RPC)("Solana ledger against a local validator", () => {
     expect(await ledger.ledger().balanceOf(service.causeWallet("Austin Pets Alive"))).toBe(usd(2));
   }, 120_000);
 
+  it("pays the up-front share on chain at start, and refunds only the rest on a miss", async () => {
+    const lee = await service.signIn("Lee", "fan");
+    const c = await service.createChallenge(service.getStreamer("kai")!, { ...clip("Beat the first boss without healing"), upfrontPct: 50 });
+    const kai = service.getStreamer("kai")!;
+    const kaiBefore = await service.balanceOf(kai);
+    await service.pledge(lee, c.id, 4);
+    await service.pledge(lee, c.id, 3);
+    await service.lock(kai, c.id);
+    expect((await service.balanceOf(kai)) - kaiBefore).toBe(3_500_000);
+    await service.cancel(kai, c.id);
+    // Lee pledged $7, $3.50 went up front, $3.50 came back in one refund.
+    expect(await service.balanceOf(lee)).toBe(usd(25 - 3.5));
+    expect(service.gardenOf(lee).returnedMicro).toBe(3_500_000);
+  }, 120_000);
+
   it("refuses bounties, which are not on chain yet", async () => {
     const zoe = await service.signIn("Zoe", "fan");
     await expect(

@@ -40,6 +40,28 @@ export function SplitLine({ challenge }: { challenge: Challenge }) {
   );
 }
 
+/** Says how much of the pot goes to the streamer at the start, and what that means for a miss. */
+export function UpfrontLine({ challenge, name }: { challenge: Challenge; name?: string }) {
+  const pct = challenge.upfrontPct ?? 0;
+  if (pct === 0) return null;
+  const who = name ?? "the climber";
+  return (
+    <p className="upfront-line small">
+      <span className="tag tag-upfront">{pct}% up front</span>
+      {challenge.upfrontPaidMicro !== undefined ? (
+        <span className="muted">
+          {formatUsd(challenge.upfrontPaidMicro)} went to {who} when the attempt started. The rest pays out only on completion; a miss returns it to
+          fans.
+        </span>
+      ) : (
+        <span className="muted">
+          {pct}% of the pot goes to {who} when the attempt starts. The other {100 - pct}% pays out only if it is completed; on a miss you get that part back.
+        </span>
+      )}
+    </p>
+  );
+}
+
 export function ChallengeCard({ challenge }: { challenge: Challenge }) {
   const growth = growthOf(challenge.totalMicro, challenge.goalMicro);
   const live = challenge.status === "open" || challenge.status === "locked";
@@ -54,6 +76,7 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
         </div>
         <h3>{challenge.title}</h3>
         <SplitLine challenge={challenge} />
+        <UpfrontLine challenge={challenge} />
         <FundingBar challenge={challenge} />
         {live && (
           <p className="muted small">

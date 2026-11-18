@@ -10,7 +10,9 @@ const PROGRAM = "2ppLCjxK534szs3T9o1vw3wW4gD9C6s2Dg5Coe2tqgNV";
 const SECRET = "stream-token";
 const amount = Buffer.alloc(8);
 amount.writeBigUInt64LE(3_000_000n);
-const locked = `Program data: ${Buffer.concat([discriminator("Locked"), Buffer.alloc(32, 7), amount]).toString("base64")}`;
+const upfront = Buffer.alloc(8);
+upfront.writeBigUInt64LE(1_500_000n);
+const locked = `Program data: ${Buffer.concat([discriminator("Locked"), Buffer.alloc(32, 7), amount, upfront]).toString("base64")}`;
 const delivery = JSON.stringify({ data: [{ signature: "sig1", slot: 42, blockTime: 1_800_000_000, logs: [`Program ${PROGRAM} invoke [1]`, locked, `Program ${PROGRAM} success`] }] });
 
 function post(body: string, options: { secret?: string; gzip?: boolean } = {}) {
@@ -34,7 +36,7 @@ describe("QuickNode webhook", () => {
   it("stores signed events once, plain or gzipped", async () => {
     expect(await (await post(delivery)).json()).toEqual({ decoded: 1, stored: 1 });
     expect(await (await post(delivery, { gzip: true })).json()).toEqual({ decoded: 1, stored: 0 });
-    expect(chainEvents()).toMatchObject([{ key: "sig1:0", name: "Locked", slot: 42, fields: { totalPledged: 3_000_000 } }]);
+    expect(chainEvents()).toMatchObject([{ key: "sig1:0", name: "Locked", slot: 42, fields: { totalPledged: 3_000_000, upfrontPaid: 1_500_000 } }]);
   });
 
   it("rejects a wrong signature and refuses to run unconfigured", async () => {

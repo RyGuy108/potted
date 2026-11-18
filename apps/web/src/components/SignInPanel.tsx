@@ -13,7 +13,7 @@ export function SignInPanel({ title = "Sign in to start planting", redirectTo }:
         <h2>{title}</h2>
         <ul className="signin-points">
           <li>No wallet, seed phrase or new password</li>
-          <li>Every pledge comes back if the challenge is missed</li>
+          <li>Missed challenges refund your pledge, less any up-front share shown before you pledge</li>
           <li>Earn levels and badges as your garden grows</li>
         </ul>
       </div>

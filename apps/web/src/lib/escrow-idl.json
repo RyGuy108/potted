@@ -9,12 +9,6 @@
   "instructions": [
     {
       "name": "cancel",
-      "docs": [
-        "Reports the result. Works exactly once, and only until `settle_by`,",
-        "so a late result can never race the timeout refunds.",
-        "The streamer calls the challenge off. It can only ever send money back",
-        "to fans: the status goes to Failed, which opens `refund` for everyone."
-      ],
       "discriminator": [
         232,
         219,
@@ -165,6 +159,10 @@
         {
           "name": "pledge_cap",
           "type": "u64"
+        },
+        {
+          "name": "upfront_pct",
+          "type": "u8"
         }
       ]
     },
@@ -192,6 +190,39 @@
         {
           "name": "challenge",
           "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "challenge"
+              }
+            ]
+          }
+        },
+        {
+          "name": "streamer_token",
+          "docs": [
+            "The streamer's own token account; the up-front share can go nowhere else."
+          ],
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         }
       ],
       "args": []
@@ -638,6 +669,11 @@
       "code": 6012,
       "name": "AlreadyRefunded",
       "msg": "This pledge was already refunded"
+    },
+    {
+      "code": 6013,
+      "name": "UpfrontTooHigh",
+      "msg": "At most half the pot can be paid up front"
     }
   ],
   "types": [
@@ -751,6 +787,20 @@
           {
             "name": "vault_bump",
             "type": "u8"
+          },
+          {
+            "name": "upfront_pct",
+            "docs": [
+              "Share of the pot, 0 to MAX_UPFRONT_PCT, paid to the streamer at lock."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "upfront_paid",
+            "docs": [
+              "What lock actually paid out up front."
+            ],
+            "type": "u64"
           }
         ]
       }
@@ -794,6 +844,10 @@
           },
           {
             "name": "total_pledged",
+            "type": "u64"
+          },
+          {
+            "name": "upfront_paid",
             "type": "u64"
           }
         ]

@@ -179,7 +179,7 @@ export interface Invite {
   /** The guest's whole-percent share of a successful pot. */
   guestPct: number;
   /** The challenge exactly as the host wrote it. */
-  input: { gameId: string; condition: unknown; goalUsd: number; pledgeCapUsd: number; minutes: number };
+  input: { gameId: string; condition: unknown; goalUsd: number; pledgeCapUsd: number; minutes: number; upfrontPct?: number };
   title: string;
   createdAt: number;
   status: "pending" | "accepted" | "declined" | "withdrawn";

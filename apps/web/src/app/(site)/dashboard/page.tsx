@@ -134,6 +134,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                 <p className="muted small">
                   From {getUser(i.hostId)?.name}. You get {i.guestPct}% of the pot if it is completed · goal {formatUsd(i.input.goalUsd * 1_000_000)} ·{" "}
                   {i.input.minutes} minutes once you accept
+                  {i.input.upfrontPct ? ` · ${i.input.upfrontPct}% paid when the attempt starts` : ""}
                 </p>
               </div>
               <div className="row">

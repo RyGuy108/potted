@@ -5,7 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { checkAction, disputeAction, ruleAction } from "@/app/actions";
 import { ActionButton } from "@/components/ActionButton";
-import { FundingBar, SplitLine, StatusPill } from "@/components/ChallengeCard";
+import { FundingBar, SplitLine, StatusPill, UpfrontLine } from "@/components/ChallengeCard";
 import { AutoRefresh, CopyField, Countdown } from "@/components/Live";
 import { Beanstalk } from "@/components/Beanstalk";
 import { PledgeForm } from "@/components/PledgeForm";
@@ -80,7 +80,13 @@ function Receipt({ challenge, hostName }: { challenge: Challenge; hostName: stri
   return (
     <section className={`card receipt ${paid ? "receipt-paid" : "receipt-failed"}`}>
       <p className="eyebrow">Receipt</p>
-      <h3>{paid ? `${formatUsd(challenge.totalMicro)} paid out` : "Every pledge was refunded"}</h3>
+      <h3>
+        {paid
+          ? `${formatUsd(challenge.totalMicro)} paid out`
+          : challenge.upfrontPaidMicro
+            ? `${formatUsd(challenge.upfrontPaidMicro)} was paid up front; the rest went back to fans`
+            : "Every pledge was refunded"}
+      </h3>
       {paid && (
         <dl>
           <dt>{hostName}</dt>
@@ -166,6 +172,7 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
           </div>
           <h1>{challenge.title}</h1>
           <SplitLine challenge={challenge} />
+          <UpfrontLine challenge={challenge} name={streamer?.name} />
           <FundingBar challenge={challenge} />
           {live && (
             <p className="muted">
@@ -178,7 +185,7 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
           {challenge.status === "open" && user?.role === "fan" && (
             <>
               <Wallet user={user} />
-              <PledgeForm challengeId={challenge.id} remainingUsd={toUsd(challenge.pledgeCapMicro - mine)} />
+              <PledgeForm challengeId={challenge.id} remainingUsd={toUsd(challenge.pledgeCapMicro - mine)} upfrontPct={challenge.upfrontPct} />
               {mine > 0 && <p className="muted small">You have {formatUsd(mine)} in this pot.</p>}
             </>
           )}
@@ -252,7 +259,10 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
             {rulesFor(challenge).map((rule) => (
               <li key={rule}>{rule}</li>
             ))}
-            <li>If no result arrives by {clock(challenge.settleBy)}, every pledge is refunded automatically.</li>
+            <li>
+              If no result arrives by {clock(challenge.settleBy)}, {challenge.upfrontPct ? `the ${100 - challenge.upfrontPct}% not paid up front is` : "every pledge is"}{" "}
+              refunded automatically.
+            </li>
           </ul>
         </section>
 

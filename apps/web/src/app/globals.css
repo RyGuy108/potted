@@ -2397,3 +2397,20 @@ body:has(.overlay-page) {
 .overlay-bounty {
   border-left-color: var(--gold);
 }
+
+.upfront-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  margin: 4px 0 10px;
+}
+
+.tag-upfront {
+  color: var(--gold);
+  border-color: rgba(233, 187, 77, 0.5);
+}
+
+.upfront-field {
+  margin-top: 6px;
+}

@@ -65,6 +65,10 @@ export interface Challenge {
    * created it keeps whatever the splits leave.
    */
   splits?: Split[];
+  /** Whole percent of the pot paid to the streamer when the attempt starts. The rest is paid only on success. */
+  upfrontPct?: number;
+  /** What was actually paid up front when the attempt started. */
+  upfrontPaidMicro?: Micro;
   /** Address of the on-chain challenge account, or a sim id. */
   ledgerRef?: string;
   /** Transaction ids by step, for receipts. */
@@ -108,6 +112,25 @@ export interface Pledge {
   createdAt: number;
   tx: string;
   refundTx?: string;
+  /** What actually came back. Less than the pledge when part was paid up front. */
+  refundMicro?: Micro;
+}
+
+/** The most of a pot that can go to the streamer before the result. Matches the escrow program. */
+export const MAX_UPFRONT_PCT = 50;
+
+/** The up-front payment for a pot: rounded down, as the escrow program does. */
+export function upfrontOf(totalMicro: Micro, pct: number): Micro {
+  return Math.floor((totalMicro * pct) / 100);
+}
+
+/**
+ * What a fan keeps with the streamer from a refunded pledge when the
+ * up-front share was paid: rounded up, so the refunds can never ask for
+ * more than the rounded-down remainder in the vault.
+ */
+export function keptOnRefund(pledgedMicro: Micro, pct: number): Micro {
+  return Math.ceil((pledgedMicro * pct) / 100);
 }
 
 export function canPledge(c: Pick<Challenge, "status" | "deadline">, now: number): boolean {

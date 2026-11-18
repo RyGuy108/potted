@@ -13,6 +13,9 @@ import {
   type Split,
   splitPot,
   splitsError,
+  MAX_UPFRONT_PCT,
+  keptOnRefund,
+  upfrontOf,
   pledgeError,
   refundReason,
   toMicro,
@@ -130,7 +133,7 @@ export function gardenOf(fan: User): { plots: Plot[]; grown: number; pledgedMicr
     if (p.userId !== fan.id) continue;
     const row = byChallenge.get(p.challengeId) ?? { amountMicro: 0, refundedMicro: 0 };
     row.amountMicro += p.amountMicro;
-    if (p.refunded) row.refundedMicro += p.amountMicro;
+    row.refundedMicro += returnedOf(p);
     byChallenge.set(p.challengeId, row);
   }
   const plots: Plot[] = [];
@@ -339,6 +342,8 @@ export interface NewChallenge {
   goalUsd: number;
   pledgeCapUsd: number;
   minutes: number;
+  /** Whole percent of the pot paid when the attempt starts, 0 to 50. */
+  upfrontPct?: number;
 }
 
 /** Checks a new challenge's terms and returns the parsed pieces. */
@@ -350,6 +355,8 @@ function validate(actor: User, input: NewChallenge) {
   if (!(input.minutes >= 1 && input.minutes <= 24 * 60)) fail("Deadline must be 1 minute to 24 hours away");
   if (!(input.goalUsd >= 1 && input.goalUsd <= 10_000)) fail("Goal must be $1 to $10,000");
   if (!(input.pledgeCapUsd >= 1 && input.pledgeCapUsd <= 1_000)) fail("Per-fan limit must be $1 to $1,000");
+  const upfront = Number(input.upfrontPct ?? 0);
+  if (!Number.isInteger(upfront) || upfront < 0 || upfront > MAX_UPFRONT_PCT) fail(`The up-front share must be a whole percent from 0 to ${MAX_UPFRONT_PCT}`);
   return { game, condition };
 }
 
@@ -374,7 +381,14 @@ export async function invite(actor: User, guestHandle: string, guestPct: number,
     hostId: actor.id,
     guestId: guest.id,
     guestPct: split.pct,
-    input: { gameId: input.gameId, condition, goalUsd: input.goalUsd, pledgeCapUsd: input.pledgeCapUsd, minutes: input.minutes },
+    input: {
+      gameId: input.gameId,
+      condition,
+      goalUsd: input.goalUsd,
+      pledgeCapUsd: input.pledgeCapUsd,
+      minutes: input.minutes,
+      ...(Number(input.upfrontPct ?? 0) > 0 ? { upfrontPct: Number(input.upfrontPct) } : {}),
+    },
     title: describeCondition(condition),
     createdAt: Date.now(),
     status: "pending",
@@ -478,6 +492,7 @@ export async function createChallenge(actor: User, input: NewChallenge, guests: 
     createdAt: now,
     deadline,
     settleBy: deadline + disputeMs + SETTLE_GRACE_MS,
+    ...(Number(input.upfrontPct ?? 0) > 0 ? { upfrontPct: Number(input.upfrontPct) } : {}),
     ...(splits.length > 0 ? { splits } : {}),
     txs: {},
   };
@@ -540,13 +555,13 @@ export function recapText(streamer: User, now = Date.now()): string {
   const recent = stageChallenges(streamer.id).filter((c) => now - c.createdAt <= RECAP_WINDOW_MS);
   if (recent.length === 0) return "No challenges yet this stream.";
   const paid = recent.filter((c) => c.status === "paid");
-  const earned = paid.reduce((sum, c) => sum + shareOf(c, streamer.id), 0);
+  const earned = recent.reduce((sum, c) => sum + earnedBy(c, streamer.id), 0);
   const ids = new Set(recent.map((c) => c.id));
   const byFan = new Map<string, number>();
   let refunded = 0;
   for (const p of db().pledges) {
     if (!ids.has(p.challengeId)) continue;
-    if (p.refunded) refunded += p.amountMicro;
+    refunded += returnedOf(p);
     byFan.set(p.userId, (byFan.get(p.userId) ?? 0) + p.amountMicro);
   }
   const top = [...byFan.entries()].sort((a, b) => b[1] - a[1])[0];
@@ -583,26 +598,66 @@ export async function lock(actor: User, challengeId: string, deps: Deps = defaul
   // Taken before the ledger call so a failing game API cannot leave a locked
   // challenge without the baseline it needs.
   const baseline = await snapshot(challenge.condition, deps);
-  challenge.txs.lock = await ledger().lock(challenge);
+  const upfront = upfrontOf(challenge.totalMicro, challenge.upfrontPct ?? 0);
+  challenge.txs.lock = await ledger().lock(challenge, upfront > 0 ? payoutsOf(challenge, upfront) : []);
   challenge.baseline = baseline;
   challenge.status = "locked";
   challenge.lockedAt = Date.now();
-  emit("locked", challenge, `Pledging is closed. ${formatUsd(challenge.totalMicro)} is riding on this one.`);
+  if (upfront > 0) challenge.upfrontPaidMicro = upfront;
+  emit(
+    "locked",
+    challenge,
+    upfront > 0
+      ? `Pledging is closed. ${namesOf(challenge)} got ${formatUsd(upfront)} for starting; the other ${formatUsd(challenge.totalMicro - upfront)} pays out only if they finish.`
+      : `Pledging is closed. ${formatUsd(challenge.totalMicro)} is riding on this one.`,
+  );
   save();
   return challenge;
 }
 
+/**
+ * Returns each fan's money, one refund per fan as the escrow program does.
+ * If part of the pot was paid up front, each fan keeps that share of their
+ * pledge with the streamer.
+ */
 async function refundAll(challenge: Challenge): Promise<number> {
-  let count = 0;
+  const byFan = new Map<string, Pledge[]>();
   for (const p of db().pledges) {
     if (p.challengeId !== challenge.id || p.refunded) continue;
-    const fan = getUser(p.userId);
+    byFan.set(p.userId, [...(byFan.get(p.userId) ?? []), p]);
+  }
+  let count = 0;
+  for (const [userId, pledges] of byFan) {
+    const fan = getUser(userId);
     if (!fan) continue;
-    p.refundTx = await ledger().refund(challenge, fan.wallet, p.amountMicro);
-    p.refunded = true;
-    count += 1;
+    const pledged = pledges.reduce((sum, p) => sum + p.amountMicro, 0);
+    let kept = challenge.upfrontPaidMicro ? keptOnRefund(pledged, challenge.upfrontPct ?? 0) : 0;
+    const back = pledged - kept;
+    const tx = back > 0 ? await ledger().refund(challenge, fan.wallet, back) : "nothing-to-return";
+    // Record the kept part against the fan's pledges in order, so totals add up.
+    for (const p of pledges) {
+      const keptHere = Math.min(kept, p.amountMicro);
+      kept -= keptHere;
+      p.refundMicro = p.amountMicro - keptHere;
+      p.refundTx = tx;
+      p.refunded = true;
+      count += 1;
+    }
   }
   return count;
+}
+
+/** What a pledge actually returned. */
+export const returnedOf = (p: Pledge): number => (p.refunded ? (p.refundMicro ?? p.amountMicro) : 0);
+
+/**
+ * What a streamer has taken from a challenge: their share of anything paid
+ * up front, plus their share of the rest if it was completed.
+ */
+export function earnedBy(challenge: Challenge, userId: string): number {
+  const upfront = challenge.upfrontPaidMicro ?? 0;
+  const fromUpfront = upfront > 0 ? shareOf(challenge, userId, upfront) : 0;
+  return fromUpfront + (challenge.status === "paid" ? shareOf(challenge, userId, challenge.totalMicro - upfront) : 0);
 }
 
 /**
@@ -640,13 +695,14 @@ export async function runAgain(actor: User, challengeId: string): Promise<Challe
     goalUsd: previous.goalMicro / 1_000_000,
     pledgeCapUsd: previous.pledgeCapMicro / 1_000_000,
     minutes: Math.max(1, Math.round((previous.deadline - previous.createdAt) / 60_000)),
+    upfrontPct: previous.upfrontPct ?? 0,
   });
 }
 
-/** Who receives what from a successful pot. */
-function payoutsOf(challenge: Challenge): { wallet: string; amountMicro: number }[] {
+/** Who receives what from a payout: by default the part of the pot not already paid up front. */
+function payoutsOf(challenge: Challenge, amountMicro = challenge.totalMicro - (challenge.upfrontPaidMicro ?? 0)): { wallet: string; amountMicro: number }[] {
   const host = getUser(challenge.streamerId) ?? fail("Streamer not found");
-  const { hostMicro, parts } = splitPot(challenge.totalMicro, challenge.splits);
+  const { hostMicro, parts } = splitPot(amountMicro, challenge.splits);
   const payouts = [{ wallet: host.wallet, amountMicro: hostMicro }];
   (challenge.splits ?? []).forEach((split, index) => {
     const wallet = split.kind === "guest" ? getUser(split.userId ?? "")?.wallet : causeWallet(split.name);
@@ -1082,7 +1138,7 @@ export function challengeStats(challenge: Challenge, viewerId: string) {
     pctOfGoal: Math.round((challenge.totalMicro / challenge.goalMicro) * 100),
     biggestMicro: funders[0]?.amountMicro ?? 0,
     /** What this streamer took home, or would at the current pot. */
-    shareMicro: shareOf(challenge, viewerId),
+    shareMicro: earnedBy(challenge, viewerId),
     minutes: Math.max(1, Math.round((end - challenge.createdAt) / 60_000)),
   };
 }
@@ -1119,7 +1175,7 @@ export function climberStats(streamer: User): ClimberStats {
   let refundedMicro = 0;
   for (const p of db().pledges) {
     if (!ids.has(p.challengeId)) continue;
-    if (p.refunded) refundedMicro += p.amountMicro;
+    refundedMicro += returnedOf(p);
     perPlanter.set(p.userId, (perPlanter.get(p.userId) ?? new Set()).add(p.challengeId));
   }
   let raisedMicro = 0;
@@ -1133,10 +1189,8 @@ export function climberStats(streamer: User): ClimberStats {
   for (const c of all) {
     const row = games.get(c.gameId) ?? { challenges: 0, completed: 0, earnedMicro: 0 };
     row.challenges++;
-    if (c.status === "paid") {
-      row.completed++;
-      row.earnedMicro += shareOf(c, streamer.id);
-    }
+    if (c.status === "paid") row.completed++;
+    row.earnedMicro += earnedBy(c, streamer.id);
     games.set(c.gameId, row);
   }
   const funded = all.filter((c) => c.totalMicro > 0);
@@ -1146,7 +1200,7 @@ export function climberStats(streamer: User): ClimberStats {
     completed: paid.length,
     missed: settled.length - paid.length,
     completionPct: settled.length === 0 ? 0 : Math.round((paid.length / settled.length) * 100),
-    earnedMicro: paid.reduce((sum, c) => sum + shareOf(c, streamer.id), 0),
+    earnedMicro: all.reduce((sum, c) => sum + earnedBy(c, streamer.id), 0),
     refundedMicro,
     raisedMicro,
     planters: perPlanter.size,
@@ -1193,7 +1247,12 @@ export function planterActivity(fan: User, limit = 12): { at: number; challenge:
       rows.push(
         challenge.status === "paid"
           ? { at: challenge.settledAt, challenge, kind: "paid", text: "Completed: your pledge went to the climber" }
-          : { at: challenge.settledAt, challenge, kind: "refunded", text: "Missed: your pledge came back" },
+          : {
+              at: challenge.settledAt,
+              challenge,
+              kind: "refunded",
+              text: challenge.upfrontPaidMicro ? "Missed: the part not paid up front came back" : "Missed: your pledge came back",
+            },
       );
     }
   }

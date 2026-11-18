@@ -46,11 +46,20 @@ const BY_VERIFIER: Record<string, TermField[]> = {
   ],
 };
 
+/** How much of the pot can be paid when the attempt starts; the rest pays only on success. */
+export const UPFRONT_OPTIONS: [string, string][] = [
+  ["0", "Nothing: all on completion"],
+  ["10", "10% up front"],
+  ["25", "25% up front"],
+  ["50", "50% up front"],
+];
+
 /** Asked for every challenge, whatever the game. */
 export const POT_FIELDS: TermField[] = [
   { name: "goalUsd", label: "Reaches the clouds at ($)", numeric: true, required: true, initial: "20" },
   { name: "pledgeCapUsd", label: "Most one fan can pledge ($)", numeric: true, required: true, initial: "10" },
   { name: "minutes", label: "Minutes to do it", numeric: true, required: true, initial: "30" },
+  { name: "upfrontPct", label: "Paid to you when you start", options: UPFRONT_OPTIONS, initial: "0" },
 ];
 
 export function termFields(gameId: string): TermField[] {
