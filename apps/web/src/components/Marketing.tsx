@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ChallengeCard } from "@/components/ChallengeCard";
 import { GameDirectory } from "@/components/GameDirectory";
 import { Icon, type IconName } from "@/components/Icon";
-import { SignInPanel } from "@/components/SignInPanel";
 import { Beanstalk } from "@/components/Beanstalk";
 import { getStreamer, listChallenges } from "@/lib/service";
 import { currentUser } from "@/lib/session";
@@ -41,29 +40,25 @@ export async function Marketing() {
   const demo = getStreamer("ryan");
   const live = demo ? listChallenges(demo.id).slice(0, 3) : [];
   return (
-    <>
+    <div className="marketing">
       <section className="hero">
-        <div>
-          <p className="badge">
-            <Icon name="shield" size={15} /> Escrowed in USDC · settled on evidence
-          </p>
-          <h1>
-            Donations give fans nothing to do. <span className="accent">A pot does.</span>
-          </h1>
+        <div className="hero-copy">
+          <p className="eyebrow">Fan-funded stream challenges · escrowed in USDC</p>
+          <h1>Fans fund the challenge. The game decides who gets paid.</h1>
           <p className="lede">
-            Fans fund a challenge without leaving the stream. The game&apos;s own data decides the result, and the money
-            pays out or refunds itself.
+            Viewers pledge to a challenge the streamer agreed to. The money waits in escrow, the game&apos;s own data or a disputable clip settles it, and
+            a miss refunds every planter.
           </p>
-          <div className="row">
+          <div className="row hero-actions">
             {user ? (
               <Link href="/s/ryan" className="btn btn-primary btn-lg">
                 Open the demo stream <Icon name="arrow" size={16} />
               </Link>
             ) : (
               <>
-                <a href="#signin" className="btn btn-primary btn-lg">
-                  Start planting <Icon name="arrow" size={16} />
-                </a>
+                <Link href="/signup" className="btn btn-primary btn-lg">
+                  Sign up free <Icon name="arrow" size={16} />
+                </Link>
                 <Link href="/browse" className="btn btn-ghost btn-lg">
                   Browse live streams
                 </Link>
@@ -71,15 +66,9 @@ export async function Marketing() {
             )}
           </div>
           <ul className="trust">
-            <li>
-              <Icon name="check" size={15} /> Refunded if it fails
-            </li>
-            <li>
-              <Icon name="check" size={15} /> Checked against game data
-            </li>
-            <li>
-              <Icon name="check" size={15} /> A receipt for every payout
-            </li>
+            <li>Refunded if it fails</li>
+            <li>Checked against game data</li>
+            <li>A receipt for every payout</li>
           </ul>
         </div>
 
@@ -113,26 +102,28 @@ export async function Marketing() {
         </div>
       </section>
 
-      {!user && <SignInPanel redirectTo="/" />}
-
-      <section id="how">
-        <p className="eyebrow">How it works</p>
-        <h2 className="section-title">Three steps, no trust required</h2>
-        <div className="steps">
-          {STEPS.map(([title, text], i) => (
-            <div key={title} className="card step">
-              <span className="step-no mono">0{i + 1}</span>
-              <h3>{title}</h3>
-              <p className="muted">{text}</p>
-            </div>
-          ))}
+      <section id="how" className="split">
+        <div>
+          <p className="eyebrow">How it works</p>
+          <h2 className="section-title">Three steps, and nobody has to trust anybody</h2>
         </div>
+        <ol className="steps-list">
+          {STEPS.map(([title, text], i) => (
+            <li key={title}>
+              <span className="step-no mono">0{i + 1}</span>
+              <div>
+                <h3>{title}</h3>
+                <p className="muted">{text}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
       </section>
 
       <section>
         <p className="eyebrow">The pot</p>
-        <h2 className="section-title">Every pledge is a magic bean</h2>
-        <div className="card growth">
+        <h2 className="section-title">The beanstalk climbs as the pot fills</h2>
+        <div className="growth">
           {GROWTH.map(([name, when], stage) => (
             <div key={name} className="growth-stage">
               <Beanstalk stage={stage} size={78} />
@@ -143,20 +134,22 @@ export async function Marketing() {
         </div>
       </section>
 
-      <section>
-        <p className="eyebrow">Settlement rules</p>
-        <h2 className="section-title">Built so nobody has to take our word for it</h2>
-        <div className="guarantees">
-          {GUARANTEES.map(([icon, title, text]) => (
-            <div key={title} className="card guarantee">
-              <span className="icon-chip">
-                <Icon name={icon} />
-              </span>
-              <div>
-                <h3>{title}</h3>
-                <p className="muted">{text}</p>
-              </div>
-            </div>
+      <section className="split">
+        <div>
+          <p className="eyebrow">Settlement rules</p>
+          <h2 className="section-title">Built so nobody has to take our word for it</h2>
+          <p className="muted">Each rule is enforced by the escrow program or the verifier, not by a person.</p>
+        </div>
+        <div className="accordion">
+          {GUARANTEES.map(([, title, text], i) => (
+            <details key={title} open={i === 0}>
+              <summary>
+                <span className="step-no mono">0{i + 1}</span>
+                <span className="accordion-title">{title}</span>
+                <span className="accordion-plus" aria-hidden="true" />
+              </summary>
+              <p className="muted">{text}</p>
+            </details>
           ))}
         </div>
       </section>
@@ -181,16 +174,19 @@ export async function Marketing() {
       )}
 
       {!user && (
-        <section id="try" className="card cta">
-          <div>
-            <h2 className="section-title">Plant your first bean</h2>
-            <p className="muted">Sign in with an account you already have, or walk through the demo with test money.</p>
+        <section id="try" className="closing">
+          <h2 className="section-title">Back your first challenge</h2>
+          <p className="muted">Sign up with an account you already have, or try it with test money first.</p>
+          <div className="row">
+            <Link href="/signup" className="btn btn-primary btn-lg">
+              Sign up free <Icon name="arrow" size={16} />
+            </Link>
+            <Link href="/login" className="btn btn-ghost btn-lg">
+              Log in
+            </Link>
           </div>
-          <a href="#signin" className="btn btn-primary btn-lg">
-            Sign in <Icon name="arrow" size={16} />
-          </a>
         </section>
       )}
-    </>
+    </div>
   );
 }

@@ -168,7 +168,9 @@ export function Scramble({ text, duration = 1000, className }: { text: string; d
     return () => cancelAnimationFrame(frame);
   }, [seen, text, duration]);
   return (
-    <span ref={ref} className={`scramble${className ? ` ${className}` : ""}`} aria-label={text}>
+    <span ref={ref} className={`scramble${className ? ` ${className}` : ""}`}>
+      {/* Screen readers get the real text; the shuffling copy is hidden from them. */}
+      <span className="sr-only">{text}</span>
       <span aria-hidden="true">{shown}</span>
     </span>
   );

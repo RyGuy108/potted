@@ -17,8 +17,8 @@ function customMedia(id: string): { kind: "video" | "image"; src: string } | und
 }
 
 const G = "#35c98b";
-const B = "#2a66f0";
-const L = "#9fc0ff";
+const B = "#3a3a3a";
+const L = "#d4d4d4";
 const Y = "#e9bb4d";
 const W = "#eef3fb";
 const line = { fill: "none", strokeWidth: 3, strokeLinecap: "round", strokeLinejoin: "round" } as const;
@@ -70,8 +70,8 @@ const ART: Record<string, ReactNode> = {
   gta6: (
     <g>
       <circle cx="210" cy="118" r="46" fill={Y} opacity="0.85" />
-      <path d="M40 150 v-34 h26 v-22 h22 v40 h18 v-58 h26 v74 z M300 150 v-66 h24 v30 h20 v-44 h22 v80 z" fill="#0a1628" stroke={L} strokeWidth="1.5" opacity="0.95" />
-      <path d="M170 150 l28 -32 h24 l28 32 z" fill="#16233b" />
+      <path d="M40 150 v-34 h26 v-22 h22 v40 h18 v-58 h26 v74 z M300 150 v-66 h24 v30 h20 v-44 h22 v80 z" fill="#0f0f0f" stroke={L} strokeWidth="1.5" opacity="0.95" />
+      <path d="M170 150 l28 -32 h24 l28 32 z" fill="#202020" />
       <path d="M210 150 v-8 M210 134 v-6 M210 124 v-4" {...line} stroke={W} strokeWidth="2" />
       <path d="M262 150 v-52 M262 98 q-18 -10 -26 2 M262 98 q18 -10 26 2 M262 98 q-6 -18 -20 -14 M262 98 q6 -18 20 -14" {...line} stroke={G} />
     </g>
@@ -91,7 +91,7 @@ const ART: Record<string, ReactNode> = {
         <g key={`${x}-${y}`}>
           <path d={`M${x} ${y} l25 -13 25 13 -25 13 z`} fill={L} />
           <path d={`M${x} ${y} v26 l25 13 v-26 z`} fill={B} />
-          <path d={`M${x! + 50} ${y} v26 l-25 13 v-26 z`} fill="#1b3f96" />
+          <path d={`M${x! + 50} ${y} v26 l-25 13 v-26 z`} fill="#2c2c2c" />
         </g>
       ))}
     </g>
@@ -106,7 +106,7 @@ const ART: Record<string, ReactNode> = {
   ),
   cooking: (
     <g>
-      <ellipse cx="200" cy="112" rx="62" ry="16" fill="#16233b" stroke={W} strokeWidth="3" />
+      <ellipse cx="200" cy="112" rx="62" ry="16" fill="#202020" stroke={W} strokeWidth="3" />
       <path d="M262 112 h70" {...line} stroke={W} strokeWidth="6" />
       <circle cx="186" cy="110" r="9" fill={Y} />
       <circle cx="214" cy="114" r="7" fill="#ef6b6b" />
@@ -125,7 +125,7 @@ const ART: Record<string, ReactNode> = {
   ),
   art: (
     <g>
-      <rect x="130" y="42" width="150" height="104" rx="6" fill="#16233b" stroke={W} strokeWidth="3" />
+      <rect x="130" y="42" width="150" height="104" rx="6" fill="#202020" stroke={W} strokeWidth="3" />
       <path d="M146 122 q30 -50 56 -20 q22 26 60 -34" {...line} stroke={G} strokeWidth="7" />
       <path d="M150 70 q26 14 50 -4" {...line} stroke={Y} strokeWidth="6" />
       <path d="M300 136 l42 -64" {...line} stroke={W} strokeWidth="5" />
@@ -134,7 +134,7 @@ const ART: Record<string, ReactNode> = {
   ),
   study: (
     <g>
-      <rect x="130" y="44" width="160" height="96" rx="8" fill="#16233b" stroke={W} strokeWidth="3" />
+      <rect x="130" y="44" width="160" height="96" rx="8" fill="#202020" stroke={W} strokeWidth="3" />
       <path d="M110 150 h200" {...line} stroke={W} strokeWidth="5" />
       <path d="M150 68 h44 M150 86 h78 M166 104 h54 M150 122 h36" {...line} stroke={L} />
       <path d="M204 68 h30 M228 104 h24" {...line} stroke={G} />
@@ -143,7 +143,7 @@ const ART: Record<string, ReactNode> = {
   ),
   other: (
     <g>
-      <rect x="120" y="44" width="180" height="104" rx="12" fill="#16233b" stroke={W} strokeWidth="3" />
+      <rect x="120" y="44" width="180" height="104" rx="12" fill="#202020" stroke={W} strokeWidth="3" />
       <path d="M196 76 v40 l34 -20 z" fill={G} />
       <rect x="136" y="132" width="148" height="5" rx="2.5" fill={B} opacity="0.5" />
       <rect x="136" y="132" width="60" height="5" rx="2.5" fill={G} />
@@ -164,7 +164,7 @@ export function GameArt({ id, name }: { id: string; name: string }) {
   }
   return (
     <svg className="game-art" viewBox="0 0 420 180" preserveAspectRatio="xMidYMid slice" role="img" aria-label={`${name} illustration`}>
-      <rect width="420" height="180" fill="#0d1b33" />
+      <rect width="420" height="180" fill="#151515" />
       <circle cx="340" cy="20" r="120" fill={B} opacity="0.16" />
       <circle cx="60" cy="180" r="100" fill={G} opacity="0.1" />
       {ART[id] ?? ART.other}
