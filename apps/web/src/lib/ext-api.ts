@@ -1,4 +1,5 @@
 import { type Challenge, GAMES, toUsd } from "@potted/core";
+import { forYou, trending } from "./discover";
 import { gameOf } from "./format";
 import * as service from "./service";
 import { extToken, readExtToken } from "./session";
@@ -145,6 +146,7 @@ async function route(method: string, path: string[], query: URLSearchParams, bod
         // Games this climber has run, so an idea starts on something they play.
         games: [...new Set(service.listChallenges(streamer.id).map((c) => c.gameId))].slice(0, 6),
         cause: settings.causeOn ? { name: settings.causeName, pct: settings.causePct } : null,
+        topPlanters: service.topPlanters(streamer.id, 5).map((t) => ({ name: t.name, amountMicro: t.amountMicro, challenges: t.challenges, you: t.userId === user?.id })),
         challenges: service
           .stageChallenges(streamer.id)
           .filter((c) => c.status === "open" || c.status === "locked")
@@ -152,17 +154,46 @@ async function route(method: string, path: string[], query: URLSearchParams, bod
       });
     }
 
-    case "GET live":
-      return ok({
-        streams: service.liveStreams().map((l) => ({
-          handle: l.streamer.handle,
-          name: l.streamer.name,
-          title: l.headline.title,
-          game: gameOf(l.headline).name,
-          potMicro: l.potMicro,
-          planters: l.planters,
-        })),
+    case "GET live": {
+      // The browse lists the website shows: For you (signed-in planters), Trending, and everyone live by pot size.
+      const live = service.liveStreams();
+      const card = (l: service.StreamListing, reason = "") => ({
+        handle: l.streamer.handle,
+        name: l.streamer.name,
+        title: l.headline.title,
+        game: gameOf(l.headline).name,
+        potMicro: l.potMicro,
+        planters: l.planters,
+        charity: l.charity,
+        reason,
       });
+      return ok({
+        forYou: user?.role === "fan" ? forYou(user, live, 4).map((p) => card(p, p.reason)) : [],
+        trending: trending(live, 4).map((p) => card(p, p.reason)),
+        streams: [...live].sort((a, b) => b.potMicro - a.potMicro || b.planters - a.planters).map((l) => card(l)),
+      });
+    }
+
+    case "GET search": {
+      // Finds a climber by name, Potted handle or the Twitch or YouTube channel being watched.
+      const q = (query.get("q") ?? "").trim().toLowerCase().replace(/^@/, "");
+      if (q.length < 2) return ok({ streamers: [] });
+      const live = new Map(service.liveStreams().map((l) => [l.streamer.id, l]));
+      const streamers = service
+        .listStreamers()
+        .map((s) => {
+          const settings = service.settingsOf(s);
+          const names = [s.name, s.handle ?? "", settings.twitchChannel ?? "", settings.youtubeChannel ?? ""].map((n) => n.toLowerCase());
+          const rank = names.some((n) => n === q) ? 0 : names.some((n) => n.startsWith(q)) ? 1 : names.some((n) => n.includes(q)) ? 2 : -1;
+          const l = live.get(s.id);
+          return { rank, row: { handle: s.handle, name: s.name, twitch: settings.twitchChannel || null, live: Boolean(l), title: l?.headline.title ?? null, potMicro: l?.potMicro ?? 0 } };
+        })
+        .filter((x) => x.rank >= 0 && x.row.handle)
+        .sort((a, b) => a.rank - b.rank || Number(b.row.live) - Number(a.row.live) || b.row.potMicro - a.row.potMicro)
+        .slice(0, 8)
+        .map((x) => x.row);
+      return ok({ streamers });
+    }
 
     case "GET garden": {
       const me = need();

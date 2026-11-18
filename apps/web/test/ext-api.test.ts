@@ -112,3 +112,30 @@ describe("extension API for planters", () => {
     expect(view).toMatchObject({ canDispute: false, disputedByMe: true });
   });
 });
+
+describe("extension browse, search and top planters", () => {
+  it("lists live streams, finds a climber by their Twitch channel, and ranks a stream's planters", async () => {
+    const ryan = await demo("ryan");
+    const pia = await demo("planter", "Pia");
+    const bo = await demo("planter", "Bo");
+    const c = (await call("POST", "challenges", { gameId: "gta6", fields: { ...clipFields, upfrontPct: "0" } }, ryan)).json as { id: string };
+    await call("POST", `challenges/${c.id}/pledge`, { amountUsd: 3 }, pia);
+    await call("POST", `challenges/${c.id}/pledge`, { amountUsd: 7 }, bo);
+
+    const live = (await call("GET", "live", {}, pia)).json as { forYou: { handle: string; reason: string }[]; trending: { handle: string }[]; streams: { handle: string; potMicro: number }[] };
+    expect(live.streams[0]).toMatchObject({ handle: "ryan", potMicro: 10_000_000 });
+    expect(live.trending.map((t) => t.handle)).toContain("ryan");
+    expect(live.forYou[0]).toMatchObject({ handle: "ryan" });
+    expect(((await call("GET", "live")).json as { forYou: unknown[] }).forYou).toEqual([]);
+
+    const streamer = service.getUser(DEMO_STREAMER_ID)!;
+    await service.updateSettings(streamer, { ...service.settingsOf(streamer), twitchChannel: "RyanPlaysLive" });
+    const byChannel = (await call("GET", "search", {}, null, new URLSearchParams({ q: "ryanplays" }))).json as { streamers: { handle: string; live: boolean }[] };
+    expect(byChannel.streamers[0]).toMatchObject({ handle: "ryan", live: true });
+    expect(((await call("GET", "search", {}, null, new URLSearchParams({ q: "r" }))).json as { streamers: unknown[] }).streamers).toEqual([]);
+
+    const stream = (await call("GET", "stream", {}, pia, new URLSearchParams({ handle: "ryan" }))).json as { topPlanters: { name: string; you: boolean }[] };
+    expect(stream.topPlanters.map((t) => t.name)).toEqual(["Bo", "Pia"]);
+    expect(stream.topPlanters[1]!.you).toBe(true);
+  });
+});

@@ -36,8 +36,11 @@ const state = {
   me: null,
   balanceMicro: 0,
   config: null,
-  /** "stream" or "garden". */
+  /** "stream", "browse" or "garden". */
   view: "stream",
+  /** What is typed in the browse search, and what it found. */
+  q: "",
+  found: null,
   /** Which stream the watched tab shows, or null. */
   tab: null,
   /** A stream picked from the live list, shown instead of the tab's. */
@@ -244,30 +247,86 @@ async function streamView() {
       </div>
       <div>
         ${stream.cause ? `<span class="muted small">Charity stream: ${stream.cause.pct}% of every completed pot goes to ${esc(stream.cause.name)}.</span>` : ""}
-        ${state.picked ? `<button class="link" data-action="unpick">Back to ${state.tab ? "this tab's stream" : "live streams"}</button>` : ""}
+        ${state.picked ? `<button class="link" data-action="unpick">Back to ${state.tab ? "this tab's stream" : "live streams"}</button>` : `<button class="link" data-action="view-browse">Watching someone else? Search</button>`}
       </div>
       ${stream.challenges.length === 0 ? `<p class="muted">Nothing open right now. New challenges appear here on their own.</p>` : stream.challenges.map((c) => challengeCard(c, stream.minPledgeUsd)).join("")}
+      ${topPlantersCard(stream)}
       ${giveCard(stream)}
       ${pointsCard(stream)}
       ${ideaForm(stream)}
       <button class="link" data-open="/s/${esc(stream.streamer.handle)}">Open ${esc(stream.streamer.name)}'s page</button>`;
   }
-  const { streams } = await api("live");
+  return browseView(state.tab ? "This channel hasn't linked Potted yet. Search for who you're watching, or pick someone live." : "");
+}
+
+const SEARCH_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>`;
+
+function initials(name) {
+  return `<span class="avatar initials" aria-hidden="true">${esc(String(name).slice(0, 1).toUpperCase())}</span>`;
+}
+
+/** One stream in a list: who, what they're doing, and the pot. */
+function streamRow(s) {
+  return `<button class="stream" data-action="pick" data-handle="${esc(s.handle)}">
+    ${initials(s.name)}
+    <span class="body">
+      <span class="name">${s.live === false ? "" : `<span class="dot" aria-label="Live"></span>`}${esc(s.name)}</span>
+      <span class="sub">${s.title ? esc(s.title) : s.twitch ? `twitch.tv/${esc(s.twitch)}` : "Not live right now"}${s.game ? ` · ${esc(s.game)}` : ""}</span>
+      ${s.reason ? `<span class="why">${esc(s.reason)}</span>` : ""}
+    </span>
+    ${s.live === false ? "" : `<span class="pot-mini">${usd(s.potMicro)}<small>${s.planters ?? ""}${s.planters != null ? (s.planters === 1 ? " planter" : " planters") : "in pots"}</small></span>`}
+  </button>`;
+}
+
+function searchResults() {
+  if (state.q.trim().length < 2 || !state.found) return "";
+  if (state.found.length === 0) return `<p class="muted small">No climber called "${esc(state.q)}" on Potted yet.</p>`;
+  return `<div class="list">${state.found.map(streamRow).join("")}</div>`;
+}
+
+function section(title, note, items) {
+  if (!items.length) return "";
+  return `<section>
+    <div class="section-head"><h3>${title}</h3>${note ? `<span class="muted small">${note}</span>` : ""}</div>
+    <div class="list">${items.map(streamRow).join("")}</div>
+  </section>`;
+}
+
+/** Search, then the same lists as the website's browse page. */
+async function browseView(lead = "") {
+  const { forYou = [], trending = [], streams = [] } = await api("live");
+  state.liveHandles = streams.map((s) => s.handle);
   return `
     <div>
-      <p class="eyebrow">${state.tab ? "No Potted challenges on this channel" : "Live with Potted"}</p>
-      <h2>${streams.length === 0 ? "No one is live right now" : "Pick a stream to back"}</h2>
-      ${state.tab ? `<span class="muted small">This channel has not linked Potted yet. Here is who is live.</span>` : ""}
+      <p class="eyebrow">${state.tab && lead ? "No Potted challenges on this channel" : "Live with Potted"}</p>
+      <h2>${streams.length === 0 ? "No one is live right now" : "Find a stream to back"}</h2>
+      ${lead ? `<span class="muted small">${lead}</span>` : ""}
     </div>
-    ${streams
-      .map(
-        (s) => `<button class="card stream" data-action="pick" data-handle="${esc(s.handle)}">
-          <span class="title">${esc(s.title)}</span>
-          <span class="muted small">${esc(s.name)} · ${esc(s.game)}</span>
-          <span class="mono">${usd(s.potMicro)} <span class="muted small">in the pot · ${s.planters} ${s.planters === 1 ? "planter" : "planters"}</span></span>
-        </button>`,
-      )
-      .join("")}`;
+    <div class="search">${SEARCH_ICON}<input id="ext-search" type="search" placeholder="Search a climber or Twitch channel" aria-label="Search climbers" value="${esc(state.q)}" autocomplete="off" /></div>
+    <div id="search-results">${searchResults()}</div>
+    ${streams.length > 1 ? `<button class="surprise" data-action="surprise">🎲 Surprise me</button>` : ""}
+    ${section("For you", "", forYou)}
+    ${section("Trending", "Most going on right now", trending)}
+    ${section("Most popular", `${streams.length} live`, streams)}`;
+}
+
+function topPlantersCard(stream) {
+  const top = stream.topPlanters ?? [];
+  if (!top.length) return "";
+  return `<section class="card">
+    <div class="section-head"><p class="eyebrow">Top planters</p><span class="muted small">for ${esc(stream.streamer.name)}</span></div>
+    <ol class="podium">
+      ${top
+        .map(
+          (t, i) => `<li class="${t.you ? "you" : ""}">
+            <span class="rank">${i + 1}</span>
+            <span class="who-name">${esc(t.name)}${t.you ? ` <span class="muted small">(you)</span>` : ""}<br /><span class="muted small">${t.challenges} ${t.challenges === 1 ? "challenge" : "challenges"}</span></span>
+            <span class="mono">${usd(t.amountMicro)}</span>
+          </li>`,
+        )
+        .join("")}
+    </ol>
+  </section>`;
 }
 
 async function gardenView() {
@@ -292,7 +351,7 @@ async function gardenView() {
     <section>
       <p class="eyebrow">Badges · ${earned.length} of ${g.badges.length}</p>
       <div class="badges">
-        ${g.badges.map((b) => `<span class="badge${b.earned ? " on" : ""}" title="${esc(b.how)}">${esc(b.name)}</span>`).join("")}
+        ${[...g.badges].sort((a, b) => Number(b.earned) - Number(a.earned)).map((b) => `<button class="badge${b.earned ? " on" : ""}" data-action="badge" data-how="${esc(b.how)}" data-name="${esc(b.name)}">${esc(b.name)}</button>`).join("")}
       </div>
     </section>
     <section>
@@ -312,7 +371,8 @@ async function gardenView() {
 function tabs() {
   return `<div class="tabs" role="tablist">
     <button role="tab" aria-selected="${state.view === "stream"}" data-action="view-stream">Stream</button>
-    <button role="tab" aria-selected="${state.view === "garden"}" data-action="view-garden">My garden</button>
+    <button role="tab" aria-selected="${state.view === "browse"}" data-action="view-browse">Browse</button>
+    <button role="tab" aria-selected="${state.view === "garden"}" data-action="view-garden">Garden</button>
   </div>`;
 }
 
@@ -332,7 +392,7 @@ async function draw(force = false) {
     redraw(main, "other", otherRoleView(), force);
     return;
   }
-  const html = tabs() + (state.view === "garden" ? await gardenView() : await streamView());
+  const html = tabs() + (state.view === "garden" ? await gardenView() : state.view === "browse" ? await browseView() : await streamView());
   redraw(main, `${state.view}:${html}`, html, force);
 }
 
@@ -419,13 +479,24 @@ async function act(action, target) {
       await chrome.storage.local.remove("token");
       return refresh(true);
     case "view-stream":
+    case "view-browse":
     case "view-garden":
       state.view = action.slice(5);
       return draw(true);
     case "pick":
       state.picked = { handle: target.dataset.handle };
       state.ideaOpen = false;
+      state.view = "stream";
       return draw(true);
+    case "surprise": {
+      const others = (state.liveHandles ?? []).filter((h) => h !== state.streamHandle);
+      if (!others.length) return;
+      state.picked = { handle: others[Math.floor(Math.random() * others.length)] };
+      state.view = "stream";
+      return draw(true);
+    }
+    case "badge":
+      return notify(`${target.dataset.name}: ${target.dataset.how}`, true);
     case "unpick":
       state.picked = null;
       return draw(true);
@@ -494,6 +565,28 @@ document.addEventListener("submit", async (event) => {
     notify(error.message);
     button.disabled = false;
   }
+});
+
+// Search as you type, a moment after the last key, without redrawing the panel.
+let searchTimer;
+let searchSeq = 0;
+document.addEventListener("input", (event) => {
+  if (event.target.id !== "ext-search") return;
+  state.q = event.target.value;
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(async () => {
+    const seq = ++searchSeq;
+    const q = state.q.trim();
+    try {
+      state.found = q.length < 2 ? null : (await api(`search?q=${encodeURIComponent(q)}`)).streamers;
+    } catch (error) {
+      notify(error.message);
+      return;
+    }
+    if (seq !== searchSeq) return;
+    const box = $("search-results");
+    if (box) box.innerHTML = searchResults();
+  }, 200);
 });
 
 // The background worker stores the token when the connect page hands it over.
