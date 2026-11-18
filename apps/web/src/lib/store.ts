@@ -130,6 +130,8 @@ export interface User {
   email?: string;
   /** False until someone who signed in with a provider has picked planter or climber. */
   onboarded?: boolean;
+  /** Awards this user has already been told about, so each is announced once. */
+  awarded?: { badges: string[]; level: number; milestones: string[] };
 }
 
 export type EventType = "created" | "pledged" | "locked" | "claimed" | "disputed" | "paid" | "failed" | "refunded" | "milestone" | "recap" | "bounty" | "redeemed";
@@ -163,6 +165,12 @@ export interface Db {
   /** Sim ledger balances in micro-USDC, by wallet. */
   balances: Record<string, number>;
   seq: number;
+  /** In-app notifications, newest last. */
+  notices?: Notice[];
+  /** The Twitch session each climber was last announced live for. */
+  liveAnnounced?: Record<string, string>;
+  /** Planters following climbers. */
+  follows?: { fanId: string; streamerId: string; at: number }[];
   /** Each climber's channel points: how planters earn them and what they buy. */
   points?: Record<string, PointsConfig>;
   /** Rewards planters have redeemed. */
@@ -171,6 +179,19 @@ export interface Db {
   scouts?: Record<string, ScoutRun>;
   /** Set while the demo sample is loaded: live challenges it opened, so it can be removed again. */
   sample?: { challengeIds: string[]; addedAt: number };
+}
+
+export type NoticeKind = "award" | "challenge" | "money" | "refund" | "clip" | "dispute" | "idea" | "invite" | "points" | "follow";
+
+export interface Notice {
+  id: string;
+  userId: string;
+  at: number;
+  kind: NoticeKind;
+  title: string;
+  body: string;
+  href: string;
+  read: boolean;
 }
 
 /** Something a planter can spend a climber's channel points on. */

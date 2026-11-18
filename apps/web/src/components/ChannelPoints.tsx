@@ -1,4 +1,5 @@
 import type { PointsConfig } from "@/lib/store";
+import { CountUp } from "./Motion";
 import { RedeemButton } from "./RedeemButton";
 
 /** A climber's channel points: how planters earn them, and the rewards they buy. */
@@ -34,7 +35,9 @@ export function ChannelPoints({
         </div>
         {mine && (
           <div className="points-balance">
-            <span className="mono">{mine.balance.toLocaleString()}</span>
+            <span className="mono">
+              <CountUp value={mine.balance} />
+            </span>
             <span className="muted small">your points</span>
           </div>
         )}

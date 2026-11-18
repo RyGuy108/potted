@@ -7,6 +7,7 @@ import { SAMPLE_SIGN_INS } from "@/lib/sample-data";
 import { isTestAccount } from "@/lib/test-accounts";
 import * as scouting from "@/lib/scout";
 import * as points from "@/lib/points";
+import * as notifications from "@/lib/notifications";
 import { DEMO_GUEST_ID, DEMO_STREAMER_ID, type Role } from "@/lib/store";
 
 /** Expected failures come back as values so forms can show them inline. */
@@ -205,4 +206,20 @@ export async function resolveRedemptionAction(id: string, outcome: "fulfilled" |
 
 export async function updatePointsAction(input: { on: boolean; perUsd: number; when: string; rewards: unknown[] }): Promise<ActionResult> {
   return run(async () => points.updatePoints(await requireUser(), input));
+}
+
+export async function followAction(handle: string, on: boolean): Promise<ActionResult> {
+  return run(async () => notifications.setFollow(await requireUser(), String(handle), on === true));
+}
+
+/** The bell's poll: unread count and the latest notices. */
+export async function noticesAction(): Promise<{ unread: number; items: { id: string; at: number; kind: string; title: string; body: string; href: string; read: boolean }[] }> {
+  const user = await currentUser();
+  if (!user) return { unread: 0, items: [] };
+  await notifications.checkFollowedLive(user).catch(() => undefined);
+  return { unread: notifications.unreadCount(user), items: notifications.noticesFor(user, 25) };
+}
+
+export async function markNoticesReadAction(ids?: string[]): Promise<ActionResult> {
+  return run(async () => notifications.markRead(await requireUser(), Array.isArray(ids) ? ids.map(String) : undefined));
 }

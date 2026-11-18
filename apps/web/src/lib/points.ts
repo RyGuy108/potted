@@ -1,3 +1,4 @@
+import * as notifications from "./notifications";
 import * as service from "./service";
 import { type PointsConfig, type Redemption, type Reward, type User, db, newId, save } from "./store";
 
@@ -88,6 +89,7 @@ export async function redeem(actor: User, handle: string, rewardId: string, inpu
     status: "pending",
   };
   (db().redemptions ??= []).push(redemption);
+  notifications.onRedeemed(redemption, actor.name);
   service.announceStream(streamer.handle!, "redeemed", `${actor.name} redeemed ${reward.title}${redemption.input ? `: "${redemption.input}"` : ""}.`);
   save();
   return redemption;
@@ -107,6 +109,7 @@ export async function resolveRedemption(actor: User, id: string, outcome: "fulfi
   if (redemption.status !== "pending") fail("That redemption is already answered");
   redemption.status = outcome;
   redemption.resolvedAt = Date.now();
+  notifications.onRedemptionAnswered(redemption, actor.name, actor.handle ?? "");
   save();
   return redemption;
 }

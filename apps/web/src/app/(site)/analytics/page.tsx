@@ -1,5 +1,6 @@
 import { formatUsd } from "@potted/core";
 import Link from "next/link";
+import { CountUp, Ring } from "@/components/Motion";
 import { redirect } from "next/navigation";
 import { Wallet } from "@/components/Wallet";
 import { climberStats, topPlanters } from "@/lib/service";
@@ -19,31 +20,41 @@ export default async function Analytics() {
         <p className="eyebrow">Analytics</p>
         <Wallet user={user} />
       </div>
-      <h1>{stats.total === 0 ? "No challenges yet" : `${formatUsd(stats.earnedMicro)} earned from ${stats.completed} completed`}</h1>
+      <h1>
+        {stats.total === 0 ? (
+          "No challenges yet"
+        ) : (
+          <>
+            <CountUp value={stats.earnedMicro} micro format="usd" duration={1500} /> earned from {stats.completed} completed
+          </>
+        )}
+      </h1>
 
       <section className="stats">
-        <div className="card stat">
-          <span className="mono">{stats.completionPct}%</span>
+        <div className="card stat stat-ring">
+          <Ring pct={stats.completionPct} size={96} stroke={8} tone="green" label={`${stats.completionPct}% completion rate`}>
+            <CountUp value={stats.completionPct} format="pct" className="ring-value" />
+          </Ring>
           <span className="muted small">completion rate · {stats.completed} of {stats.completed + stats.missed}</span>
         </div>
         <div className="card stat">
-          <span className="mono">{formatUsd(stats.averagePotMicro)}</span>
+          <span className="mono"><CountUp value={stats.averagePotMicro} micro format="usd" /></span>
           <span className="muted small">average pot</span>
         </div>
         <div className="card stat">
-          <span className="mono">{stats.planters}</span>
+          <span className="mono"><CountUp value={stats.planters} /></span>
           <span className="muted small">planters · {stats.returning} came back</span>
         </div>
         <div className="card stat">
-          <span className="mono">{formatUsd(stats.refundedMicro)}</span>
+          <span className="mono"><CountUp value={stats.refundedMicro} micro format="usd" /></span>
           <span className="muted small">refunded to planters</span>
         </div>
         <div className="card stat">
-          <span className="mono">{formatUsd(stats.raisedMicro)}</span>
+          <span className="mono"><CountUp value={stats.raisedMicro} micro format="usd" /></span>
           <span className="muted small">raised for causes</span>
         </div>
         <div className="card stat">
-          <span className="mono">{stats.live}</span>
+          <span className="mono"><CountUp value={stats.live} /></span>
           <span className="muted small">live now</span>
         </div>
       </section>
@@ -76,9 +87,9 @@ export default async function Analytics() {
             {stats.byGame.map((g) => (
               <div key={g.gameId} className="table-row">
                 <Link href={`/g/${g.gameId}`}>{g.name}</Link>
-                <span className="mono">{g.challenges}</span>
-                <span className="mono">{g.completed}</span>
-                <span className="mono">{formatUsd(g.earnedMicro)}</span>
+                <span className="mono"><CountUp value={g.challenges} /></span>
+                <span className="mono"><CountUp value={g.completed} /></span>
+                <span className="mono"><CountUp value={g.earnedMicro} micro format="usd" /></span>
               </div>
             ))}
           </div>
@@ -96,7 +107,7 @@ export default async function Analytics() {
                 <span className="muted small">
                   {p.challenges} {p.challenges === 1 ? "challenge" : "challenges"}
                 </span>
-                <span className="mono">{formatUsd(p.amountMicro)}</span>
+                <span className="mono"><CountUp value={p.amountMicro} micro format="usd" /></span>
               </li>
             ))}
           </ol>

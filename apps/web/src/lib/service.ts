@@ -21,6 +21,7 @@ import {
   toMicro,
 } from "@potted/core";
 import { type Deps, defaultDeps, snapshot, verify } from "@potted/verifier";
+import * as notifications from "./notifications";
 import { ledger } from "./ledger";
 import { VOICES, type VoiceKey } from "./voices";
 import {
@@ -188,6 +189,7 @@ export function announce(type: EventType, challenge: Challenge, message: string)
 
 function emit(type: EventType, challenge: Challenge, message: string): void {
   for (const streamer of streamersOf(challenge)) emitTo(streamer.handle ?? "", type, challenge.id, message);
+  notifications.onChallengeEvent(type, challenge, message);
 }
 
 function emitTo(handle: string, type: EventType, challengeId: string, message: string): void {
@@ -338,6 +340,7 @@ export async function suggest(actor: User, handle: string, gameId: string, text:
     status: "pending",
   };
   db().suggestions.push(suggestion);
+  notifications.onIdea(streamer.id, actor.name, clean);
   save();
   return suggestion;
 }
@@ -417,6 +420,7 @@ export async function invite(actor: User, guestHandle: string, guestPct: number,
     status: "pending",
   };
   db().invites.push(record);
+  notifications.onInvite(record.guestId, actor.name, record.title);
   save();
   return record;
 }
@@ -434,6 +438,7 @@ export async function respondInvite(actor: User, inviteId: string, accept: boole
   if (record.status !== "pending") fail("This invite was already answered");
   if (!accept) {
     record.status = "declined";
+    notifications.onInviteAnswered(record.hostId, actor.name, false, record.title);
     save();
     return undefined;
   }
@@ -441,6 +446,7 @@ export async function respondInvite(actor: User, inviteId: string, accept: boole
   const challenge = await createChallenge(host, record.input, [{ kind: "guest", userId: actor.id, name: actor.name, pct: record.guestPct }]);
   record.status = "accepted";
   record.challengeId = challenge.id;
+  notifications.onInviteAnswered(record.hostId, actor.name, true, record.title, challenge.id);
   save();
   return challenge;
 }

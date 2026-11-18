@@ -11,6 +11,9 @@ import { pointsConfig, pointsOf, redemptionsFor } from "@/lib/points";
 import { twitchCategoryUrl, twitchChannel } from "@/lib/twitch";
 import { gameNameOf } from "@/lib/format";
 import { ChannelPoints } from "@/components/ChannelPoints";
+import { CountUp } from "@/components/Motion";
+import { FollowButton } from "@/components/FollowButton";
+import { followersOf, isFollowing } from "@/lib/notifications";
 import { CategoryPreview, StreamHeader, StreamPreview } from "@/components/StreamHeader";
 
 export default async function StreamerPage({ params }: { params: Promise<{ handle: string }> }) {
@@ -38,7 +41,20 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
       <AutoRefresh pollIds={live.filter((c) => c.status === "locked").map((c) => c.id)} />
       <div className="stream-top">
         <div>
-          <StreamHeader name={streamer.name} handle={streamer.handle!} twitch={twitch} twitchLogin={cause.twitchChannel} />
+          <StreamHeader
+            name={streamer.name}
+            handle={streamer.handle!}
+            twitch={twitch}
+            twitchLogin={cause.twitchChannel}
+            follow={
+              user?.role === "fan" ? (
+                <div className="row follow-row">
+                  <FollowButton handle={streamer.handle!} name={streamer.name} following={isFollowing(user, streamer.id)} />
+                  <span className="muted small">{followersOf(streamer.id).length} following</span>
+                </div>
+              ) : undefined
+            }
+          />
           <p className="lede">Pick a challenge and add to its pot. If {streamer.name} misses it, you get your pledge back.</p>
         </div>
         {twitch ? (
@@ -62,7 +78,10 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
             )}
           </h3>
           <p>
-            <strong className="mono">{formatUsd(raised.raisedMicro)}</strong> raised so far
+            <strong className="mono">
+              <CountUp value={raised.raisedMicro} micro format="usd" />
+            </strong>{" "}
+            raised so far
             {raised.inPlayMicro > 0 && (
               <>
                 {" · "}

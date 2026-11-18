@@ -1,5 +1,6 @@
 import { formatUsd, growthOf } from "@potted/core";
 import Link from "next/link";
+import { CountUp } from "@/components/Motion";
 import { Beanstalk } from "@/components/Beanstalk";
 import { StatusPill } from "@/components/ChallengeCard";
 import { SignInPanel } from "@/components/SignInPanel";
@@ -64,27 +65,27 @@ export default async function Garden() {
 
       <section className="stats">
         <div className="card stat">
-          <span className="mono">{stats.backed}</span>
+          <span className="mono"><CountUp value={stats.backed} /></span>
           <span className="muted small">challenges backed</span>
         </div>
         <div className="card stat">
-          <span className="mono">{stats.grown}</span>
+          <span className="mono"><CountUp value={stats.grown} /></span>
           <span className="muted small">completed by the climber</span>
         </div>
         <div className="card stat">
-          <span className="mono">{stats.firstIn}</span>
+          <span className="mono"><CountUp value={stats.firstIn} /></span>
           <span className="muted small">times first to back</span>
         </div>
         <div className="card stat">
-          <span className="mono">{stats.cloudPushes}</span>
+          <span className="mono"><CountUp value={stats.cloudPushes} /></span>
           <span className="muted small">pots you took to the clouds</span>
         </div>
         <div className="card stat">
-          <span className="mono">{stats.streamersBacked}</span>
+          <span className="mono"><CountUp value={stats.streamersBacked} /></span>
           <span className="muted small">climbers backed</span>
         </div>
         <div className="card stat">
-          <span className="mono">{formatUsd(garden.pledgedMicro)}</span>
+          <span className="mono"><CountUp value={garden.pledgedMicro} micro format="usd" /></span>
           <span className="muted small">pledged · {formatUsd(garden.returnedMicro)} returned</span>
         </div>
       </section>
@@ -134,7 +135,7 @@ export default async function Garden() {
                   <span className="muted small"> · for {streamerName}</span>
                 </span>
                 <span>
-                  <span className="mono">{formatUsd(mineMicro)}</span> of <span className="mono">{formatUsd(totalMicro)}</span> ·{" "}
+                  <span className="mono"><CountUp value={mineMicro} micro format="usd" /></span> of <span className="mono"><CountUp value={totalMicro} micro format="usd" /></span> ·{" "}
                   {bounty.status === "open" ? (
                     <span className="warn">waiting for {streamerName}</span>
                   ) : bounty.status === "accepted" ? (
@@ -168,7 +169,7 @@ export default async function Garden() {
                 </div>
                 <p className="plot-title">{challenge.title}</p>
                 <p className="muted small">
-                  {streamerName} · you put in <span className="mono">{formatUsd(amountMicro)}</span>
+                  {streamerName} · you put in <span className="mono"><CountUp value={amountMicro} micro format="usd" /></span>
                   {refunded ? " and got it back" : ""}
                 </p>
               </div>

@@ -3,16 +3,17 @@ import Link from "next/link";
 import { STATUS_LABEL, gameOf, tierLabel } from "@/lib/format";
 import { Countdown } from "./Live";
 import { Beanstalk } from "./Beanstalk";
+import { CountUp, GrowBar } from "./Motion";
 
 export function FundingBar({ challenge }: { challenge: Challenge }) {
   const growth = growthOf(challenge.totalMicro, challenge.goalMicro);
   return (
     <div className="funding">
-      <div className="bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(growth.ratio * 100)}>
-        <span style={{ width: `${growth.ratio * 100}%` }} />
-      </div>
+      <GrowBar pct={growth.ratio * 100} label="Pot toward its goal" />
       <div className="funding-row">
-        <strong className="mono">{formatUsd(challenge.totalMicro)}</strong>
+        <strong className="mono money-up">
+          <CountUp value={challenge.totalMicro} micro format="usd" />
+        </strong>
         <span className="muted">in the pot · reaches the clouds at {formatUsd(challenge.goalMicro)}</span>
       </div>
     </div>

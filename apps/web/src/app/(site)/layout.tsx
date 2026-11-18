@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { signOutAction } from "@/app/actions";
+import { NotificationBell } from "@/components/NotificationBell";
+import { unreadCount } from "@/lib/notifications";
 import { ActionButton } from "@/components/ActionButton";
 import { Beanstalk } from "@/components/Beanstalk";
 import { ledger } from "@/lib/ledger";
@@ -30,6 +32,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         <div className="session">
           {user ? (
             <>
+              <NotificationBell initialUnread={unreadCount(user)} />
               <span className="who">{user.name}</span>
               <ActionButton action={signOutAction} variant="ghost">
                 Sign out

@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { checkAction, disputeAction, ruleAction } from "@/app/actions";
 import { ActionButton } from "@/components/ActionButton";
 import { FundingBar, SplitLine, StatusPill, UpfrontLine } from "@/components/ChallengeCard";
+import { CountUp, Ring } from "@/components/Motion";
 import { AutoRefresh, CopyField, Countdown } from "@/components/Live";
 import { Beanstalk } from "@/components/Beanstalk";
 import { PledgeForm } from "@/components/PledgeForm";
@@ -164,7 +165,13 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
       </p>
 
       <section className="card detail">
-        <Beanstalk stage={growth.index} size={132} />
+        <div className="detail-side">
+          <Beanstalk stage={growth.index} size={132} />
+          <Ring pct={growth.ratio * 100} size={112} stroke={9} tone={challenge.status === "failed" ? "gold" : "green"} label={`${Math.round(growth.ratio * 100)}% of the goal`}>
+            <CountUp value={Math.round(growth.ratio * 100)} format="pct" className="ring-value" />
+            <span className="ring-caption">of goal</span>
+          </Ring>
+        </div>
         <div className="detail-body">
           <div className="meta">
             <span className="tag">{gameOf(challenge).name}</span>

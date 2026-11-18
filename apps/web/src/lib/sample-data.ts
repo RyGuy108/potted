@@ -209,6 +209,7 @@ export interface SampleHistory {
   events: Omit<StreamEvent, "seq">[];
   points: Record<string, PointsConfig>;
   redemptions: Redemption[];
+  follows: { fanId: string; streamerId: string; at: number }[];
   /** Simulated-ledger balances for the sample accounts. */
   balances: Record<string, number>;
 }
@@ -579,7 +580,12 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
   }
   redemptions.sort((a, b) => a.at - b.at);
 
-  return { users, challenges, pledges, suggestions, invites, events, points, redemptions, balances };
+  // Regulars follow the climbers they back; Maya follows a few favourites.
+  const follows: { fanId: string; streamerId: string; at: number }[] = [];
+  for (const [streamerId, list] of regulars) for (const fan of new Set(list)) if (r.chance(0.6)) follows.push({ fanId: fan, streamerId, at: now - r.int(2, 40) * DAY });
+  for (const fav of [DEMO_STREAMER_ID, "u_s_juniper", "u_s_sol"]) follows.push({ fanId: "u_s_maya", streamerId: fav, at: now - r.int(5, 40) * DAY });
+
+  return { users, challenges, pledges, suggestions, invites, events, points, redemptions, follows, balances };
 }
 
 /** Takes every sample record back out, leaving everything else as it was. */
@@ -599,6 +605,8 @@ export function removeSample(state: Db): number {
   state.events = state.events.filter((e) => !sampleChallenges.has(e.challengeId));
   for (const key of Object.keys(state.balances)) if (isSampleId(key)) delete state.balances[key];
   for (const key of Object.keys(state.points ?? {})) if (sampleUsers.has(key)) delete state.points![key];
+  if (state.follows) state.follows = state.follows.filter((f) => !sampleUsers.has(f.fanId) && !sampleUsers.has(f.streamerId));
+  if (state.notices) state.notices = state.notices.filter((n) => !sampleUsers.has(n.userId) && !sampleChallenges.has(n.href.replace("/c/", "")));
   if (state.redemptions) state.redemptions = state.redemptions.filter((r) => !isSampleId(r.id) && !sampleUsers.has(r.userId) && !sampleUsers.has(r.streamerId));
   delete state.sample;
   return before - (state.users.length + state.challenges.length + state.pledges.length);
@@ -617,6 +625,7 @@ export function addSampleHistory(state: Db, now = Date.now()): SampleHistory {
   Object.assign(state.balances, history.balances);
   Object.assign((state.points ??= {}), history.points);
   (state.redemptions ??= []).push(...history.redemptions);
+  (state.follows ??= []).push(...history.follows);
   state.sample = { challengeIds: [], addedAt: now };
   return history;
 }

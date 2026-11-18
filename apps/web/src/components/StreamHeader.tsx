@@ -28,7 +28,7 @@ export function Avatar({ name, handle, src, size = 84 }: { name: string; handle:
 }
 
 /** The streamer's picture, name and where to watch. */
-export function StreamHeader({ name, handle, twitch, twitchLogin }: { name: string; handle: string; twitch: TwitchChannel | null; twitchLogin: string }) {
+export function StreamHeader({ name, handle, twitch, twitchLogin, follow }: { name: string; handle: string; twitch: TwitchChannel | null; twitchLogin: string; /** A follow button, for planters. */ follow?: React.ReactNode }) {
   return (
     <header className="stream-header">
       <div className={`avatar-ring${twitch?.live ? " is-live" : ""}`}>
@@ -49,6 +49,7 @@ export function StreamHeader({ name, handle, twitch, twitchLogin }: { name: stri
             </>
           )}
         </p>
+        {follow}
       </div>
     </header>
   );

@@ -2857,3 +2857,422 @@ a.card.role {
   color: var(--muted, #9db0cc);
   margin-bottom: 10px;
 }
+
+/* ------------------------------------------------------------------------
+   Motion. One easing curve everywhere (fast start, long gentle settle),
+   short distances, no bounce. Off for prefers-reduced-motion.
+   ------------------------------------------------------------------------ */
+:root {
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.985);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Each page's blocks arrive one after another. */
+main > * {
+  animation: rise-in 0.75s var(--ease-out) both;
+}
+main > *:nth-child(1) { animation-delay: 0.02s; }
+main > *:nth-child(2) { animation-delay: 0.08s; }
+main > *:nth-child(3) { animation-delay: 0.14s; }
+main > *:nth-child(4) { animation-delay: 0.2s; }
+main > *:nth-child(5) { animation-delay: 0.26s; }
+main > *:nth-child(6) { animation-delay: 0.32s; }
+main > *:nth-child(7) { animation-delay: 0.38s; }
+main > *:nth-child(n + 8) { animation-delay: 0.44s; }
+
+/* Cards inside lists and grids stagger too. */
+.list > *,
+.stats > *,
+.rewards > *,
+.pitches > *,
+.points-list > *,
+.dir-grid > * {
+  animation: rise-in 0.7s var(--ease-out) both;
+}
+.list > *:nth-child(2), .stats > *:nth-child(2), .rewards > *:nth-child(2), .pitches > *:nth-child(2), .points-list > *:nth-child(2) { animation-delay: 0.06s; }
+.list > *:nth-child(3), .stats > *:nth-child(3), .rewards > *:nth-child(3), .pitches > *:nth-child(3), .points-list > *:nth-child(3) { animation-delay: 0.12s; }
+.list > *:nth-child(4), .stats > *:nth-child(4), .rewards > *:nth-child(4), .pitches > *:nth-child(4), .points-list > *:nth-child(4) { animation-delay: 0.18s; }
+.list > *:nth-child(5), .stats > *:nth-child(5), .rewards > *:nth-child(5), .pitches > *:nth-child(5), .points-list > *:nth-child(5) { animation-delay: 0.24s; }
+.list > *:nth-child(n + 6), .stats > *:nth-child(n + 6), .rewards > *:nth-child(n + 6), .pitches > *:nth-child(n + 6), .points-list > *:nth-child(n + 6) { animation-delay: 0.3s; }
+
+/* Bars grow from empty to their value. */
+.grow-bar > span {
+  transition: width 1.3s var(--ease-out);
+}
+
+/* Money that has just counted up gets a soft glow as it lands. */
+.money-up .count-up {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+}
+
+.count-up {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Rings */
+.ring {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+
+.ring svg {
+  position: absolute;
+  inset: 0;
+}
+
+.ring-track {
+  stroke: rgba(255, 255, 255, 0.08);
+}
+
+.ring-fill {
+  transition: stroke-dashoffset 1.6s var(--ease-out);
+  filter: drop-shadow(0 0 6px currentColor);
+}
+
+.ring-green .ring-fill { stroke: #35c98b; color: rgba(53, 201, 139, 0.45); }
+.ring-blue .ring-fill { stroke: #4f86ff; color: rgba(79, 134, 255, 0.45); }
+.ring-gold .ring-fill { stroke: #e9bb4d; color: rgba(233, 187, 77, 0.45); }
+.ring-violet .ring-fill { stroke: #a78bfa; color: rgba(167, 139, 250, 0.45); }
+
+.ring-centre {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.1;
+}
+
+.ring-value {
+  font-size: 1.45rem;
+  font-weight: 700;
+}
+
+.ring-caption {
+  font-size: 11px;
+  color: var(--muted, #9db0cc);
+  letter-spacing: 0.02em;
+}
+
+/* A ring that reaches 100% pulses once when it gets there. */
+@keyframes ring-done {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.ring-done.ring-in {
+  animation: ring-done 0.7s var(--ease-out) 1.5s both;
+}
+
+.detail-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  flex: none;
+}
+
+/* Badges pop in one after another. */
+.badge-grid > *,
+.badges > * {
+  animation: pop-in 0.5s var(--ease-spring) both;
+}
+.badge-grid > *:nth-child(2n) { animation-delay: 0.04s; }
+.badge-grid > *:nth-child(3n) { animation-delay: 0.08s; }
+.badge-grid > *:nth-child(4n) { animation-delay: 0.12s; }
+.badge-grid > *:nth-child(5n) { animation-delay: 0.16s; }
+
+/* Analytics chart columns grow up from the floor. */
+@keyframes grow-up {
+  from { transform: scaleY(0); }
+  to { transform: none; }
+}
+
+.chart-bar {
+  transform-origin: bottom;
+  animation: grow-up 1s var(--ease-out) both;
+}
+.chart-col:nth-child(2n) .chart-bar { animation-delay: 0.05s; }
+.chart-col:nth-child(3n) .chart-bar { animation-delay: 0.1s; }
+.chart-col:nth-child(4n) .chart-bar { animation-delay: 0.15s; }
+.chart-col:nth-child(5n) .chart-bar { animation-delay: 0.2s; }
+
+/* Buttons and cards respond to the pointer the way native controls do. */
+.btn {
+  transition: transform 0.18s var(--ease-out), background-color 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+a.card,
+.stream-card,
+.points-chip {
+  transition: transform 0.35s var(--ease-out), border-color 0.25s, box-shadow 0.35s var(--ease-out);
+}
+
+a.card:hover,
+.points-chip:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.stat-ring {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.level .ring {
+  margin-right: 4px;
+}
+
+/* ------------------------------------------------------------------------
+   Notifications
+   ------------------------------------------------------------------------ */
+.bell-wrap {
+  position: relative;
+}
+
+.bell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.18s var(--ease-out);
+}
+
+.bell:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.bell:active {
+  transform: scale(0.94);
+}
+
+@keyframes bell-ring {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(14deg); }
+  30% { transform: rotate(-12deg); }
+  45% { transform: rotate(8deg); }
+  60% { transform: rotate(-5deg); }
+  75% { transform: rotate(2deg); }
+}
+
+.bell.has-unread svg {
+  transform-origin: 50% 10%;
+  animation: bell-ring 1s var(--ease-out) 0.4s;
+}
+
+.bell-dot {
+  position: absolute;
+  top: 7px;
+  right: 8px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ff3b30;
+  box-shadow: 0 0 0 2px #0b1428;
+  animation: pop-in 0.4s var(--ease-spring) both;
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.bell-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 50;
+  width: min(380px, 92vw);
+  max-height: min(70vh, 560px);
+  overflow: auto;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(16, 26, 48, 0.86);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  transform-origin: top right;
+  animation: panel-in 0.32s var(--ease-out) both;
+}
+
+.bell-head {
+  position: sticky;
+  top: 0;
+  padding: 14px 16px 10px;
+  background: rgba(16, 26, 48, 0.92);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.bell-empty {
+  padding: 16px;
+}
+
+.bell-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+}
+
+.bell-list li a {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px;
+  border-radius: 10px;
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 0.15s;
+}
+
+.bell-list li a:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.bell-list li.unread a {
+  background: rgba(79, 134, 255, 0.1);
+}
+
+.bell-list li {
+  animation: rise-in 0.4s var(--ease-out) both;
+}
+.bell-list li:nth-child(2) { animation-delay: 0.03s; }
+.bell-list li:nth-child(3) { animation-delay: 0.06s; }
+.bell-list li:nth-child(4) { animation-delay: 0.09s; }
+.bell-list li:nth-child(n + 5) { animation-delay: 0.12s; }
+
+.bell-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.bell-text strong {
+  font-size: 0.92rem;
+}
+
+.bell-time {
+  flex: none;
+}
+
+.bell-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 700;
+  background: rgba(79, 134, 255, 0.18);
+  color: #9cbcff;
+}
+
+.bell-icon.kind-award { background: rgba(233, 187, 77, 0.2); color: #f3cf74; }
+.bell-icon.kind-money { background: rgba(53, 201, 139, 0.2); color: #5fe0a8; }
+.bell-icon.kind-refund { background: rgba(233, 187, 77, 0.14); color: #e9bb4d; }
+.bell-icon.kind-dispute { background: rgba(255, 59, 48, 0.18); color: #ff7a72; }
+.bell-icon.kind-points { background: rgba(167, 139, 250, 0.2); color: #c4b5fd; }
+.bell-icon.kind-follow { background: rgba(255, 105, 180, 0.18); color: #ff8fc6; }
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.bell-toast {
+  position: fixed;
+  top: 76px;
+  right: 20px;
+  z-index: 60;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  width: min(360px, 92vw);
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(16, 26, 48, 0.9);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  color: inherit;
+  text-decoration: none;
+  animation: toast-in 0.5s var(--ease-out) both;
+}
+
+.bell-toast.kind-award {
+  border-color: rgba(233, 187, 77, 0.5);
+}
+
+.follow-row {
+  margin-top: 10px;
+  align-items: center;
+}
+
+.follow-on {
+  border-color: rgba(53, 201, 139, 0.5);
+  color: #5fe0a8;
+}
