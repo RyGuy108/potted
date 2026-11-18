@@ -2,6 +2,7 @@ import { type Challenge, GAMES, toUsd } from "@potted/core";
 import { gameOf } from "./format";
 import * as service from "./service";
 import { extToken, readExtToken } from "./session";
+import { give } from "./gifts";
 import { pointsConfig, pointsOf, redeem } from "./points";
 import { SAMPLE_SIGN_INS } from "./sample-data";
 import { TEST_ACCOUNTS } from "./test-accounts";
@@ -181,6 +182,11 @@ async function route(method: string, path: string[], query: URLSearchParams, bod
         badges: stats.badges,
         activity: service.planterActivity(me, 8).map((a) => ({ at: a.at, kind: a.kind, text: a.text, title: a.challenge.title, id: a.challenge.id })),
       });
+    }
+
+    case "POST give": {
+      const g = await give(need(), String(body.handle ?? ""), Number(body.amountUsd), String(body.note ?? ""));
+      return ok({ id: g.id, amountMicro: g.amountMicro });
     }
 
     case "POST redeem": {

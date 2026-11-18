@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { Wallet } from "@/components/Wallet";
 import { climberStats, topPlanters } from "@/lib/service";
 import { currentUser } from "@/lib/session";
+import { giftTotals } from "@/lib/gifts";
 
 /** A climber's numbers: what they earned, how often they deliver, and who backs them. */
 export default async function Analytics() {
@@ -12,6 +13,7 @@ export default async function Analytics() {
   if (!user) redirect("/login");
   if (user.role !== "streamer") redirect(user.role === "mod" ? "/reviews" : "/garden");
   const stats = climberStats(user);
+  const gifts = giftTotals(user.id);
   const planters = topPlanters(user.id, 8);
   const tallest = Math.max(1, ...stats.history.map((h) => h.potMicro));
   return (
@@ -52,6 +54,14 @@ export default async function Analytics() {
         <div className="card stat">
           <span className="mono"><CountUp value={stats.raisedMicro} micro format="usd" /></span>
           <span className="muted small">raised for causes</span>
+        </div>
+        <div className="card stat">
+          <span className="mono">
+            <CountUp value={gifts.totalMicro} micro format="usd" />
+          </span>
+          <span className="muted small">
+            in gifts · from {gifts.givers} {gifts.givers === 1 ? "planter" : "planters"}
+          </span>
         </div>
         <div className="card stat">
           <span className="mono"><CountUp value={stats.live} /></span>

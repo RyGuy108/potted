@@ -134,7 +134,7 @@ export interface User {
   awarded?: { badges: string[]; level: number; milestones: string[] };
 }
 
-export type EventType = "created" | "pledged" | "locked" | "claimed" | "disputed" | "paid" | "failed" | "refunded" | "milestone" | "recap" | "bounty" | "redeemed";
+export type EventType = "created" | "pledged" | "locked" | "claimed" | "disputed" | "paid" | "failed" | "refunded" | "milestone" | "recap" | "bounty" | "redeemed" | "gift";
 
 /** What the overlay shows and reads aloud. */
 export interface StreamEvent {
@@ -173,6 +173,8 @@ export interface Db {
   follows?: { fanId: string; streamerId: string; at: number }[];
   /** Each climber's channel points: how planters earn them and what they buy. */
   points?: Record<string, PointsConfig>;
+  /** Gifts: money a planter gave a climber straight, with no challenge. */
+  gifts?: Gift[];
   /** Rewards planters have redeemed. */
   redemptions?: Redemption[];
   /** The scout's latest pitches for each climber. */
@@ -181,7 +183,7 @@ export interface Db {
   sample?: { challengeIds: string[]; addedAt: number };
 }
 
-export type NoticeKind = "award" | "challenge" | "money" | "refund" | "clip" | "dispute" | "idea" | "invite" | "points" | "follow";
+export type NoticeKind = "gift" | "award" | "challenge" | "money" | "refund" | "clip" | "dispute" | "idea" | "invite" | "points" | "follow";
 
 export interface Notice {
   id: string;
@@ -192,6 +194,16 @@ export interface Notice {
   body: string;
   href: string;
   read: boolean;
+}
+
+export interface Gift {
+  id: string;
+  fanId: string;
+  streamerId: string;
+  amountMicro: number;
+  note: string;
+  at: number;
+  tx: string;
 }
 
 /** Something a planter can spend a climber's channel points on. */

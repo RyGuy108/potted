@@ -9,6 +9,8 @@ import {
   describeCondition,
   formatUsd,
   growthOf,
+  isOpenPot,
+  OPEN_POT_CAP_MICRO,
   parseCondition,
   type Split,
   splitPot,
@@ -370,6 +372,8 @@ export interface NewChallenge {
   minutes: number;
   /** Whole percent of the pot paid when the attempt starts, 0 to 50. */
   upfrontPct?: number;
+  /** An open pot: no goal and no per-fan limit; anyone can keep adding until it settles. Goal and limit are ignored. */
+  open?: boolean;
 }
 
 /** Checks a new challenge's terms and returns the parsed pieces. */
@@ -379,8 +383,10 @@ function validate(actor: User, input: NewChallenge) {
   const condition = parseCondition(input.condition);
   if (condition.kind !== game.verifier) fail("That condition does not match the game");
   if (!(input.minutes >= 1 && input.minutes <= 24 * 60)) fail("Deadline must be 1 minute to 24 hours away");
-  if (!(input.goalUsd >= 1 && input.goalUsd <= 10_000)) fail("Goal must be $1 to $10,000");
-  if (!(input.pledgeCapUsd >= 1 && input.pledgeCapUsd <= 1_000)) fail("Per-fan limit must be $1 to $1,000");
+  if (!input.open) {
+    if (!(input.goalUsd >= 1 && input.goalUsd <= 10_000)) fail("Goal must be $1 to $10,000");
+    if (!(input.pledgeCapUsd >= 1 && input.pledgeCapUsd <= 1_000)) fail("Per-fan limit must be $1 to $1,000");
+  }
   const upfront = Number(input.upfrontPct ?? 0);
   if (!Number.isInteger(upfront) || upfront < 0 || upfront > MAX_UPFRONT_PCT) fail(`The up-front share must be a whole percent from 0 to ${MAX_UPFRONT_PCT}`);
   return { game, condition };
@@ -414,6 +420,7 @@ export async function invite(actor: User, guestHandle: string, guestPct: number,
       pledgeCapUsd: input.pledgeCapUsd,
       minutes: input.minutes,
       ...(Number(input.upfrontPct ?? 0) > 0 ? { upfrontPct: Number(input.upfrontPct) } : {}),
+      ...(input.open ? { open: true } : {}),
     },
     title: describeCondition(condition),
     createdAt: Date.now(),
@@ -515,8 +522,8 @@ export async function createChallenge(actor: User, input: NewChallenge, guests: 
     gameId: game.id,
     condition,
     status: "open",
-    goalMicro: toMicro(input.goalUsd),
-    pledgeCapMicro: toMicro(input.pledgeCapUsd),
+    goalMicro: input.open ? 0 : toMicro(input.goalUsd),
+    pledgeCapMicro: input.open ? OPEN_POT_CAP_MICRO : toMicro(input.pledgeCapUsd),
     totalMicro: 0,
     createdAt: now,
     deadline,
@@ -543,6 +550,8 @@ export async function pledge(actor: User, challengeId: string, amountUsd: number
     .reduce((sum, p) => sum + p.amountMicro, 0);
   const problem = pledgeError(challenge, already, amountMicro, Date.now());
   if (problem) fail(problem);
+  // An open pot has no per-fan limit; one pledge still stops at $10,000.
+  if (isOpenPot(challenge) && amountMicro > toMicro(10_000)) fail("One pledge can be up to $10,000");
   const streamer = getUser(challenge.streamerId);
   const minMicro = toMicro(streamer ? settingsOf(streamer).minPledgeUsd : DEFAULT_SETTINGS.minPledgeUsd);
   if (amountMicro < minMicro) fail(`The smallest pledge on this stream is ${formatUsd(minMicro)}`);
@@ -564,7 +573,7 @@ export async function pledge(actor: User, challengeId: string, amountUsd: number
   // One line for the highest stage this pledge reached, so a big pledge
   // that jumps two stages is announced once.
   const after = growthOf(challenge.totalMicro, challenge.goalMicro).index;
-  const line = after > before ? MILESTONE_LINES[after] : undefined;
+  const line = after > before ? (isOpenPot(challenge) ? OPEN_POT_LINES : MILESTONE_LINES)[after] : undefined;
   if (line) emit("milestone", challenge, line(challenge));
   save();
   return record;
@@ -575,6 +584,13 @@ const MILESTONE_LINES: Record<number, ((c: Challenge) => string) | undefined> = 
   2: () => "The vine is climbing. A third of the way to the clouds.",
   3: () => "That is a proper beanstalk now. Two thirds of the way up.",
   4: (c) => `The beanstalk has reached the clouds! ${formatUsd(c.totalMicro)} is in the pot.`,
+};
+
+/** An open pot has no goal, so its lines celebrate the amount instead. */
+const OPEN_POT_LINES: Record<number, ((c: Challenge) => string) | undefined> = {
+  2: (c) => `The open pot passed ${formatUsd(c.totalMicro)} and keeps growing.`,
+  3: (c) => `The open pot is at ${formatUsd(c.totalMicro)}. The beanstalk is getting tall.`,
+  4: (c) => `The open pot is past ${formatUsd(c.totalMicro)}. It's in the clouds, and there's no ceiling.`,
 };
 
 const RECAP_WINDOW_MS = 12 * 60 * 60_000;
@@ -725,6 +741,7 @@ export async function runAgain(actor: User, challengeId: string): Promise<Challe
     pledgeCapUsd: previous.pledgeCapMicro / 1_000_000,
     minutes: Math.max(1, Math.round((previous.deadline - previous.createdAt) / 60_000)),
     upfrontPct: previous.upfrontPct ?? 0,
+    open: isOpenPot(previous),
   });
 }
 
@@ -1069,7 +1086,7 @@ export function topPlanters(streamerId: string, limit = 5): { userId: string; na
 export function liveEverywhere(limit = 6): Challenge[] {
   return db()
     .challenges.filter((c) => c.status === "open" || c.status === "locked")
-    .sort((a, b) => b.totalMicro / b.goalMicro - a.totalMicro / a.goalMicro || b.createdAt - a.createdAt)
+    .sort((a, b) => growthOf(b.totalMicro, b.goalMicro).ratio - growthOf(a.totalMicro, a.goalMicro).ratio || b.createdAt - a.createdAt)
     .slice(0, limit);
 }
 
@@ -1169,7 +1186,8 @@ export function challengeStats(challenge: Challenge, viewerId: string) {
   const end = challenge.settledAt ?? Date.now();
   return {
     planters: funders.length,
-    pctOfGoal: Math.round((challenge.totalMicro / challenge.goalMicro) * 100),
+    /** Null for an open pot, which has no goal. */
+    pctOfGoal: isOpenPot(challenge) ? null : Math.round((challenge.totalMicro / challenge.goalMicro) * 100),
     biggestMicro: funders[0]?.amountMicro ?? 0,
     /** What this streamer took home, or would at the current pot. */
     shareMicro: earnedBy(challenge, viewerId),

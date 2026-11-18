@@ -127,12 +127,12 @@ export function Ring({ pct, size = 120, stroke = 10, tone = "green", children, l
 }
 
 /** A progress bar that grows to its value when it comes into view. */
-export function GrowBar({ pct, className = "bar", label }: { pct: number; className?: string; label?: string }) {
+export function GrowBar({ pct, className = "bar", label, duration = 1300 }: { pct: number; className?: string; label?: string; /** How long the fill takes, in ms. */ duration?: number }) {
   const [ref, seen] = useInView<HTMLDivElement>();
   const clamped = Math.max(0, Math.min(100, pct));
   return (
     <div ref={ref} className={`${className} grow-bar`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(clamped)} aria-label={label}>
-      <span style={{ width: seen ? `${clamped}%` : "0%" }} />
+      <span style={{ width: seen ? `${clamped}%` : "0%", transitionDuration: `${duration}ms` }} />
     </div>
   );
 }
@@ -144,7 +144,7 @@ const GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789$#
  * on what it says. The real text is rendered first, for screen readers and
  * search; the shuffle only plays once it scrolls into view.
  */
-export function Scramble({ text, duration = 750, className }: { text: string; duration?: number; className?: string }) {
+export function Scramble({ text, duration = 1000, className }: { text: string; duration?: number; className?: string }) {
   const [ref, seen] = useInView<HTMLSpanElement>();
   const [shown, setShown] = useState(text);
   useEffect(() => {
@@ -158,7 +158,8 @@ export function Scramble({ text, duration = 750, className }: { text: string; du
       // About 30 changes a second: fast enough to read as a shuffle, not a flicker.
       if (now - last > 33 || t === 1) {
         last = now;
-        const settled = Math.floor(EASE_OUT(t) * chars.length);
+        // Every letter shuffles for the first 40%; then they settle left to right, evenly.
+        const settled = t < 0.4 ? 0 : Math.floor(((t - 0.4) / 0.6) * chars.length);
         setShown(chars.map((ch, i) => (i < settled || ch === " " ? ch : GLYPHS[Math.floor(Math.random() * GLYPHS.length)])).join(""));
       }
       if (t < 1) frame = requestAnimationFrame(step);

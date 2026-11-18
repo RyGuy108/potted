@@ -10,7 +10,7 @@ export function LevelCard({ stats, lively = false }: { stats: PlanterStats; /** 
   return (
     <div className="card level">
       <Ring pct={ratio * 100} size={112} stroke={8} tone="green" label={`${Math.round(ratio * 100)}% of the way to the next level`}>
-        <Beanstalk stage={Math.min(4, level.index)} size={66} />
+        <Beanstalk stage={Math.min(4, level.index)} size={58} />
       </Ring>
       <div className="level-body">
         <p className="eyebrow">{lively ? <Scramble text={`Level ${level.index + 1}`} /> : `Level ${level.index + 1}`}</p>

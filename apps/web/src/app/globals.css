@@ -2942,9 +2942,13 @@ main > *:nth-child(n + 8) { animation-delay: 0.44s; }
   flex: none;
 }
 
-.ring svg {
+.ring > svg {
   position: absolute;
   inset: 0;
+}
+
+.ring-centre svg {
+  display: block;
 }
 
 .ring-track {
@@ -3323,4 +3327,59 @@ main:has(> .no-enter) > *,
 main:has(> .no-enter) .list > *,
 main:has(> .no-enter) .stats > * {
   animation: none;
+}
+
+/* Just give */
+.give-card h3 {
+  margin: 4px 0;
+}
+
+.give {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.give > input {
+  max-width: 520px;
+}
+
+.give-other {
+  width: 100px;
+}
+
+.give-total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.give-total .mono {
+  font-size: 1.6rem;
+  color: #5fe0a8;
+}
+
+.gift-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.92rem;
+}
+
+.overlay-gift {
+  border-color: rgba(53, 201, 139, 0.85);
+  background: linear-gradient(135deg, rgba(6, 78, 59, 0.92), rgba(15, 40, 50, 0.92));
+}
+
+.bell-icon.kind-gift {
+  background: rgba(53, 201, 139, 0.2);
+  color: #5fe0a8;
+}
+
+.open-pot-toggle {
+  margin: 4px 0 10px;
 }

@@ -188,7 +188,7 @@ function route(type: EventType, c: Challenge, message: string): void {
     }
     case "milestone":
       toClimbers("money", "Milestone on your pot", message);
-      if (c.totalMicro >= c.goalMicro) toFunders("challenge", "A pot you backed reached its goal", () => c.title);
+      if (c.goalMicro > 0 && c.totalMicro >= c.goalMicro) toFunders("challenge", "A pot you backed reached its goal", () => c.title);
       break;
     case "locked":
       toFunders("challenge", "The attempt has started", () => `${c.title} · pledging is closed.`);

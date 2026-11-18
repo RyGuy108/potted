@@ -1,3 +1,4 @@
+import { giftedBy } from "./gifts";
 import * as notifications from "./notifications";
 import * as service from "./service";
 import { type PointsConfig, type Redemption, type Reward, type User, db, newId, save } from "./store";
@@ -46,6 +47,8 @@ export function pointsOf(fan: User, streamerId: string): { earned: number; spent
     // A refund takes back what came back; an up-front share kept on a refund still counts.
     micro += p.amountMicro - service.returnedOf(p);
   }
+  // A gift counts like a pledge that can never be refunded.
+  micro += giftedBy(fan.id, streamerId);
   const earned = Math.floor((micro / 1_000_000) * config.perUsd);
   const spent = (state.redemptions ?? []).filter((r) => r.streamerId === streamerId && r.userId === fan.id && r.status !== "refunded").reduce((sum, r) => sum + r.cost, 0);
   return { earned, spent, balance: Math.max(0, earned - spent) };
@@ -53,7 +56,10 @@ export function pointsOf(fan: User, streamerId: string): { earned: number; spent
 
 /** Every climber a planter has points with, most first. */
 export function allPointsOf(fan: User): { streamer: User; balance: number; earned: number }[] {
-  const ids = new Set(db().pledges.filter((p) => p.userId === fan.id).map((p) => service.getChallenge(p.challengeId).streamerId));
+  const ids = new Set([
+    ...db().pledges.filter((p) => p.userId === fan.id).map((p) => service.getChallenge(p.challengeId).streamerId),
+    ...(db().gifts ?? []).filter((g) => g.fanId === fan.id).map((g) => g.streamerId),
+  ]);
   return [...ids]
     .flatMap((id) => {
       const streamer = service.getUser(id);

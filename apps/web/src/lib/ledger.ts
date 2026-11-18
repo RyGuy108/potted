@@ -24,6 +24,8 @@ export interface Ledger {
    */
   settle(challenge: Challenge, success: boolean, evidence: Evidence | undefined, payouts: Payout[]): Promise<string>;
   refund(challenge: Challenge, fanWallet: string, amountMicro: number): Promise<string>;
+  /** A plain transfer between two wallets, for a gift. No escrow, no conditions. */
+  transfer(fromWallet: string, toWallet: string, amountMicro: number): Promise<string>;
   /**
    * Bounties. Money is held per bounty until the streamer accepts or it
    * closes. Accepting moves each backing into the new challenge's vault as
@@ -77,6 +79,10 @@ class SimLedger implements Ledger {
 
   async createChallenge(challenge: Challenge) {
     return { ref: `sim:${challenge.id}`, tx: newId("sim-tx") };
+  }
+
+  async transfer(fromWallet: string, toWallet: string, amountMicro: number) {
+    return this.move(fromWallet, toWallet, amountMicro);
   }
 
   async pledge(challenge: Challenge, fanWallet: string, amountMicro: number) {

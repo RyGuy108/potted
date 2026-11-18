@@ -60,7 +60,7 @@ export function scoutInput(streamer: User, now = Date.now()): ScoutInput {
   const games: ScoutGame[] = ids.map((id) => {
     const list = own.filter((c) => c.gameId === id);
     const funded = list.filter((c) => c.totalMicro > 0);
-    const fills = list.flatMap((c) => {
+    const fills = list.filter((c) => c.goalMicro > 0).flatMap((c) => {
       let running = 0;
       for (const p of db().pledges.filter((p) => p.challengeId === c.id).sort((a, b) => a.createdAt - b.createdAt)) {
         running += p.amountMicro;

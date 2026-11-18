@@ -7,6 +7,7 @@ import { SAMPLE_SIGN_INS } from "@/lib/sample-data";
 import { isTestAccount } from "@/lib/test-accounts";
 import * as scouting from "@/lib/scout";
 import * as points from "@/lib/points";
+import * as gifts from "@/lib/gifts";
 import * as notifications from "@/lib/notifications";
 import { DEMO_GUEST_ID, DEMO_STREAMER_ID, type Role } from "@/lib/store";
 
@@ -117,6 +118,7 @@ export async function createChallengeAction(
       pledgeCapUsd: Number(input.pledgeCapUsd),
       minutes: Number(input.minutes),
       upfrontPct: Number(input.upfrontPct ?? 0),
+      open: input.open === true,
     });
     if (fromSuggestionId) await service.resolveSuggestion(user, String(fromSuggestionId), "used");
   });
@@ -222,4 +224,8 @@ export async function noticesAction(): Promise<{ unread: number; items: { id: st
 
 export async function markNoticesReadAction(ids?: string[]): Promise<ActionResult> {
   return run(async () => notifications.markRead(await requireUser(), Array.isArray(ids) ? ids.map(String) : undefined));
+}
+
+export async function giveAction(handle: string, amountUsd: number, note: string): Promise<ActionResult> {
+  return run(async () => gifts.give(await requireUser(), String(handle), Number(amountUsd), String(note ?? "")));
 }

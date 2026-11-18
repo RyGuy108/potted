@@ -19,6 +19,7 @@ const ICON: Record<string, string> = {
   invite: "⇄",
   points: "◈",
   follow: "♥",
+  gift: "♥",
 };
 
 const ago = (at: number) => {

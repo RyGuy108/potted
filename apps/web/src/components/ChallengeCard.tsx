@@ -1,4 +1,4 @@
-import { type Challenge, formatUsd, growthOf } from "@potted/core";
+import { type Challenge, formatUsd, growthOf, isOpenPot } from "@potted/core";
 import Link from "next/link";
 import { STATUS_LABEL, gameOf, tierLabel } from "@/lib/format";
 import { Countdown } from "./Live";
@@ -9,12 +9,12 @@ export function FundingBar({ challenge }: { challenge: Challenge }) {
   const growth = growthOf(challenge.totalMicro, challenge.goalMicro);
   return (
     <div className="funding">
-      <GrowBar pct={growth.ratio * 100} label="Pot toward its goal" />
+      <GrowBar pct={growth.ratio * 100} label="Pot toward its goal" duration={2600} />
       <div className="funding-row">
         <strong className="mono money-up">
-          <CountUp value={challenge.totalMicro} micro format="usd" trickle duration={2600} />
+          <CountUp value={challenge.totalMicro} micro format="usd" />
         </strong>
-        <span className="muted">in the pot · reaches the clouds at {formatUsd(challenge.goalMicro)}</span>
+        <span className="muted">{isOpenPot(challenge) ? "in the pot · open pot, no limit" : `in the pot · reaches the clouds at ${formatUsd(challenge.goalMicro)}`}</span>
       </div>
     </div>
   );

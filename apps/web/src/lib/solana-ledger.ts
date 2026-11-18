@@ -220,6 +220,17 @@ export class SolanaLedger implements Ledger {
     return tx;
   }
 
+  /** A gift: test USDC straight from one custodial wallet to another, signed by the giver's key. */
+  async transfer(fromWallet: string, toWallet: string, amountMicro: number): Promise<string> {
+    const from = new PublicKey(fromWallet);
+    const fromToken = this.tokenAccount(from);
+    if ((await this.balanceOf(fromWallet)) < amountMicro) throw new Error("Not enough test USDC for that gift");
+    const to = await this.ensureTokenAccount(toWallet);
+    const tx = new Transaction().add(createTransferInstruction(fromToken, to, from, amountMicro));
+    tx.feePayer = this.server.publicKey;
+    return sendAndConfirmTransaction(this.connection, tx, [this.server, this.signer(fromWallet)], { commitment: "confirmed" });
+  }
+
   /** Sends guest and cause shares out of the host's wallet after the program has paid the host. */
   private async sendShares(host: PublicKey, hostToken: PublicKey, payouts: Payout[]): Promise<void> {
     const shares = payouts.filter((p) => p.wallet !== host.toBase58() && p.amountMicro > 0);

@@ -121,4 +121,19 @@ describe.skipIf(!RPC)("Solana ledger against a local validator", () => {
     ).rejects.toThrow("not on chain yet");
     expect(await service.balanceOf(zoe)).toBe(usd(25));
   }, 60_000);
+
+  it("sends a gift on chain and runs an open pot past the old per-fan limit", async () => {
+    const { give } = await import("../src/lib/gifts");
+    const amy = await service.signIn("Amy", "fan");
+    const before = await service.balanceOf(streamer());
+    await give(amy, "ryan", 3, "thanks!");
+    expect(await service.balanceOf(amy)).toBe(usd(22));
+    expect(await service.balanceOf(streamer())).toBe(before + usd(3));
+
+    const open = await service.createChallenge(streamer(), { ...clip("Win a street race without hitting a wall"), goalUsd: 0, pledgeCapUsd: 0, open: true });
+    await service.pledge(amy, open.id, 12);
+    await service.pledge(amy, open.id, 6);
+    expect(await service.balanceOf(amy)).toBe(usd(4));
+    expect(service.getChallenge(open.id).totalMicro).toBe(usd(18));
+  }, 90_000);
 });

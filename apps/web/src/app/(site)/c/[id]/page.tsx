@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import { type Brief, disputeBrief } from "@potted/coordinator";
-import { type Challenge, formatUsd, growthOf, splitPot, toUsd } from "@potted/core";
+import { type Challenge, formatUsd, growthOf, isOpenPot, splitPot, toUsd } from "@potted/core";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { checkAction, disputeAction, ruleAction } from "@/app/actions";
@@ -167,10 +167,17 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
       <section className="card detail">
         <div className="detail-side">
           <Beanstalk stage={growth.index} size={132} />
-          <Ring pct={growth.ratio * 100} size={112} stroke={9} tone={challenge.status === "failed" ? "gold" : "green"} label={`${Math.round(growth.ratio * 100)}% of the goal`}>
-            <CountUp value={Math.round(growth.ratio * 100)} format="pct" className="ring-value" />
-            <span className="ring-caption">of goal</span>
-          </Ring>
+          {isOpenPot(challenge) ? (
+            <Ring pct={growth.ratio * 100} size={112} stroke={9} tone="violet" label={`Open pot at ${formatUsd(challenge.totalMicro)}`}>
+              <CountUp value={challenge.totalMicro} micro format="usd" className="ring-value" />
+              <span className="ring-caption">open pot</span>
+            </Ring>
+          ) : (
+            <Ring pct={growth.ratio * 100} size={112} stroke={9} tone={challenge.status === "failed" ? "gold" : "green"} label={`${Math.round(growth.ratio * 100)}% of the goal`}>
+              <CountUp value={Math.round(growth.ratio * 100)} format="pct" className="ring-value" />
+              <span className="ring-caption">of goal</span>
+            </Ring>
+          )}
         </div>
         <div className="detail-body">
           <div className="meta">
@@ -185,7 +192,7 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
           {live && (
             <p className="muted">
               {challenge.status === "open" ? "Pledging closes in " : "Time left to finish: "}
-              <Countdown until={challenge.deadline} /> · up to {formatUsd(challenge.pledgeCapMicro)} per fan
+              <Countdown until={challenge.deadline} /> · {isOpenPot(challenge) ? "no per-fan limit" : `up to ${formatUsd(challenge.pledgeCapMicro)} per fan`}
             </p>
           )}
 

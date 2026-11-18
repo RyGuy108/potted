@@ -78,6 +78,7 @@ export function CreateChallengeForm({
   const [partner, setPartner] = useState("");
   const [partnerPct, setPartnerPct] = useState("50");
   const [sent, setSent] = useState<string | null>(null);
+  const [open, setOpen] = useState(draft?.fields?.open === "true");
   const game = GAMES.find((g) => g.id === gameId)!;
   const warning = warnings[game.verifier];
 
@@ -115,6 +116,7 @@ export function CreateChallengeForm({
             pledgeCapUsd: Number(fields.pledgeCapUsd),
             upfrontPct: Number(fields.upfrontPct),
             minutes: Number(fields.minutes),
+            open,
           };
           const result =
             suggestion?.kind === "bounty"
@@ -235,9 +237,17 @@ export function CreateChallengeForm({
         )}
       </div>
 
+      <label className="check open-pot-toggle">
+        <input type="checkbox" checked={open} onChange={(e) => setOpen(e.target.checked)} />
+        <span>
+          <strong>Open pot</strong>: no goal and no per-fan limit. Anyone can keep adding until it settles; it still pays out only if you complete the
+          challenge.
+        </span>
+      </label>
+
       <div className="grid">
-        {input("goalUsd", "Reaches the clouds at ($)", { inputMode: "decimal", required: true })}
-        {input("pledgeCapUsd", "Per-fan limit ($)", { inputMode: "decimal", required: true })}
+        {!open && input("goalUsd", "Reaches the clouds at ($)", { inputMode: "decimal", required: true })}
+        {!open && input("pledgeCapUsd", "Per-fan limit ($)", { inputMode: "decimal", required: true })}
         {input("minutes", "Deadline (minutes from now)", { inputMode: "numeric", required: true })}
       </div>
 

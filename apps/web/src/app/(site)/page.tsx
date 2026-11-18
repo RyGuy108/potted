@@ -1,5 +1,6 @@
 import { formatUsd } from "@potted/core";
 import Link from "next/link";
+import { Scramble } from "@/components/Motion";
 import { redirect } from "next/navigation";
 import { ChallengeCard } from "@/components/ChallengeCard";
 import { Icon } from "@/components/Icon";
@@ -27,8 +28,12 @@ export default async function Home() {
     const disputes = disputesWaiting();
     return (
       <>
-        <p className="eyebrow">{ROLES.mod.label}</p>
-        <h1>{disputes.length === 0 ? "Nothing needs a ruling" : `${disputes.length} disputed ${disputes.length === 1 ? "clip needs" : "clips need"} a ruling`}</h1>
+        <p className="eyebrow">
+          <Scramble text={ROLES.mod.label} />
+        </p>
+        <h1>
+          <Scramble text={disputes.length === 0 ? "Nothing needs a ruling" : `${disputes.length} disputed ${disputes.length === 1 ? "clip needs" : "clips need"} a ruling`} />
+        </h1>
         <p className="lede">{ROLES.mod.blurb}</p>
         <div className="list">
           {disputes.map((c) => (
@@ -54,10 +59,14 @@ export default async function Home() {
   return (
     <>
       <div className="row between">
-        <p className="eyebrow">Welcome back</p>
+        <p className="eyebrow">
+          <Scramble text="Welcome back" />
+        </p>
         <Wallet user={user} />
       </div>
-      <h1>{stats.backed === 0 ? `Ready to plant, ${user.name}?` : `Your garden is growing, ${user.name}`}</h1>
+      <h1>
+        <Scramble text={stats.backed === 0 ? `Ready to plant, ${user.name}?` : `Your garden is growing, ${user.name}`} />
+      </h1>
 
       <div className="home-top">
         <LevelCard stats={stats} />

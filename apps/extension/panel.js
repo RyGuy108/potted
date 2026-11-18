@@ -92,7 +92,9 @@ async function watchedTab() {
 const STATUS = { open: "Open for pledges", locked: "Attempt in progress", paid: "Completed", failed: "Refunded" };
 
 function challengeCard(c, minPledgeUsd) {
-  const pct = Math.min(100, Math.round((c.totalMicro / c.goalMicro) * 100));
+  // An open pot has no goal; its bar fills ever more slowly, half way at $50.
+  const open = c.goalMicro <= 0;
+  const pct = open ? Math.round((1 - 1 / (1 + c.totalMicro / 50_000_000)) * 100) : Math.min(100, Math.round((c.totalMicro / c.goalMicro) * 100));
   const room = (c.pledgeCapMicro - c.mineMicro) / 1_000_000;
   const amounts = [1, 5, 10].filter((a) => a >= minPledgeUsd && a <= room);
   let controls = "";
@@ -102,7 +104,7 @@ function challengeCard(c, minPledgeUsd) {
         ${amounts.map((a) => `<button class="primary" data-action="pledge" data-amount="${a}">Add $${a}</button>`).join("")}
         ${room >= minPledgeUsd ? `<input class="amount" data-other inputmode="decimal" placeholder="$" aria-label="Other amount" /><button data-action="pledge-other">Add</button>` : ""}
       </div>
-      ${room < minPledgeUsd ? `<span class="muted small">You have reached this pot's limit for one planter.</span>` : `<span class="muted small">Up to ${usd(c.pledgeCapMicro)} per planter.</span>`}`;
+      ${room < minPledgeUsd ? `<span class="muted small">You have reached this pot's limit for one planter.</span>` : `<span class="muted small">${open ? "Open pot: no per-planter limit." : `Up to ${usd(c.pledgeCapMicro)} per planter.`}</span>`}`;
   } else if (c.status === "locked") {
     if (c.clipPosted) {
       controls = `
@@ -124,11 +126,22 @@ function challengeCard(c, minPledgeUsd) {
       <p class="title">${esc(c.title)}</p>
       <span class="muted small">${esc(c.game)}</span>
       ${c.splits.map((s) => `<span class="muted small">${esc(s)}</span>`).join("")}
-      <div class="pot"><span class="mono">${usd(c.totalMicro)}</span><span class="muted small">of ${usd(c.goalMicro)} · ${c.planters} ${c.planters === 1 ? "planter" : "planters"}</span></div>
+      <div class="pot"><span class="mono">${usd(c.totalMicro)}</span><span class="muted small">${open ? "open pot" : `of ${usd(c.goalMicro)}`} · ${c.planters} ${c.planters === 1 ? "planter" : "planters"}</span></div>
       <div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div>
       ${c.mineMicro > 0 ? `<span class="mine">You have ${usd(c.mineMicro)} in this pot.</span>` : ""}
       ${controls}
     </article>`;
+}
+
+function giveCard(stream) {
+  const amounts = [1, 5, 10].filter((a) => a >= stream.minPledgeUsd);
+  return `
+    <section class="card give">
+      <p class="eyebrow">Just give</p>
+      <span class="muted small">Straight to ${esc(stream.streamer.name)}, no challenge attached. Gifts can't be refunded.</span>
+      <input data-gift-note placeholder="Message (optional)" maxlength="140" aria-label="Message with your gift" />
+      <div class="row">${amounts.map((a) => `<button class="primary" data-action="give" data-amount="${a}">Give $${a}</button>`).join("")}</div>
+    </section>`;
 }
 
 function pointsCard(stream) {
@@ -234,6 +247,7 @@ async function streamView() {
         ${state.picked ? `<button class="link" data-action="unpick">Back to ${state.tab ? "this tab's stream" : "live streams"}</button>` : ""}
       </div>
       ${stream.challenges.length === 0 ? `<p class="muted">Nothing open right now. New challenges appear here on their own.</p>` : stream.challenges.map((c) => challengeCard(c, stream.minPledgeUsd)).join("")}
+      ${giveCard(stream)}
       ${pointsCard(stream)}
       ${ideaForm(stream)}
       <button class="link" data-open="/s/${esc(stream.streamer.handle)}">Open ${esc(stream.streamer.name)}'s page</button>`;
@@ -425,6 +439,13 @@ async function act(action, target) {
     case "pledge-other":
       await pledge(id, Number(card.querySelector("[data-other]").value.replace("$", "")));
       break;
+    case "give": {
+      const amount = Number(target.dataset.amount);
+      const note = $("main").querySelector("[data-gift-note]")?.value ?? "";
+      await post("give", { handle: state.streamHandle, amountUsd: amount, note });
+      notify(`You gave $${amount}. Thank you!`, true);
+      break;
+    }
     case "redeem": {
       const row = target.closest("[data-reward]");
       const input = row.querySelector("[data-reward-input]")?.value ?? "";

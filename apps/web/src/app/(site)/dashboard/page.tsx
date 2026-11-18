@@ -313,7 +313,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                       </div>
                       <div>
                         <dt>Of goal</dt>
-                        <dd className="mono">{stats.pctOfGoal}%</dd>
+                        <dd className="mono">{stats.pctOfGoal === null ? "open pot" : `${stats.pctOfGoal}%`}</dd>
                       </div>
                       <div>
                         <dt>Planters</dt>
