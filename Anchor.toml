@@ -9,10 +9,10 @@ skip-lint = false
 # Placeholder id. Run `anchor keys sync` after your first `anchor build`
 # so this matches the keypair in target/deploy.
 [programs.localnet]
-escrow = "2ppLCjxK534szs3T9o1vw3wW4gD9C6s2Dg5Coe2tqgNV"
+escrow = "2XGLRNEBZeU3zQ8aasikUti1j9B63JW1kxUcvG5MujbV"
 
 [programs.devnet]
-escrow = "2ppLCjxK534szs3T9o1vw3wW4gD9C6s2Dg5Coe2tqgNV"
+escrow = "2XGLRNEBZeU3zQ8aasikUti1j9B63JW1kxUcvG5MujbV"
 
 [registry]
 url = "https://api.apr.dev"

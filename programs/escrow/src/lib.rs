@@ -9,7 +9,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
-declare_id!("2ppLCjxK534szs3T9o1vw3wW4gD9C6s2Dg5Coe2tqgNV");
+declare_id!("2XGLRNEBZeU3zQ8aasikUti1j9B63JW1kxUcvG5MujbV");
 
 /// Longest evidence reference stored on-chain (a game id or a short URL).
 pub const MAX_EVIDENCE_LEN: usize = 96;
