@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import * as service from "@/lib/service";
 import { currentUser, endSession, startSession } from "@/lib/session";
 import { SAMPLE_SIGN_INS } from "@/lib/sample-data";
+import * as scouting from "@/lib/scout";
 import { DEMO_GUEST_ID, DEMO_STREAMER_ID, type Role } from "@/lib/store";
 
 /** Expected failures come back as values so forms can show them inline. */
@@ -178,4 +179,16 @@ export async function ruleAction(challengeId: string, upheld: boolean): Promise<
 
 export async function simulateAction(challengeId: string, success: boolean): Promise<ActionResult> {
   return run(async () => service.simulateResult(await requireUser(), String(challengeId), success === true));
+}
+
+export async function runScoutAction(): Promise<ActionResult> {
+  return run(async () => scouting.runScout(await requireUser()));
+}
+
+export async function openPitchAction(index: number): Promise<ActionResult> {
+  return run(async () => scouting.openPitch(await requireUser(), index));
+}
+
+export async function setAutopilotAction(on: boolean, maxGoalUsd: number): Promise<ActionResult> {
+  return run(async () => scouting.setAutopilot(await requireUser(), on, Math.round(Number(maxGoalUsd))));
 }

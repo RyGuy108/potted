@@ -2,7 +2,8 @@ import { GAMES } from "@potted/core";
 import { briefWithRules, draftWithRules, tidy } from "./rules";
 import type { Brief, Deps, DisputeCase, Draft, Idea } from "./types";
 
-const TIMEOUT_MS = 8000;
+/** Grok reasons before it answers; short limits made every call fall back to rules. */
+const TIMEOUT_MS = 30_000;
 
 /** One chat call to xAI's OpenAI-compatible endpoint, returning the reply parsed as JSON. */
 async function askJson(deps: Deps, system: string, user: string): Promise<Record<string, unknown>> {

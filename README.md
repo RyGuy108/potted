@@ -13,6 +13,18 @@ toward the clouds as the pot fills.
 Built for the University Blockchain Conference 2026 hackathon
 (Consumer Applications track, Solana).
 
+## Grok's role
+
+Grok is the climber's scout and the platform's coordinator. On the climber
+dashboard it searches X and the web for what is popular in the streamer's
+games this week, weighs that against the stream's own record and the escrow
+activity QuickNode streams in from Solana, and pitches ready-to-run
+challenges with a line to post on X; with autopilot on, it opens the next
+pitch itself whenever the stage is empty and the overlay announces it. Grok
+also turns fans' loose ideas into exact, checkable terms and briefs keepers
+on what to look for in a disputed clip, while the app checks every value it
+returns and never lets it move money or rule. Details: `docs/grok.md`.
+
 ## How a challenge works
 
 1. **Proposed** by a fan or the streamer, as a precise condition.
@@ -53,6 +65,7 @@ Solana CLI and Anchor 0.32.
 pnpm install
 pnpm test          # unit tests
 pnpm dev           # web app on http://localhost:3000
+pnpm --filter @potted/web sample   # optional: demo accounts and history (stop the dev server first)
 ```
 
 Copy `.env.example` to `apps/web/.env.local` and fill in what you need. The

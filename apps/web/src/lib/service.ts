@@ -181,6 +181,11 @@ export function shareOf(challenge: Challenge, userId: string, totalMicro = chall
 }
 
 /** A challenge's events go to every streamer on it, so each overlay shows them. */
+/** Puts a line on the climber's overlay feed for a challenge; the announcer reads it out. */
+export function announce(type: EventType, challenge: Challenge, message: string): void {
+  emit(type, challenge, message);
+}
+
 function emit(type: EventType, challenge: Challenge, message: string): void {
   for (const streamer of streamersOf(challenge)) emitTo(streamer.handle ?? "", type, challenge.id, message);
 }
@@ -291,6 +296,8 @@ export async function updateSettings(actor: User, input: Partial<Record<keyof St
     // Absent in settings saved before the QR existed; keep the current value then.
     overlayQr: input.overlayQr === undefined ? settingsOf(actor).overlayQr : input.overlayQr === true,
     blockedWords,
+    autopilot: input.autopilot === undefined ? current.autopilot : input.autopilot === true,
+    scoutMaxGoalUsd: current.scoutMaxGoalUsd,
   };
   save();
   return settingsOf(actor);

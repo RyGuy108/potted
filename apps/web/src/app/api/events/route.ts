@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { autopilotTick } from "@/lib/scout";
 import * as service from "@/lib/service";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,8 @@ export async function GET(request: Request) {
   if (!streamer?.handle) return NextResponse.json({ error: "Unknown streamer" }, { status: 404 });
 
   await service.tick(streamer.id);
+  // With autopilot on, an empty stage gets the scout's next pitch.
+  await autopilotTick(streamer).catch(() => undefined);
 
   const since = Number(url.searchParams.get("since") ?? -1);
   const challenges = service

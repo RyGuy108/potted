@@ -1,4 +1,4 @@
-import { draftTerms } from "@potted/coordinator";
+import { draftTerms, usesGrok } from "@potted/coordinator";
 import { GAMES, formatUsd } from "@potted/core";
 import Link from "next/link";
 import { cancelAction, checkAction, declineBountyAction, recapAction, respondInviteAction, withdrawInviteAction, dismissSuggestionAction, lockAction, runAgainAction, simulateAction } from "@/app/actions";
@@ -14,8 +14,11 @@ import { SettingsForm } from "@/components/SettingsForm";
 import { adapterStatus, gameOf } from "@/lib/format";
 import { backersOf, bountiesSupported, bountyTotal, challengeStats, expireBounties, openBounties, getSuggestion, getUser, invitesFor, listChallenges, listStreamers, pendingSuggestions, settingsOf, shareOf, simulatedResultsAllowed, stageChallenges } from "@/lib/service";
 import { currentUser } from "@/lib/session";
+import { pitchFields, scoutOf } from "@/lib/scout";
+import { publicBase } from "@/lib/url";
+import { ScoutPanel } from "@/components/ScoutPanel";
 
-export default async function Dashboard({ searchParams }: { searchParams: Promise<{ use?: string; bounty?: string }> }) {
+export default async function Dashboard({ searchParams }: { searchParams: Promise<{ use?: string; bounty?: string; pitch?: string }> }) {
   const user = await currentUser();
   if (user?.role !== "streamer") {
     return (
@@ -47,7 +50,9 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const challenges = listChallenges(user.id);
   const rehearsal = simulatedResultsAllowed();
   const suggestions = pendingSuggestions(user.id);
-  const { use, bounty: bountyParam } = await searchParams;
+  const { use, bounty: bountyParam, pitch: pitchParam } = await searchParams;
+  const scoutRun = scoutOf(user.id);
+  const pickedPitch = pitchParam !== undefined ? scoutRun?.pitches[Number(pitchParam)] : undefined;
   await expireBounties();
   const bounties = bountiesSupported() ? openBounties(user.id) : [];
   const picked = use ? getSuggestion(use) : undefined;
@@ -69,7 +74,12 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const invites = invitesFor(user);
   const guesting = stageChallenges(user.id).filter((c) => c.streamerId !== user.id);
   const partners = listStreamers().filter((s) => s.id !== user.id).map((s) => ({ handle: s.handle!, name: s.name }));
-  const draft = seed ? await draftTerms({ gameId: seed.gameId, text: seed.text }) : undefined;
+  const draft = pickedPitch
+    ? { gameId: pickedPitch.gameId, fields: pitchFields(user, pickedPitch), note: `From the scout: ${pickedPitch.why}`, source: scoutRun!.source }
+    : seed
+      ? await draftTerms({ gameId: seed.gameId, text: seed.text })
+      : undefined;
+  const fanPage = `${await publicBase()}/s/${user.handle}`;
 
   return (
     <>
@@ -87,6 +97,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           Add <code>?bg=1</code> to preview the overlay on a dark background, or <code>?muted=1</code> to silence the announcer.
         </p>
       </section>
+
+      <ScoutPanel run={scoutRun} settings={settingsOf(user)} fanPage={fanPage} grok={usesGrok()} />
 
       {bounties.length > 0 && (
         <section className="card manage">
@@ -198,7 +210,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       )}
 
       <div id="new">
-        <CreateChallengeForm key={seed?.id ?? "blank"} warnings={adapterStatus()} suggestion={seed} draft={draft} partners={partners} />
+        <CreateChallengeForm key={seed?.id ?? (pickedPitch ? `pitch-${pitchParam}-${scoutRun?.at}` : "blank")} warnings={adapterStatus()} suggestion={seed} draft={draft} partners={partners} />
       </div>
 
       <SettingsForm initial={settingsOf(user)} bounties={bountiesSupported()} />

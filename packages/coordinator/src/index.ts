@@ -1,9 +1,12 @@
 import { briefWithGrok, draftWithGrok } from "./grok";
 import { briefWithRules, draftWithRules } from "./rules";
+import { type ScoutInput, type Scouting, scoutWithGrok, scoutWithRules } from "./scout";
 import type { Brief, Deps, DisputeCase, Draft, Idea } from "./types";
 
 export type { Brief, Deps, DisputeCase, Draft, Idea } from "./types";
 export { draftWithRules, briefWithRules } from "./rules";
+export type { Pitch, ScoutGame, ScoutInput, Scouting } from "./scout";
+export { checkPitch, scoutWithRules } from "./scout";
 
 /**
  * The challenge coordinator. It drafts and advises; it never creates a
@@ -24,8 +27,8 @@ export async function draftTerms(idea: Idea, deps: Deps = defaultDeps()): Promis
   if (!usesGrok(deps)) return draftWithRules(idea);
   try {
     return await draftWithGrok(idea, deps);
-  } catch {
-    return draftWithRules(idea);
+  } catch (err) {
+    return { ...draftWithRules(idea), fallback: reasonOf(err) };
   }
 }
 
@@ -36,5 +39,27 @@ export async function disputeBrief(c: DisputeCase, deps: Deps = defaultDeps()): 
     return await briefWithGrok(c, deps);
   } catch {
     return briefWithRules(c);
+  }
+}
+
+/** A short, safe reason for a failed Grok call: never the key or the raw body. */
+export function reasonOf(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  if (/abort|timeout/i.test(message)) return "Grok did not answer in time";
+  if (/401|403/.test(message)) return "Grok rejected the API key";
+  if (/404/.test(message)) return "Grok does not know that model (check XAI_MODEL)";
+  if (/429/.test(message)) return "Grok rate limit or credits ran out";
+  if (/Grok answered \d+/.test(message)) return message;
+  if (/JSON|object|usable/i.test(message)) return "Grok's answer could not be used";
+  return "Could not reach Grok";
+}
+
+/** Challenges the climber could pitch next. Grok with X and web search, or the climber's own record without it. */
+export async function scout(input: ScoutInput, deps: Deps = defaultDeps()): Promise<Scouting> {
+  if (!usesGrok(deps)) return scoutWithRules(input);
+  try {
+    return await scoutWithGrok(input, deps);
+  } catch (err) {
+    return { ...scoutWithRules(input), fallback: reasonOf(err) };
   }
 }

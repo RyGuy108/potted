@@ -24,6 +24,8 @@ export interface Draft {
   /** One line telling the streamer what was changed and why. */
   note: string;
   source: "grok" | "rules";
+  /** Why Grok was not used, when a key is set but the call failed. */
+  fallback?: string;
 }
 
 export interface DisputeCase {

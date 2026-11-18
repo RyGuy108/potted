@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { ChainEvent } from "@potted/chain";
+import type { ScoutInput, Scouting } from "@potted/coordinator";
 import type { Challenge, Pledge } from "@potted/core";
 import type { VoiceKey } from "./voices";
 
@@ -42,6 +43,10 @@ export interface StreamSettings {
   causePct: number;
   /** Suggestions containing any of these are rejected. Lower-case. */
   blockedWords: string[];
+  /** When nothing is live, the scout opens its next pitch on its own. */
+  autopilot: boolean;
+  /** Largest goal the scout may pitch, and autopilot may open, in dollars. */
+  scoutMaxGoalUsd: number;
 }
 
 export const DEFAULT_SETTINGS: StreamSettings = {
@@ -60,6 +65,8 @@ export const DEFAULT_SETTINGS: StreamSettings = {
   causeUrl: "",
   causePct: 50,
   blockedWords: [],
+  autopilot: false,
+  scoutMaxGoalUsd: 100,
 };
 
 /** A fan's challenge idea, waiting for the streamer to use or dismiss it. */
@@ -156,8 +163,21 @@ export interface Db {
   /** Sim ledger balances in micro-USDC, by wallet. */
   balances: Record<string, number>;
   seq: number;
+  /** The scout's latest pitches for each climber. */
+  scouts?: Record<string, ScoutRun>;
   /** Set while the demo sample is loaded: live challenges it opened, so it can be removed again. */
   sample?: { challengeIds: string[]; addedAt: number };
+}
+
+/** One scouting run and what became of its pitches. */
+export interface ScoutRun extends Scouting {
+  at: number;
+  /** Challenge ids by pitch index, once opened. */
+  opened: Record<number, string>;
+  /** When autopilot last opened one, so it waits between them. */
+  autoAt?: number;
+  /** What the scout read from the chain, for the panel. */
+  chain: ScoutInput["chain"];
 }
 
 export const DEMO_STREAMER_ID = "u_demo_streamer";

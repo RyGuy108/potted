@@ -52,6 +52,9 @@ export interface DraftSeed {
   fields: Record<string, string>;
   note: string;
   source: "grok" | "rules";
+  fallback?: string;
+  /** The game the draft is for, when it did not come from a fan's idea. */
+  gameId?: string;
 }
 
 export function CreateChallengeForm({
@@ -68,7 +71,7 @@ export function CreateChallengeForm({
   draft?: DraftSeed;
 }) {
   const router = useRouter();
-  const [gameId, setGameId] = useState(suggestion?.gameId ?? "chess");
+  const [gameId, setGameId] = useState(suggestion?.gameId ?? draft?.gameId ?? "chess");
   const [fields, setFields] = useState<Fields>({ ...DEFAULTS, statement: suggestion?.text ?? "", game: suggestion?.customGame ?? "", ...draft?.fields });
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -141,8 +144,16 @@ export function CreateChallengeForm({
           {draft && (
             <span className="draft-note">
               <span className="tag tag-quiet">{draft.source === "grok" ? "Drafted by Grok" : "Drafted by rules"}</span> {draft.note}
+              {draft.fallback && <span className="muted small"> ({draft.fallback})</span>}
             </span>
           )}
+        </p>
+      )}
+      {!suggestion && draft && (
+        <p className="hint">
+          <span className="draft-note">
+            <span className="tag tag-quiet">{draft.source === "grok" ? "Pitched by Grok" : "Pitched by the scout"}</span> {draft.note} Check the terms below before you open it.
+          </span>
         </p>
       )}
       <div className="game-tabs" role="tablist" aria-label="Game">
