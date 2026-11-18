@@ -57,6 +57,23 @@ export function livePlans(minutes: number): Plan[] {
   ];
 }
 
+/** Public devnet RPCs rate-limit bursts. On Solana, space the steps out and retry a rate-limited one. */
+async function step<T>(work: () => Promise<T>): Promise<T> {
+  if (ledger().kind !== "solana") return work();
+  for (let attempt = 0; ; attempt++) {
+    await new Promise((r) => setTimeout(r, 400));
+    try {
+      return await work();
+    } catch (err) {
+      const limited = /429|Too many requests/i.test(err instanceof Error ? err.message : String(err));
+      if (!limited || attempt >= 6) throw err;
+      const wait = 5_000 * (attempt + 1);
+      console.log(`  devnet is rate-limiting; waiting ${wait / 1000}s and trying again`);
+      await new Promise((r) => setTimeout(r, wait));
+    }
+  }
+}
+
 export interface LiveOptions {
   /** How long the live challenges stay open, in minutes (1 to 1440). */
   minutes: number;
@@ -79,15 +96,15 @@ export async function addSampleLive({ minutes, log = () => {} }: LiveOptions): P
   needs.set("u_s_tester2", 50);
   const L = ledger();
   for (const [fan, usd] of needs) {
-    await L.faucet(user(fan).wallet, Math.round(usd * 1_000_000));
+    await step(() => L.faucet(user(fan).wallet, Math.round(usd * 1_000_000)));
     log(`funded ${user(fan).name} with $${usd}`);
   }
   save();
 
   for (const plan of plans) {
-    const c = await service.createChallenge(user(plan.host), plan.input);
+    const c = await step(() => service.createChallenge(user(plan.host), plan.input));
     opened.push(c.id);
-    for (const [fan, amount] of plan.pledges) await service.pledge(user(fan), c.id, amount);
+    for (const [fan, amount] of plan.pledges) await step(() => service.pledge(user(fan), c.id, amount));
     log(`opened "${c.title}" for ${user(plan.host).name}, $${c.totalMicro / 1e6} pledged`);
   }
 
@@ -99,23 +116,23 @@ export async function addSampleLive({ minutes, log = () => {} }: LiveOptions): P
     pledgeCapUsd: 20,
     minutes,
   });
-  const collab = (await service.respondInvite(user("u_s_juniper"), invite.id, true))!;
+  const collab = (await step(() => service.respondInvite(user("u_s_juniper"), invite.id, true)))!;
   opened.push(collab.id);
-  for (const [fan, amount] of [[p("tess"), 10], [p("omar.gg"), 8], [p("Maya"), 4]] as const) await service.pledge(user(fan), collab.id, amount);
+  for (const [fan, amount] of [[p("tess"), 10], [p("omar.gg"), 8], [p("Maya"), 4]] as const) await step(() => service.pledge(user(fan), collab.id, amount));
   log(`opened the Wren and Juniper collab, $${collab.totalMicro / 1e6} pledged`);
 
   // An attempt in progress with a disputed clip, waiting for a keeper.
-  const disputed = await service.createChallenge(user("u_s_juniper"), {
+  const disputed = await step(() => service.createChallenge(user("u_s_juniper"), {
     gameId: "minecraft",
     condition: clip("Minecraft", "Beat the Ender Dragon in hardcore"),
     goalUsd: 40,
     pledgeCapUsd: 20,
     minutes,
     upfrontPct: 25,
-  });
+  }));
   opened.push(disputed.id);
-  for (const [fan, amount] of [[p("noor"), 10], [p("benji"), 5], [p("chloe.mp4"), 8], [p("samwise"), 5]] as const) await service.pledge(user(fan), disputed.id, amount);
-  await service.lock(user("u_s_juniper"), disputed.id);
+  for (const [fan, amount] of [[p("noor"), 10], [p("benji"), 5], [p("chloe.mp4"), 8], [p("samwise"), 5]] as const) await step(() => service.pledge(user(fan), disputed.id, amount));
+  await step(() => service.lock(user("u_s_juniper"), disputed.id));
   await service.claim(user("u_s_juniper"), disputed.id, "https://example.com/sample-clips/ender-dragon");
   await service.dispute(user(p("samwise")), disputed.id);
   log(`opened, started and disputed "${disputed.title}" (waiting for a keeper)`);
