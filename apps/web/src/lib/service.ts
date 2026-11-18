@@ -1117,7 +1117,8 @@ export function climberStats(streamer: User): ClimberStats {
       .map(([gameId, row]) => ({ gameId, name: GAMES.find((g) => g.id === gameId)?.name ?? gameId, ...row }))
       .sort((a, b) => b.earnedMicro - a.earnedMicro || b.challenges - a.challenges),
     history: [...settled]
-      .sort((a, b) => (a.settledAt ?? a.createdAt) - (b.settledAt ?? b.createdAt))
+      // Two challenges can settle in the same millisecond; the order they were created in breaks the tie.
+      .sort((a, b) => (a.settledAt ?? a.createdAt) - (b.settledAt ?? b.createdAt) || db().challenges.indexOf(a) - db().challenges.indexOf(b))
       .slice(-12)
       .map((c) => ({ id: c.id, title: c.title, potMicro: c.totalMicro, paid: c.status === "paid" })),
   };
