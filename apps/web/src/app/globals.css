@@ -22,6 +22,13 @@
   --green: #3ecf8e;
   --green-soft: rgba(62, 207, 142, 0.12);
   --gold: #e6b450;
+  /* Wood: a warm second tone for the garden itself (pots, soil, labels,
+     awards). Green stays for progress and money; white for actions. */
+  --wood: #b4875a;
+  --wood-light: #d4b088;
+  --wood-deep: #2a1e14;
+  --wood-soft: rgba(180, 135, 90, 0.12);
+  --wood-line: rgba(180, 135, 90, 0.36);
   --gold-soft: rgba(230, 180, 80, 0.12);
   --red: #f87171;
   --red-soft: rgba(248, 113, 113, 0.12);
@@ -4048,4 +4055,98 @@ main h2 + section {
   main {
     padding-top: 28px;
   }
+}
+
+/* ------------------------------------------------------------------------
+   Wood accents
+   ------------------------------------------------------------------------ */
+
+/* The logo sits in a wooden ring, like a pot rim. */
+.brand-mark {
+  background: radial-gradient(circle at 50% 35%, #3a2a1c, var(--wood-deep));
+  border: 1px solid var(--wood-line);
+}
+
+/* Small labels and numbering read warm. */
+.eyebrow,
+.label,
+.step-no {
+  color: var(--wood-light);
+}
+
+.steps-list li:hover .step-no,
+.accordion details[open] .step-no {
+  color: var(--wood);
+}
+
+.accordion details[open] .accordion-plus::before,
+.accordion details[open] .accordion-plus::after {
+  background: var(--wood-light);
+}
+
+/* The beanstalk strip stands on a wooden shelf. */
+.growth {
+  border-top-color: var(--wood-line);
+  border-bottom: 3px solid var(--wood-deep);
+  background: linear-gradient(to bottom, transparent 82%, var(--wood-soft));
+}
+
+/* Awards are wooden plaques: badges, the streak, award notifications. */
+.badge-earned {
+  border-color: var(--wood-line);
+  background: linear-gradient(135deg, rgba(180, 135, 90, 0.1), transparent 60%), var(--glass);
+}
+
+.badge-earned .badge-dot {
+  background: radial-gradient(circle at 35% 35%, var(--wood-light), var(--wood));
+  box-shadow: 0 0 0 3px var(--wood-soft);
+}
+
+.streak {
+  color: var(--wood-light);
+}
+
+.bell-icon.kind-award {
+  background: var(--wood-soft);
+  color: var(--wood-light);
+}
+
+.bell-toast.kind-award {
+  border-color: var(--wood-line);
+}
+
+/* Channel points feel like tokens carved for the garden, apart from money. */
+.points-balance .mono,
+.points-chip .mono,
+.reward .cost {
+  color: var(--wood-light);
+}
+
+.reward:hover {
+  border-color: var(--wood-line);
+}
+
+/* Avatars without a picture: initials on stained wood. */
+.avatar-initials {
+  background: radial-gradient(circle at 40% 30%, #3a2a1c, var(--wood-deep)) !important;
+  color: var(--wood-light);
+  border-color: var(--wood-line);
+}
+
+/* Cards you can open warm up a little under the pointer. */
+a.card:hover,
+.points-chip:hover,
+.stream-card:hover .stream-thumb {
+  border-color: var(--wood-line);
+  outline-color: var(--wood-line);
+}
+
+/* The level ring's track is the wooden rim of the pot. */
+.level .ring-track {
+  stroke: var(--wood-soft);
+}
+
+/* The footer is the floorboard. */
+.site-footer {
+  border-top: 1px solid var(--wood-line);
 }
