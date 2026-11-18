@@ -12,8 +12,23 @@ const ago = (at: number) => {
   return hours < 24 ? `${hours}h ago` : `${Math.round(hours / 24)}d ago`;
 };
 
-/** The climber's redemption queue and points setup. */
-export function PointsPanel({ config, redemptions }: { config: PointsConfig; redemptions: (Redemption & { fanName: string })[] }) {
+/** The climber's redemption queue ("queue", for the live page) or points setup with recent history ("setup", for the channel page). */
+export function PointsPanel({ config, redemptions, mode }: { config: PointsConfig; redemptions: (Redemption & { fanName: string })[]; mode: "queue" | "setup" }) {
+  if (mode === "setup") {
+    const recent = redemptions.filter((r) => r.status !== "pending").slice(0, 5);
+    return (
+      <section className="card" id="points">
+        <p className="eyebrow">Channel points</p>
+        <h3>Points and rewards</h3>
+        <PointsSettings initial={config} max={MAX_REWARDS} />
+        {recent.length > 0 && (
+          <p className="muted small">
+            Recently: {recent.map((r) => `${r.fanName} · ${r.title} (${r.status === "fulfilled" ? "done" : "refunded"})`).join(" · ")}
+          </p>
+        )}
+      </section>
+    );
+  }
   const pending = redemptions.filter((r) => r.status === "pending");
   const done = redemptions.filter((r) => r.status !== "pending").slice(0, 5);
   return (
@@ -45,10 +60,9 @@ export function PointsPanel({ config, redemptions }: { config: PointsConfig; red
           Earlier: {done.map((r) => `${r.fanName} · ${r.title} (${r.status === "fulfilled" ? "done" : "refunded"})`).join(" · ")}
         </p>
       )}
-      <details className="points-setup">
-        <summary>Points and rewards setup</summary>
-        <PointsSettings initial={config} max={MAX_REWARDS} />
-      </details>
+      <p className="muted small">
+        Change what planters can redeem on <a href="/dashboard/channel#points">Channel</a>.
+      </p>
     </section>
   );
 }

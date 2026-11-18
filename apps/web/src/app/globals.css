@@ -4386,13 +4386,13 @@ textarea {
 }
 
 /* Streamer dashboard: approval queue, campaign, payouts */
-.queue h3,
+.approvals h3,
 .campaign h3,
 .payouts h3 {
   margin: 0;
 }
 
-.queue-count {
+.approvals-count {
   font-size: 0.82rem;
   padding: 3px 10px;
   border-radius: 999px;
@@ -4400,13 +4400,13 @@ textarea {
   color: var(--muted);
 }
 
-.queue-count.on {
+.approvals-count.on {
   color: var(--wood-light);
   border-color: var(--wood-line);
   background: var(--wood-soft);
 }
 
-.queue-list {
+.approvals-list {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -4415,7 +4415,7 @@ textarea {
   margin: 14px 0 0;
 }
 
-.queue-list a {
+.approvals-list a {
   display: inline-flex;
   gap: 6px;
   padding: 7px 12px;
@@ -4425,7 +4425,7 @@ textarea {
   text-decoration: none;
 }
 
-.queue-list a:hover {
+.approvals-list a:hover {
   border-color: var(--wood-line);
 }
 
@@ -4569,4 +4569,126 @@ textarea {
 .payout-table td:first-child,
 .payout-table td.num {
   white-space: nowrap;
+}
+
+/* Climber dashboard: two pages, Challenges and Channel, with even spacing between every card. */
+.dash-head h1 {
+  margin-bottom: 6px;
+}
+
+.dash-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 22px 0 28px;
+  padding: 4px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--glass);
+  width: fit-content;
+  max-width: 100%;
+}
+
+.dash-tabs a {
+  display: grid;
+  gap: 1px;
+  padding: 9px 18px;
+  border-radius: 10px;
+  color: var(--muted);
+  text-decoration: none;
+  transition: background-color var(--fast, 0.15s) ease, color var(--fast, 0.15s) ease;
+}
+
+.dash-tabs a span:first-child {
+  font-weight: 600;
+}
+
+.dash-tabs a:hover {
+  color: var(--ink);
+  background: var(--wood-soft);
+}
+
+.dash-tabs a.on {
+  color: #000;
+  background: var(--ink);
+}
+
+.dash-tabs a.on .muted {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.dash-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.dash-stack > *,
+.dash-stack > section > .list {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.dash-live .list {
+  margin-top: 12px;
+}
+
+.dash-live h2,
+#history h2 {
+  margin: 0;
+}
+
+#history .past-grid {
+  margin-top: 14px;
+}
+
+.dash-stack [id] {
+  scroll-margin-top: 110px;
+}
+
+/* Dropdowns: sized to their options instead of stretching to the edge of
+   the card, with the arrow drawn close to the text. */
+select {
+  -webkit-appearance: none;
+  appearance: none;
+  justify-self: start;
+  width: auto;
+  min-width: min(200px, 100%);
+  max-width: 100%;
+  padding-right: 38px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23aaa298' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 12px 8px;
+  cursor: pointer;
+}
+
+.suggest select {
+  width: auto;
+}
+
+/* Notifications: the panel opens to the left of the bell, and toasts arrive
+   on the left of the screen. Nothing they do can widen the page. */
+html,
+body {
+  overflow-x: clip;
+}
+
+.bell-panel {
+  right: 0;
+  left: auto;
+  transform-origin: top right;
+}
+
+.bell-toast {
+  left: 20px;
+  right: auto;
+  top: auto;
+  bottom: 24px;
+}
+
+.just-finished {
+  margin: 22px 0 12px;
+  font-size: 1rem;
+  color: var(--muted);
+  font-weight: 500;
 }

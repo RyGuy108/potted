@@ -1,6 +1,5 @@
 import { formatUsd } from "@potted/core";
 import Link from "next/link";
-import { Scramble } from "@/components/Motion";
 import { redirect } from "next/navigation";
 import { ChallengeCard } from "@/components/ChallengeCard";
 import { Icon } from "@/components/Icon";
@@ -29,10 +28,10 @@ export default async function Home() {
     return (
       <>
         <p className="eyebrow">
-          <Scramble text={ROLES.mod.label} />
+          {ROLES.mod.label}
         </p>
         <h1>
-          <Scramble text={disputes.length === 0 ? "Nothing needs a ruling" : `${disputes.length} disputed ${disputes.length === 1 ? "clip needs" : "clips need"} a ruling`} />
+          {disputes.length === 0 ? "Nothing needs a ruling" : `${disputes.length} disputed ${disputes.length === 1 ? "clip needs" : "clips need"} a ruling`}
         </h1>
         <p className="lede">{ROLES.mod.blurb}</p>
         <div className="list">
@@ -60,12 +59,12 @@ export default async function Home() {
     <>
       <div className="row between">
         <p className="eyebrow">
-          <Scramble text="Welcome back" />
+          Welcome back
         </p>
         <Wallet user={user} />
       </div>
       <h1>
-        <Scramble text={stats.backed === 0 ? `Ready to plant, ${user.name}?` : `Your garden is growing, ${user.name}`} />
+        {stats.backed === 0 ? `Ready to plant, ${user.name}?` : `Your garden is growing, ${user.name}`}
       </h1>
 
       <div className="home-top">

@@ -9,23 +9,23 @@ import { CampaignForm } from "./CampaignForm";
 import { GrowBar } from "./Motion";
 
 /** Everything waiting on the climber, with a link to each. */
-export function ApprovalQueue({ items }: { items: { label: string; count: number; href: string }[] }) {
+export function ApprovalQueue({ items }: { items: { label: [one: string, many: string]; count: number; href: string }[] }) {
   const waiting = items.filter((i) => i.count > 0);
   const total = waiting.reduce((sum, i) => sum + i.count, 0);
   return (
-    <section className="card queue" aria-label="Approval queue">
+    <section className="card approvals" aria-label="Approval queue">
       <div className="row between">
         <h3>Approval queue</h3>
-        <span className={`queue-count${total > 0 ? " on" : ""}`}>{total === 0 ? "All clear" : `${total} waiting`}</span>
+        <span className={`approvals-count${total > 0 ? " on" : ""}`}>{total === 0 ? "All clear" : `${total} waiting`}</span>
       </div>
       {waiting.length === 0 ? (
         <p className="muted small">Nothing needs you right now. Ideas, bounties, collab invites, reward redemptions and scout pitches show up here.</p>
       ) : (
-        <ul className="queue-list">
+        <ul className="approvals-list">
           {waiting.map((i) => (
-            <li key={i.label}>
+            <li key={i.href}>
               <a href={i.href}>
-                <span className="mono">{i.count}</span> {i.label}
+                <span className="mono">{i.count}</span> {i.count === 1 ? i.label[0] : i.label[1]}
               </a>
             </li>
           ))}
