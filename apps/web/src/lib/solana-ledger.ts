@@ -83,14 +83,30 @@ export class SolanaLedger implements Ledger {
   private loadKeys() {
     if (!fs.existsSync(this.keyFile)) return;
     const saved = JSON.parse(fs.readFileSync(this.keyFile, "utf8")) as Record<string, number[]>;
-    for (const [address, secret] of Object.entries(saved)) this.keys.set(address, Keypair.fromSecretKey(Uint8Array.from(secret)));
+    for (const [address, secret] of Object.entries(saved)) {
+      if (!this.keys.has(address)) this.keys.set(address, Keypair.fromSecretKey(Uint8Array.from(secret)));
+    }
   }
 
+  /**
+   * Adds this process's keys to the file. Another process (the dev server
+   * and the sample script, say) may have added keys since this one loaded,
+   * so the file is read and merged first: a key is never dropped.
+   */
   private saveKeys() {
     fs.mkdirSync(path.dirname(this.keyFile), { recursive: true });
+    this.loadKeys();
     const out = Object.fromEntries([...this.keys].map(([address, key]) => [address, [...key.secretKey]]));
-    // Owner-only: these keys move the accounts' test tokens.
-    fs.writeFileSync(this.keyFile, JSON.stringify(out), { mode: 0o600 });
+    // Owner-only: these keys move the accounts' test tokens. Written through a temp file so a crash cannot truncate it.
+    const tmp = `${this.keyFile}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(out), { mode: 0o600 });
+    fs.renameSync(tmp, this.keyFile);
+  }
+
+  /** Whether this server can sign for a wallet, after checking the file for keys another process added. */
+  hasKey(wallet: string): boolean {
+    if (!this.keys.has(wallet)) this.loadKeys();
+    return this.keys.has(wallet);
   }
 
   newWallet(): string {
@@ -101,6 +117,7 @@ export class SolanaLedger implements Ledger {
   }
 
   private signer(wallet: string): Keypair {
+    if (!this.keys.has(wallet)) this.loadKeys();
     const key = this.keys.get(wallet);
     if (!key) throw new Error(`No key on this server for wallet ${wallet}`);
     return key;
