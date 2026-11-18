@@ -144,6 +144,8 @@ export interface Db {
   pledges: Pledge[];
   suggestions: Suggestion[];
   bounties: Bounty[];
+  /** On Solana, the wallet each named cause's share is paid into, until causes have verified addresses. */
+  causeWallets: Record<string, string>;
   backings: Backing[];
   /** Escrow events delivered by the QuickNode Stream. */
   chain: ChainEvent[];
@@ -201,6 +203,7 @@ function seed(): Db {
     pledges: [],
     suggestions: [],
     bounties: [],
+    causeWallets: {},
     backings: [],
     chain: [],
     invites: [],
@@ -224,6 +227,7 @@ export function db(): Db {
       // Files written before suggestions existed.
       cache.__pottedDb.suggestions ??= [];
       cache.__pottedDb.bounties ??= [];
+      cache.__pottedDb.causeWallets ??= {};
       cache.__pottedDb.backings ??= [];
       cache.__pottedDb.chain ??= [];
       cache.__pottedDb.invites ??= [];

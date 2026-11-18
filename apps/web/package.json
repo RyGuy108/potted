@@ -7,9 +7,12 @@
     "build": "next build",
     "start": "next start",
     "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "solana:setup": "node --env-file-if-exists=.env.local scripts/solana-setup.mjs",
+    "test:solana": "SOLANA_TEST_RPC=http://127.0.0.1:8899 vitest run test/solana.integration.test.ts"
   },
   "dependencies": {
+    "@coral-xyz/anchor": "0.32.1",
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@fontsource-variable/space-grotesk": "^5.3.0",
@@ -17,6 +20,8 @@
     "@potted/coordinator": "workspace:*",
     "@potted/core": "workspace:*",
     "@potted/verifier": "workspace:*",
+    "@solana/spl-token": "^0.4.15",
+    "@solana/web3.js": "^1.99.0",
     "next": "^16.0.0",
     "qrcode": "^1.5.4",
     "react": "^19.0.0",

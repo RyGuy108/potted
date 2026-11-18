@@ -75,7 +75,8 @@ export function getChallenge(id: string): Challenge {
 
 /** Finds the challenge behind an on-chain account, once the ledger has given it one. */
 export function challengeByLedgerRef(ref: string): Challenge | undefined {
-  return db().challenges.find((c) => c.ledgerRef === ref);
+  // Solana refs are "<challenge account>:<streamer wallet>"; chain events name the account.
+  return db().challenges.find((c) => c.ledgerRef === ref || c.ledgerRef?.startsWith(`${ref}:`));
 }
 
 /** Challenges a streamer appears in: their own and those they guest on. */
@@ -206,7 +207,7 @@ export async function signIn(name: string, role: Role): Promise<User> {
   if (clean.length < 2) fail("Pick a name with at least 2 characters");
   if (role === "streamer") fail("Use the demo streamer account");
   const id = newId("u");
-  const user: User = { id, name: clean, role, wallet: `sim:${id}`, createdAt: Date.now() };
+  const user: User = { id, name: clean, role, wallet: ledger().newWallet(id), createdAt: Date.now() };
   db().users.push(user);
   if (role === "fan") await ledger().faucet(user.wallet, FAUCET_MICRO);
   save();
@@ -423,7 +424,17 @@ function causeSplit(streamer: User): Split[] {
 
 /** The sim ledger account a cause's share is paid into. */
 export function causeWallet(name: string): string {
-  return `cause:${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+  const key = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  if (ledger().kind === "sim") return `cause:${key}`;
+  // Causes have no verified wallet yet, so on Solana each named cause gets
+  // one held by this server. Fine for devnet test tokens; a real cause
+  // needs its own address before real money goes to it.
+  const wallets = db().causeWallets;
+  if (!wallets[key]) {
+    wallets[key] = ledger().newWallet(`cause:${key}`);
+    save();
+  }
+  return wallets[key];
 }
 
 /**
@@ -810,7 +821,7 @@ export async function signInWith(provider: string, profile: { subject: string; n
     id,
     name,
     role: "fan",
-    wallet: `sim:${id}`,
+    wallet: ledger().newWallet(id),
     createdAt: Date.now(),
     identities: [{ provider, subject: profile.subject }],
     ...(profile.email ? { email: profile.email } : {}),

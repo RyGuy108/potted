@@ -12,7 +12,7 @@ import { PledgeForm } from "@/components/PledgeForm";
 import { Wallet } from "@/components/Wallet";
 import { SignInPanel } from "@/components/SignInPanel";
 import { clock, gameOf, tierLabel } from "@/lib/format";
-import { isSimTx } from "@/lib/ledger";
+import { explorerTxUrl, isSimTx } from "@/lib/ledger";
 import * as service from "@/lib/service";
 import { currentUser } from "@/lib/session";
 
@@ -116,7 +116,13 @@ function Receipt({ challenge, hostName }: { challenge: Challenge; hostName: stri
         <dd>{challenge.settledAt ? clock(challenge.settledAt) : "–"}</dd>
         <dt>Transaction</dt>
         <dd className="mono">
-          {challenge.txs.settle ?? "–"}
+          {challenge.txs.settle && !isSimTx(challenge.txs.settle) ? (
+            <a href={explorerTxUrl(challenge.txs.settle)} target="_blank" rel="noreferrer">
+              {challenge.txs.settle.slice(0, 8)}…{challenge.txs.settle.slice(-8)} on Solana Explorer
+            </a>
+          ) : (
+            (challenge.txs.settle ?? "–")
+          )}
           {isSimTx(challenge.txs.settle) && <span className="tag tag-quiet">simulated ledger</span>}
         </dd>
       </dl>

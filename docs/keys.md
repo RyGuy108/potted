@@ -32,11 +32,37 @@ a commit or a pull request.
 
 ## For Solana and QuickNode
 
-| What it turns on | Variable | Where to get it |
+The app runs on the simulated ledger until these are set. Do them in
+this order (commands from the repo root unless noted):
+
+1. **Deploy the program.** Follow `programs/escrow/README.md` on the
+   `feat/escrow-program` branch. `anchor deploy` prints the program id.
+2. **Make the server key**, which pays fees, reports results and runs the
+   test USDC faucet:
+   `solana-keygen new -o ~/potted-verifier.json`, then
+   `solana airdrop 2 $(solana-keygen pubkey ~/potted-verifier.json) --url devnet`
+   (or use faucet.solana.com).
+3. **Fill in `.env.local`:**
+
+   | Variable | Value |
+   | --- | --- |
+   | `POTTED_PROGRAM_ID` | The id from step 1 |
+   | `VERIFIER_SECRET_KEY` | The whole contents of `~/potted-verifier.json`, the `[12,34,…]` list |
+   | `SOLANA_RPC_URL` | `https://api.devnet.solana.com`, or a QuickNode devnet endpoint for fewer rate limits |
+
+4. **Create the test USDC mint:** from `apps/web`, run
+   `pnpm solana:setup`. It prints a `USDC_MINT=` line; put it in
+   `.env.local`.
+5. **Switch the app over:** set `POTTED_LEDGER=solana` and restart. Every
+   account, including the demo ones, gets a devnet wallet, and receipts
+   link to Solana Explorer.
+
+Wallets in this mode are custodial: the server holds each account's key
+in `.data/wallets.json` and signs for it. That is fine for a devnet demo
+with test tokens; real money needs wallets the user controls.
+
+| Turns on | Variable | Where to get it |
 | --- | --- | --- |
-| Real devnet transactions | `POTTED_PROGRAM_ID` | Printed by `anchor deploy` after `anchor build && anchor keys sync`. |
-| | `VERIFIER_SECRET_KEY` | A new keypair for the server to sign settlements with: `solana-keygen new -o verifier.json`, then paste the file's contents. Fund it with `solana airdrop 2 <address> --url devnet`. |
-| | `POTTED_LEDGER=solana` | Set last. The app refuses to start in this mode until the Solana ledger branch is merged. |
 | On-chain activity page | `QUICKNODE_WEBHOOK_SECRET` | quicknode.com → Streams → create a Stream (steps in `docs/quicknode.md`) → Settings → Security token. Needs `POTTED_PROGRAM_ID` too. |
 
 ## For hosting

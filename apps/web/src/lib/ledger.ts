@@ -1,5 +1,6 @@
 import type { Challenge, Evidence } from "@potted/core";
-import { db, newId } from "./store";
+import { SolanaLedger } from "./solana-ledger";
+import { db, newId, save } from "./store";
 
 /**
  * Where money lives. The app only talks to this interface, so the same
@@ -7,6 +8,8 @@ import { db, newId } from "./store";
  */
 export interface Ledger {
   readonly kind: "sim" | "solana";
+  /** A wallet for a new account. */
+  newWallet(userId: string): string;
   /** Test funds for judge mode. */
   faucet(wallet: string, amountMicro: number): Promise<string>;
   balanceOf(wallet: string): Promise<number>;
@@ -41,6 +44,10 @@ export interface Payout {
  */
 class SimLedger implements Ledger {
   readonly kind = "sim" as const;
+
+  newWallet(userId: string): string {
+    return `sim:${userId}`;
+  }
 
   private move(from: string | null, to: string, amountMicro: number): string {
     if (!Number.isInteger(amountMicro) || amountMicro <= 0) throw new Error("Invalid amount");
@@ -106,13 +113,33 @@ class SimLedger implements Ledger {
 
 const sim = new SimLedger();
 
+let solana: SolanaLedger | undefined;
+
+/**
+ * The simulated ledger unless POTTED_LEDGER is "solana". A misconfigured
+ * Solana ledger throws rather than quietly falling back to simulation.
+ */
 export function ledger(): Ledger {
-  if ((process.env.POTTED_LEDGER ?? "sim") !== "sim") {
-    // The Solana ledger lands once the escrow program is deployed and its
-    // IDL is generated. Failing loudly beats silently simulating.
-    throw new Error('POTTED_LEDGER="solana" is not wired up yet. Use "sim" for now.');
+  const mode = process.env.POTTED_LEDGER ?? "sim";
+  if (mode === "sim") return sim;
+  if (mode !== "solana") throw new Error(`Unknown POTTED_LEDGER "${mode}". Use "sim" or "solana".`);
+  if (!solana) {
+    solana = new SolanaLedger();
+    // Accounts made on the simulated ledger (including the demo ones) get a real wallet.
+    let changed = false;
+    for (const user of db().users) {
+      if (!user.wallet.startsWith("sim:")) continue;
+      user.wallet = solana.newWallet();
+      changed = true;
+    }
+    if (changed) save();
   }
-  return sim;
+  return solana;
+}
+
+export function explorerTxUrl(tx: string): string {
+  const cluster = process.env.SOLANA_CLUSTER || "devnet";
+  return `https://explorer.solana.com/tx/${tx}${cluster === "mainnet-beta" ? "" : `?cluster=${cluster}`}`;
 }
 
 export function isSimTx(tx: string | undefined): boolean {

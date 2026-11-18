@@ -26,8 +26,9 @@ request shows one change. Merge from the top of the list down.
 | 16b | `feat/role-activity` | Analytics per account type; role and balance out of the header | Done |
 | 16c | `feat/extension` | Chrome side-panel extension and the JSON API it uses | Done; tested as an unpacked extension in Chrome for Testing |
 | 16d | `feat/bounty-board` | Planters put money on an idea; it becomes a challenge if the climber takes it on, or is refunded on decline or expiry | Done on the simulated ledger |
-| 16 | `feat/solana-ledger` | Real devnet transactions, sponsored fees, explorer links on receipts | Needs the deployed program |
-| 17 | `feat/program-splits` | Guest and cause shares paid by the escrow program itself | After 16, touches the program |
+| 16e | `feat/solana-ledger` | Real transactions through the escrow program, custodial devnet wallets, sponsored fees, a test USDC faucet, explorer links on receipts | Done; tested on a local validator, not yet on devnet |
+| 17 | `feat/program-splits` | Guest and cause shares paid by the escrow program itself (today the host's custodial wallet sends them after payout) | Touches the program |
+| 17b | `feat/program-bounties` | Bounty money held by the program until a climber takes it on | Touches the program; bounties are refused on Solana until then |
 | 18 | `feat/solana-pay` | Pledge from a QR code or a link (Solana Pay, Blinks) | After 16 |
 | 19 | `feat/embedded-wallets` | A real Solana wallet made for each signed-in account (Privy) | Needs a Privy app id |
 | 20 | `feat/stretch-tiers` | Several pot sizes on one challenge, each unlocking more | After 16, touches the program |
