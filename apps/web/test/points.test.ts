@@ -115,3 +115,14 @@ describe("twitch", () => {
     expect(await twitchChannel("bad name!", { fetch: failing, env, now: Date.now })).toBeNull();
   });
 });
+
+describe("twitch category links", () => {
+  it("points each game at its Twitch category, or Twitch's front page", async () => {
+    const { twitchCategoryUrl } = await import("../src/lib/twitch");
+    expect(twitchCategoryUrl("gta6", "GTA VI")).toBe("https://www.twitch.tv/directory/category/grand-theft-auto-vi");
+    expect(twitchCategoryUrl("cooking", "Cooking")).toBe("https://www.twitch.tv/directory/category/food-drink");
+    expect(twitchCategoryUrl("speedrun", "Celeste")).toBe("https://www.twitch.tv/directory/category/celeste");
+    expect(twitchCategoryUrl("other", "Hollow Knight: Silksong")).toBe("https://www.twitch.tv/directory/category/hollow-knight-silksong");
+    expect(twitchCategoryUrl(undefined)).toBe("https://www.twitch.tv/");
+  });
+});

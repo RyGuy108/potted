@@ -2839,3 +2839,11 @@ a.card.role {
   font-size: 1.5rem;
   color: #c4b5fd;
 }
+
+.stream-frame .game-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

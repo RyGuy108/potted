@@ -11,6 +11,14 @@ export function gameOf(challenge: Pick<Challenge, "gameId">) {
   return GAMES.find((g) => g.id === challenge.gameId) ?? GAMES[GAMES.length - 1]!;
 }
 
+/** The actual game's name where the challenge names one (a Steam game, a clip-checked game), else the stream type's. */
+export function gameNameOf(challenge: Pick<Challenge, "gameId" | "condition">): string {
+  const c = challenge.condition;
+  if (c.kind === "steam" && c.gameName) return c.gameName;
+  if (c.kind === "optimistic" && c.game && challenge.gameId !== "gta6") return c.game;
+  return gameOf(challenge).name;
+}
+
 export function tierLabel(challenge: Challenge): string {
   return tierOf(challenge.condition.kind) === "data" ? "Data-verified" : "Clip + dispute window";
 }

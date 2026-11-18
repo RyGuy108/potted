@@ -108,3 +108,36 @@ export function resetTwitchCache(): void {
   cache.clear();
   appToken = null;
 }
+
+/** Twitch's category address for a name: lower case, words joined by dashes. */
+export function categorySlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/['’:.!?]/g, "")
+    .replace(/&/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** Potted's stream types that map to a Twitch category with a different name. */
+const CATEGORY_FOR: Record<string, string> = {
+  gta6: "grand-theft-auto-vi",
+  brawlstars: "brawl-stars",
+  cooking: "food-drink",
+  fitness: "fitness-health",
+  study: "software-and-game-development",
+  music: "music",
+  art: "art",
+  chess: "chess",
+  fortnite: "fortnite",
+  minecraft: "minecraft",
+};
+
+/**
+ * Where on Twitch to watch a game: its category page, or Twitch's front page
+ * when there is no game. Needs no API call.
+ */
+export function twitchCategoryUrl(gameId: string | undefined, gameName?: string): string {
+  const slug = (gameId && CATEGORY_FOR[gameId]) || (gameName ? categorySlug(gameName) : "");
+  return slug ? `https://www.twitch.tv/directory/category/${slug}` : "https://www.twitch.tv/";
+}

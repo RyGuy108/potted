@@ -1,4 +1,5 @@
 import type { TwitchChannel } from "@/lib/twitch";
+import { GameArt } from "./GameArt";
 
 /** A colour from the handle, so streamers without a Twitch picture still look distinct. */
 function hue(seed: string): number {
@@ -90,6 +91,35 @@ export function StreamPreview({ twitch, name }: { twitch: TwitchChannel; name: s
       <div className="stream-meta">
         <strong>{live ? live.title : `${name} is offline right now`}</strong>
         <span className="muted small">{live ? `${live.gameName || "Streaming"} · live for ${since(live.startedAt)} · Watch on Twitch` : "Open the channel on Twitch"}</span>
+      </div>
+    </a>
+  );
+}
+
+/**
+ * When the climber has not linked Twitch (or Twitch can't be reached): the
+ * game's art, linking to that game's category on Twitch, or Twitch's front page.
+ */
+export function CategoryPreview({ name, gameId, gameName, url }: { name: string; gameId?: string; gameName?: string; url: string }) {
+  const label = gameName ? `Watch ${gameName} on Twitch` : "Watch on Twitch";
+  return (
+    <a className="stream-preview" href={url} target="_blank" rel="noreferrer" aria-label={label}>
+      <div className="stream-frame">
+        <GameArt id={gameId ?? "other"} name={gameName ?? "Twitch"} />
+        <span className="play" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="30" height="30">
+            <path d="M8 5v14l11-7z" fill="currentColor" />
+          </svg>
+        </span>
+        {gameName && (
+          <span className="stream-badges">
+            <span className="viewer-pill">{gameName}</span>
+          </span>
+        )}
+      </div>
+      <div className="stream-meta">
+        <strong>{gameName ? `${name} plays ${gameName}` : `Find ${name} on Twitch`}</strong>
+        <span className="muted small">{gameName ? `Open ${gameName} streams on Twitch` : "Open Twitch"}</span>
       </div>
     </a>
   );

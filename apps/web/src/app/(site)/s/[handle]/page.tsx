@@ -8,9 +8,10 @@ import { formatUsd } from "@potted/core";
 import { bountiesSupported, expireBounties, getStreamer, openBounties, raisedFor, settingsOf, stageChallenges, topPlanters } from "@/lib/service";
 import { currentUser } from "@/lib/session";
 import { pointsConfig, pointsOf, redemptionsFor } from "@/lib/points";
-import { twitchChannel } from "@/lib/twitch";
+import { twitchCategoryUrl, twitchChannel } from "@/lib/twitch";
+import { gameNameOf } from "@/lib/format";
 import { ChannelPoints } from "@/components/ChannelPoints";
-import { StreamHeader, StreamPreview } from "@/components/StreamHeader";
+import { CategoryPreview, StreamHeader, StreamPreview } from "@/components/StreamHeader";
 
 export default async function StreamerPage({ params }: { params: Promise<{ handle: string }> }) {
   const { handle } = await params;
@@ -29,6 +30,9 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
   const raised = raisedFor(streamer, cause.causeName);
   const twitch = cause.twitchChannel ? await twitchChannel(cause.twitchChannel) : null;
   const pointsSetup = pointsConfig(streamer.id);
+  // Without a Twitch channel, the preview points at the game the climber is playing now, or played last.
+  const featured = live[0] ?? past[0];
+  const featuredName = featured ? gameNameOf(featured) : undefined;
   return (
     <>
       <AutoRefresh pollIds={live.filter((c) => c.status === "locked").map((c) => c.id)} />
@@ -37,7 +41,11 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
           <StreamHeader name={streamer.name} handle={streamer.handle!} twitch={twitch} twitchLogin={cause.twitchChannel} />
           <p className="lede">Pick a challenge and add to its pot. If {streamer.name} misses it, you get your pledge back.</p>
         </div>
-        {twitch && <StreamPreview twitch={twitch} name={streamer.name} />}
+        {twitch ? (
+          <StreamPreview twitch={twitch} name={streamer.name} />
+        ) : (
+          <CategoryPreview name={streamer.name} gameId={featured?.gameId} gameName={featuredName} url={twitchCategoryUrl(featured?.gameId, featuredName)} />
+        )}
       </div>
 
       {cause.causeOn && (
