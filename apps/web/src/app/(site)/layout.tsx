@@ -13,7 +13,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   return (
     <>
       <header className="site-header">
-        <Link href="/" className="brand">
+        <Link href="/about" className="brand" title="How Potted works">
           <span className="brand-mark">
             <Beanstalk stage={3} size={36} label="Potted" />
           </span>
@@ -27,7 +27,6 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           {user?.role === "fan" && <Link href="/garden">My garden</Link>}
           {user?.role === "mod" && <Link href="/reviews">Reviews</Link>}
           <NavLink href="/leaderboard">Leaderboard</NavLink>
-          {user && <Link href="/about">How it works</Link>}
         </nav>
         <form className="search" action="/search" role="search">
           <input type="search" name="q" placeholder="Search streams or climbers" aria-label="Search streams or climbers" maxLength={60} />
@@ -36,7 +35,9 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           {user ? (
             <>
               <NotificationBell initialUnread={unreadCount(user)} />
-              <span className="who">{user.name}</span>
+              <Link href="/me" className="who" title="Your account">
+                {user.name}
+              </Link>
               <ActionButton action={signOutAction} variant="ghost">
                 Sign out
               </ActionButton>

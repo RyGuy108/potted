@@ -21,8 +21,9 @@ import { giftTotals, giftsTo } from "@/lib/gifts";
 import { followersOf, isFollowing } from "@/lib/notifications";
 import { CategoryPreview, StreamHeader, StreamPreview } from "@/components/StreamHeader";
 
-export default async function StreamerPage({ params }: { params: Promise<{ handle: string }> }) {
+export default async function StreamerPage({ params, searchParams }: { params: Promise<{ handle: string }>; searchParams: Promise<{ from?: string }> }) {
   const { handle } = await params;
+  const fromSurprise = (await searchParams).from === "surprise";
   const streamer = getStreamer(handle);
   if (!streamer) notFound();
   const user = await currentUser();
@@ -49,6 +50,16 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
   return (
     <>
       <AutoRefresh pollIds={live.filter((c) => c.status === "locked").map((c) => c.id)} />
+      {fromSurprise && (
+        <div className="surprise-bar" role="status">
+          <span>
+            Picked at random for you: <strong>{streamer.name}</strong>
+          </span>
+          <a href={`/browse/random?skip=${streamer.handle}`} className="btn btn-ghost">
+            Spin again
+          </a>
+        </div>
+      )}
       <div className="stream-top">
         <div>
           <StreamHeader

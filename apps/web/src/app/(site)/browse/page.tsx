@@ -9,7 +9,8 @@ import { liveCountsByGame, liveStreams } from "@/lib/service";
 import { currentUser } from "@/lib/session";
 
 /** Every stream with a live challenge, then every game and stream type. */
-export default async function Browse() {
+export default async function Browse({ searchParams }: { searchParams: Promise<{ surprise?: string }> }) {
+  const { surprise } = await searchParams;
   const user = await currentUser();
   const live = liveStreams();
   const picks = user?.role === "fan" ? forYou(user, live) : [];
@@ -24,9 +25,15 @@ export default async function Browse() {
   return (
     <>
       <AutoRefresh everyMs={5000} />
-      <h1 className="directory-title">
-        Live <span>with Potted</span>
-      </h1>
+      <div className="row between wrap browse-head">
+        <h1 className="directory-title">
+          Live <span>with Potted</span>
+        </h1>
+        <a href="/browse/random" className="btn btn-surprise" data-testid="surprise">
+          <Dice /> Surprise me
+        </a>
+      </div>
+      {surprise === "none" && <p className="muted">Nobody is live right now, so there's nothing to pick from. Try again soon.</p>}
       {totals && (
         <p className="browse-stats">
           <span>
@@ -86,5 +93,19 @@ export default async function Browse() {
         ))}
       </div>
     </>
+  );
+}
+
+/** A die, for the surprise button. */
+function Dice() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
+      <circle cx="15.5" cy="15.5" r="1.5" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+      <circle cx="15.5" cy="8.5" r="1.5" fill="currentColor" />
+      <circle cx="8.5" cy="15.5" r="1.5" fill="currentColor" />
+    </svg>
   );
 }
