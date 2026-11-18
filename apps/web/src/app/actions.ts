@@ -52,6 +52,29 @@ export async function withdrawInviteAction(inviteId: string): Promise<ActionResu
   return run(async () => service.withdrawInvite(await requireUser(), inviteId));
 }
 
+export async function postBountyAction(input: {
+  handle: string;
+  gameId: string;
+  text: string;
+  customGame: string;
+  amountUsd: number;
+  hours: number;
+}): Promise<ActionResult> {
+  return run(async () => service.postBounty(await requireUser(), input));
+}
+
+export async function backBountyAction(bountyId: string, amountUsd: number): Promise<ActionResult> {
+  return run(async () => service.backBounty(await requireUser(), String(bountyId), Number(amountUsd)));
+}
+
+export async function acceptBountyAction(bountyId: string, input: service.NewChallenge): Promise<ActionResult> {
+  return run(async () => service.acceptBounty(await requireUser(), String(bountyId), input));
+}
+
+export async function declineBountyAction(bountyId: string): Promise<ActionResult> {
+  return run(async () => service.declineBounty(await requireUser(), String(bountyId)));
+}
+
 export async function chooseRoleAction(role: "fan" | "streamer", handle: string): Promise<ActionResult> {
   return run(async () => service.chooseRole(await requireUser(), role === "streamer" ? "streamer" : "fan", String(handle)));
 }

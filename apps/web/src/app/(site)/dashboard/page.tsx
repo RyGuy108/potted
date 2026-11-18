@@ -1,9 +1,10 @@
 import { draftTerms } from "@potted/coordinator";
 import { GAMES, formatUsd } from "@potted/core";
 import Link from "next/link";
-import { cancelAction, checkAction, recapAction, respondInviteAction, withdrawInviteAction, dismissSuggestionAction, lockAction, runAgainAction, simulateAction } from "@/app/actions";
+import { cancelAction, checkAction, declineBountyAction, recapAction, respondInviteAction, withdrawInviteAction, dismissSuggestionAction, lockAction, runAgainAction, simulateAction } from "@/app/actions";
 import { ActionButton } from "@/components/ActionButton";
 import { SplitLine, StatusPill } from "@/components/ChallengeCard";
+import type { SuggestionSeed } from "@/components/CreateChallengeForm";
 import { GameArt } from "@/components/GameArt";
 import { ClaimForm } from "@/components/ClaimForm";
 import { CreateChallengeForm } from "@/components/CreateChallengeForm";
@@ -12,10 +13,10 @@ import { Wallet } from "@/components/Wallet";
 import { SettingsForm } from "@/components/SettingsForm";
 import { SignInPanel } from "@/components/SignInPanel";
 import { adapterStatus, gameOf } from "@/lib/format";
-import { challengeStats, getSuggestion, getUser, invitesFor, listChallenges, listStreamers, pendingSuggestions, settingsOf, shareOf, simulatedResultsAllowed, stageChallenges } from "@/lib/service";
+import { backersOf, bountyTotal, challengeStats, expireBounties, openBounties, getSuggestion, getUser, invitesFor, listChallenges, listStreamers, pendingSuggestions, settingsOf, shareOf, simulatedResultsAllowed, stageChallenges } from "@/lib/service";
 import { currentUser } from "@/lib/session";
 
-export default async function Dashboard({ searchParams }: { searchParams: Promise<{ use?: string }> }) {
+export default async function Dashboard({ searchParams }: { searchParams: Promise<{ use?: string; bounty?: string }> }) {
   const user = await currentUser();
   if (user?.role !== "streamer") {
     return (
@@ -29,9 +30,24 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const challenges = listChallenges(user.id);
   const rehearsal = simulatedResultsAllowed();
   const suggestions = pendingSuggestions(user.id);
-  const { use } = await searchParams;
+  const { use, bounty: bountyParam } = await searchParams;
+  await expireBounties();
+  const bounties = openBounties(user.id);
   const picked = use ? getSuggestion(use) : undefined;
-  const seed = picked && picked.streamerId === user.id && picked.status === "pending" ? picked : undefined;
+  const pickedBounty = bountyParam ? bounties.find((b) => b.id === bountyParam) : undefined;
+  const seed: SuggestionSeed | undefined = pickedBounty
+    ? {
+        kind: "bounty",
+        id: pickedBounty.id,
+        fanName: getUser(pickedBounty.creatorId)?.name ?? "a planter",
+        gameId: pickedBounty.gameId,
+        text: pickedBounty.text,
+        ...(pickedBounty.customGame ? { customGame: pickedBounty.customGame } : {}),
+        heldMicro: bountyTotal(pickedBounty.id),
+      }
+    : picked && picked.streamerId === user.id && picked.status === "pending"
+      ? picked
+      : undefined;
   const past = challenges.filter((c) => c.status === "paid" || c.status === "failed");
   const invites = invitesFor(user);
   const guesting = stageChallenges(user.id).filter((c) => c.streamerId !== user.id);
@@ -54,6 +70,35 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           Add <code>?bg=1</code> to preview the overlay on a dark background, or <code>?muted=1</code> to silence the announcer.
         </p>
       </section>
+
+      {bounties.length > 0 && (
+        <section className="card manage">
+          <h3>Bounties waiting for you</h3>
+          <p className="muted small">Planters put this money on ideas. Take one on and it opens as a challenge with the money already in the pot. Decline and they get it back.</p>
+          {bounties.map((b) => {
+            const backers = backersOf(b.id);
+            return (
+              <div key={b.id} className="suggestion">
+                <div>
+                  <p>{b.text}</p>
+                  <p className="muted small">
+                    <span className="mono">{formatUsd(bountyTotal(b.id))}</span> from {backers.length} {backers.length === 1 ? "planter" : "planters"} ·{" "}
+                    {b.customGame ?? GAMES.find((g) => g.id === b.gameId)?.name} · closes in <Countdown until={b.expiresAt} />
+                  </p>
+                </div>
+                <div className="row">
+                  <Link href={`/dashboard?bounty=${b.id}#new`} className="btn btn-primary">
+                    Take it on
+                  </Link>
+                  <ActionButton action={declineBountyAction.bind(null, b.id)} variant="ghost" confirm="Decline this bounty and refund everyone who backed it?">
+                    Decline
+                  </ActionButton>
+                </div>
+              </div>
+            );
+          })}
+        </section>
+      )}
 
       {suggestions.length > 0 && (
         <section className="card manage">

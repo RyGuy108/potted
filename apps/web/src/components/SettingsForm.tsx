@@ -23,7 +23,7 @@ export function SettingsForm({ initial }: { initial: StreamSettings }) {
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
 
-  const toggle = (key: "acceptingSuggestions" | "announcer" | "overlayQr" | "causeOn", label: string) => (
+  const toggle = (key: "acceptingSuggestions" | "acceptingBounties" | "announcer" | "overlayQr" | "causeOn", label: string) => (
     <label className="check">
       <input
         type="checkbox"
@@ -50,6 +50,7 @@ export function SettingsForm({ initial }: { initial: StreamSettings }) {
       <h3>Stream settings</h3>
       <div className="grid">
         {toggle("acceptingSuggestions", "Let fans suggest challenges")}
+        {toggle("acceptingBounties", "Let fans post bounties (ideas with money on them)")}
         {toggle("announcer", "Read events aloud on stream")}
         {toggle("overlayQr", "Show a QR code on the overlay")}
       </div>

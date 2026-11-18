@@ -2360,3 +2360,40 @@ body:has(.overlay-page) {
   font-family: var(--mono);
   font-size: 0.85rem;
 }
+
+/* --- Bounties ----------------------------------------------------------- */
+
+.bounties {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.bounty {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-color: rgba(233, 187, 77, 0.4);
+}
+
+.bounty h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.bounty-pot {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0;
+}
+
+.bounty-pot .mono {
+  color: var(--gold);
+  font-size: 1.4rem;
+}
+
+.overlay-bounty {
+  border-left-color: var(--gold);
+}

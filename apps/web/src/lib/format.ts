@@ -7,7 +7,7 @@ export const STATUS_LABEL: Record<Challenge["status"], string> = {
   failed: "Refunded",
 };
 
-export function gameOf(challenge: Challenge) {
+export function gameOf(challenge: Pick<Challenge, "gameId">) {
   return GAMES.find((g) => g.id === challenge.gameId) ?? GAMES[GAMES.length - 1]!;
 }
 

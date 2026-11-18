@@ -25,7 +25,7 @@ request shows one change. Merge from the top of the list down.
 | 16a | `feat/browse-and-polish` | A page per game listing who is live, browse, header search, more badges, tiles for previous challenges, logo and log-in button | Done |
 | 16b | `feat/role-activity` | Analytics per account type; role and balance out of the header | Done |
 | 16c | `feat/extension` | Chrome side-panel extension and the JSON API it uses | Done; tested as an unpacked extension in Chrome for Testing |
-| 15b | `feat/bounty-board` | Fans put money on an idea before the streamer accepts; refunded if it expires | Next |
+| 16d | `feat/bounty-board` | Planters put money on an idea; it becomes a challenge if the climber takes it on, or is refunded on decline or expiry | Done on the simulated ledger |
 | 16 | `feat/solana-ledger` | Real devnet transactions, sponsored fees, explorer links on receipts | Needs the deployed program |
 | 17 | `feat/program-splits` | Guest and cause shares paid by the escrow program itself | After 16, touches the program |
 | 18 | `feat/solana-pay` | Pledge from a QR code or a link (Solana Pay, Blinks) | After 16 |

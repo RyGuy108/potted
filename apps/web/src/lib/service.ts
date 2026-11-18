@@ -27,6 +27,8 @@ import {
   type Role,
   type StreamEvent,
   type StreamSettings,
+  type Backing,
+  type Bounty,
   type Invite,
   type Suggestion,
   type User,
@@ -258,6 +260,7 @@ export async function updateSettings(actor: User, input: Partial<Record<keyof St
     }
   }
   actor.settings = {
+    acceptingBounties: input.acceptingBounties === undefined ? current.acceptingBounties : input.acceptingBounties === true,
     twitchChannel,
     youtubeChannel,
     causeOn,
@@ -709,6 +712,7 @@ export async function check(
 
 /** Background pass for one streamer's live challenges. Errors are per challenge. */
 export async function tick(streamerId: string): Promise<void> {
+  await expireBounties();
   for (const challenge of listChallenges(streamerId)) {
     if (challenge.status !== "open" && challenge.status !== "locked") continue;
     try {
@@ -1183,4 +1187,197 @@ export function planterActivity(fan: User, limit = 12): { at: number; challenge:
     }
   }
   return rows.sort((a, b) => b.at - a.at).slice(0, limit);
+}
+
+// ---------------------------------------------------------------------------
+// Bounties
+// ---------------------------------------------------------------------------
+
+/** Most one planter can hold on a single bounty. */
+const MAX_BACKING_MICRO = toMicro(50);
+const MAX_OPEN_BOUNTIES_PER_FAN = 3;
+
+/** The shared checks for a fan's idea: length, game, blocked words. */
+function cleanIdea(streamer: User, gameId: string, text: string, customGame: string) {
+  const game = GAMES.find((g) => g.id === gameId) ?? fail("Unknown game");
+  const clean = text.trim().replace(/\s+/g, " ");
+  if (clean.length < 8 || clean.length > 140) fail("Describe the challenge in 8 to 140 characters");
+  const named = game.id === "other" ? customGame.trim().replace(/\s+/g, " ") : "";
+  if (named.length > 40) fail("Keep the game's name under 40 characters");
+  const lower = `${clean} ${named}`.toLowerCase();
+  if (settingsOf(streamer).blockedWords.some((word) => lower.includes(word))) fail("That idea uses a word this streamer has blocked");
+  return { game, clean, named };
+}
+
+export function bountyTotal(bountyId: string): number {
+  return db()
+    .backings.filter((b) => b.bountyId === bountyId)
+    .reduce((sum, b) => sum + b.amountMicro, 0);
+}
+
+/** Who put money on a bounty, biggest first, one row per planter. */
+export function backersOf(bountyId: string): { userId: string; name: string; amountMicro: number }[] {
+  const rows = new Map<string, number>();
+  for (const b of db().backings) if (b.bountyId === bountyId) rows.set(b.userId, (rows.get(b.userId) ?? 0) + b.amountMicro);
+  return [...rows.entries()]
+    .map(([userId, amountMicro]) => ({ userId, name: getUser(userId)?.name ?? "A planter", amountMicro }))
+    .sort((a, b) => b.amountMicro - a.amountMicro);
+}
+
+export function getBounty(id: string): Bounty {
+  return db().bounties.find((b) => b.id === id) ?? fail("Bounty not found");
+}
+
+/** Open bounties on a streamer, biggest first. Closes expired ones first. */
+export function openBounties(streamerId: string, now = Date.now()): Bounty[] {
+  return db()
+    .bounties.filter((b) => b.streamerId === streamerId && b.status === "open" && b.expiresAt > now)
+    .sort((a, b) => bountyTotal(b.id) - bountyTotal(a.id) || a.createdAt - b.createdAt);
+}
+
+async function back(actor: User, bounty: Bounty, amountUsd: number): Promise<Backing> {
+  const amountMicro = toMicro(amountUsd);
+  const streamer = getUser(bounty.streamerId) ?? fail("Streamer not found");
+  const minMicro = toMicro(settingsOf(streamer).minPledgeUsd);
+  if (!(amountMicro >= minMicro)) fail(`The smallest amount on this stream is ${formatUsd(minMicro)}`);
+  const already = db()
+    .backings.filter((b) => b.bountyId === bounty.id && b.userId === actor.id)
+    .reduce((sum, b) => sum + b.amountMicro, 0);
+  if (already + amountMicro > MAX_BACKING_MICRO) fail(`One planter can put up to ${formatUsd(MAX_BACKING_MICRO)} on a bounty`);
+  const tx = await ledger().holdBacking(bounty.id, actor.wallet, amountMicro);
+  const backing: Backing = { id: newId("k"), bountyId: bounty.id, userId: actor.id, amountMicro, createdAt: Date.now(), tx };
+  db().backings.push(backing);
+  return backing;
+}
+
+/** A planter puts money on an idea. Nothing reaches the streamer unless they accept it. */
+export async function postBounty(
+  actor: User,
+  input: { handle: string; gameId: string; text: string; customGame?: string; amountUsd: number; hours: number },
+): Promise<Bounty> {
+  if (actor.role !== "fan") fail("Sign in as a planter to post a bounty");
+  const streamer = getStreamer(input.handle) ?? fail("Streamer not found");
+  if (!settingsOf(streamer).acceptingBounties) fail(`${streamer.name} is not taking bounties right now`);
+  const hours = Number(input.hours);
+  if (!Number.isInteger(hours) || hours < 1 || hours > 72) fail("A bounty can stay open for 1 to 72 hours");
+  const { game, clean, named } = cleanIdea(streamer, input.gameId, input.text, input.customGame ?? "");
+  const mine = db().bounties.filter((b) => b.creatorId === actor.id && b.status === "open" && b.expiresAt > Date.now());
+  if (mine.length >= MAX_OPEN_BOUNTIES_PER_FAN) fail(`You already have ${MAX_OPEN_BOUNTIES_PER_FAN} open bounties`);
+  const now = Date.now();
+  const bounty: Bounty = {
+    id: newId("b"),
+    streamerId: streamer.id,
+    creatorId: actor.id,
+    gameId: game.id,
+    ...(named ? { customGame: named } : {}),
+    text: clean,
+    createdAt: now,
+    expiresAt: now + hours * 60 * 60_000,
+    status: "open",
+  };
+  db().bounties.push(bounty);
+  try {
+    await back(actor, bounty, input.amountUsd);
+  } catch (error) {
+    db().bounties.pop();
+    throw error;
+  }
+  emitTo(streamer.handle!, "bounty", "", `${actor.name} put ${formatUsd(bountyTotal(bounty.id))} on a bounty: ${clean}`);
+  save();
+  return bounty;
+}
+
+/** Another planter adds money to an open bounty. */
+export async function backBounty(actor: User, bountyId: string, amountUsd: number): Promise<Bounty> {
+  if (actor.role !== "fan") fail("Sign in as a planter to back a bounty");
+  await expireBounties();
+  const bounty = getBounty(bountyId);
+  if (bounty.status !== "open") fail("This bounty is closed");
+  await back(actor, bounty, amountUsd);
+  const streamer = getUser(bounty.streamerId)!;
+  emitTo(streamer.handle!, "bounty", "", `${actor.name} added to a bounty. It is now ${formatUsd(bountyTotal(bounty.id))}: ${bounty.text}`);
+  save();
+  return bounty;
+}
+
+async function returnAll(bounty: Bounty, status: "declined" | "expired"): Promise<void> {
+  for (const b of db().backings) {
+    if (b.bountyId !== bounty.id || b.outcome) continue;
+    const owner = getUser(b.userId);
+    if (!owner) continue;
+    await ledger().returnBacking(bounty.id, owner.wallet, b.amountMicro);
+    b.outcome = "returned";
+  }
+  bounty.status = status;
+  bounty.closedAt = Date.now();
+}
+
+/** The streamer passes. Every backer gets their money back. */
+export async function declineBounty(actor: User, bountyId: string): Promise<Bounty> {
+  const bounty = getBounty(bountyId);
+  if (bounty.streamerId !== actor.id) fail("Only the streamer this bounty is for can decline it");
+  if (bounty.status !== "open") fail("This bounty is closed");
+  await returnAll(bounty, "declined");
+  save();
+  return bounty;
+}
+
+/** Returns the money on every bounty whose time ran out. Safe to call often. */
+export async function expireBounties(now = Date.now()): Promise<number> {
+  let closed = 0;
+  for (const bounty of db().bounties) {
+    if (bounty.status !== "open" || bounty.expiresAt > now) continue;
+    await returnAll(bounty, "expired");
+    closed++;
+  }
+  if (closed > 0) save();
+  return closed;
+}
+
+/**
+ * The streamer takes the bounty on. They set the exact terms, as for any
+ * challenge; the backers' money then becomes pledges in it, oldest first,
+ * so whoever posted the bounty counts as first in.
+ */
+export async function acceptBounty(actor: User, bountyId: string, input: NewChallenge): Promise<Challenge> {
+  await expireBounties();
+  const bounty = getBounty(bountyId);
+  if (bounty.streamerId !== actor.id) fail("Only the streamer this bounty is for can accept it");
+  if (bounty.status !== "open") fail("This bounty is closed");
+  const biggest = backersOf(bounty.id)[0]?.amountMicro ?? 0;
+  if (toMicro(Number(input.pledgeCapUsd)) < biggest) {
+    fail(`One backer already put ${formatUsd(biggest)} on this. Set the per-fan limit to at least that.`);
+  }
+  const challenge = await createChallenge(actor, input);
+  const backings = db()
+    .backings.filter((b) => b.bountyId === bounty.id && !b.outcome)
+    .sort((a, b) => a.createdAt - b.createdAt);
+  for (const b of backings) {
+    const tx = await ledger().backingToPledge(bounty.id, challenge, b.amountMicro);
+    db().pledges.push({ id: newId("p"), challengeId: challenge.id, userId: b.userId, amountMicro: b.amountMicro, refunded: false, createdAt: b.createdAt, tx });
+    challenge.totalMicro += b.amountMicro;
+    b.outcome = "pledged";
+  }
+  bounty.status = "accepted";
+  bounty.challengeId = challenge.id;
+  bounty.closedAt = Date.now();
+  emit("pledged", challenge, `${actor.name} took the bounty on. ${formatUsd(challenge.totalMicro)} from ${backersOf(bounty.id).length} backers is already in the pot.`);
+  save();
+  return challenge;
+}
+
+/** A planter's bounties and what happened to their money on each, newest first. */
+export function bountiesBackedBy(fan: User): { bounty: Bounty; mineMicro: number; totalMicro: number; streamerName: string }[] {
+  const ids = [...new Set(db().backings.filter((b) => b.userId === fan.id).map((b) => b.bountyId))];
+  return ids
+    .flatMap((id) => db().bounties.find((b) => b.id === id) ?? [])
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .map((bounty) => ({
+      bounty,
+      mineMicro: db()
+        .backings.filter((b) => b.bountyId === bounty.id && b.userId === fan.id)
+        .reduce((sum, b) => sum + b.amountMicro, 0),
+      totalMicro: bountyTotal(bounty.id),
+      streamerName: getUser(bounty.streamerId)?.name ?? "A climber",
+    }));
 }

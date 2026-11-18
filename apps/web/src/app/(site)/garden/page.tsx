@@ -7,7 +7,7 @@ import { gameOf } from "@/lib/format";
 import { BadgeGrid } from "@/components/BadgeGrid";
 import { LevelCard } from "@/components/LevelCard";
 import { Wallet } from "@/components/Wallet";
-import { gardenOf, planterActivity, planterStats } from "@/lib/service";
+import { bountiesBackedBy, expireBounties, gardenOf, planterActivity, planterStats } from "@/lib/service";
 import { currentUser } from "@/lib/session";
 
 /** Every beanstalk a fan has helped grow, across all streamers. */
@@ -28,6 +28,8 @@ export default async function Garden() {
   // The nearest thing to aim for, so the page always suggests a next step.
   const nextBadge = stats.badges.find((b) => !b.earned);
   const activity = planterActivity(user);
+  await expireBounties();
+  const bounties = bountiesBackedBy(user);
   return (
     <>
       <div className="row between">
@@ -98,6 +100,34 @@ export default async function Garden() {
               <div key={i} className="table-row table-activity">
                 <span className={row.kind === "paid" ? "success" : row.kind === "refunded" ? "warn" : undefined}>{row.text}</span>
                 <Link href={`/c/${row.challenge.id}`}>{row.challenge.title}</Link>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {bounties.length > 0 && (
+        <>
+          <h2>Your bounties</h2>
+          <div className="card table">
+            {bounties.map(({ bounty, mineMicro, totalMicro, streamerName }) => (
+              <div key={bounty.id} className="table-row table-activity">
+                <span>
+                  {bounty.text}
+                  <span className="muted small"> · for {streamerName}</span>
+                </span>
+                <span>
+                  <span className="mono">{formatUsd(mineMicro)}</span> of <span className="mono">{formatUsd(totalMicro)}</span> ·{" "}
+                  {bounty.status === "open" ? (
+                    <span className="warn">waiting for {streamerName}</span>
+                  ) : bounty.status === "accepted" ? (
+                    <Link href={`/c/${bounty.challengeId}`} className="success">
+                      taken on: now a challenge
+                    </Link>
+                  ) : (
+                    <span className="muted">{bounty.status === "declined" ? "declined" : "expired"}, returned to you</span>
+                  )}
+                </span>
               </div>
             ))}
           </div>

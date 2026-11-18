@@ -254,3 +254,74 @@ describe("analytics by account type", () => {
     expect(service.keeperStats(other).ruled).toEqual([]);
   });
 });
+
+describe("bounties", () => {
+  beforeEach(() => {
+    process.env.POTTED_ALLOW_SIMULATED_RESULTS = "true";
+  });
+  const streamer = () => service.getUser(DEMO_STREAMER_ID)!;
+  const terms = (pledgeCapUsd = 10) => ({
+    gameId: "gta6",
+    condition: { kind: "optimistic", game: "GTA VI", statement: "Finish the first heist without getting busted", disputeWindowSecs: 60 },
+    goalUsd: 20,
+    pledgeCapUsd,
+    minutes: 30,
+  });
+  const post = (fan: Parameters<typeof service.postBounty>[0], amountUsd = 5, hours = 24) =>
+    service.postBounty(fan, { handle: "ryan", gameId: "gta6", text: "Finish the first heist without getting busted", amountUsd, hours });
+
+  it("holds the money, lets others add to it, and turns it into pledges when taken on", async () => {
+    const maya = await service.signIn("Maya", "fan");
+    const ben = await service.signIn("Ben", "fan");
+    const bounty = await post(maya, 5);
+    await service.backBounty(ben, bounty.id, 3);
+    await service.backBounty(maya, bounty.id, 1);
+    expect(await service.balanceOf(maya)).toBe(19_000_000);
+    expect(service.bountyTotal(bounty.id)).toBe(9_000_000);
+    expect(service.backersOf(bounty.id).map((b) => [b.name, b.amountMicro])).toEqual([["Maya", 6_000_000], ["Ben", 3_000_000]]);
+    expect(service.eventsSince("ryan", 0).filter((e) => e.type === "bounty")).toHaveLength(3);
+
+    await expect(service.acceptBounty(service.getStreamer("kai")!, bounty.id, terms())).rejects.toThrow("Only the streamer this bounty is for");
+    await expect(service.acceptBounty(streamer(), bounty.id, terms(5))).rejects.toThrow("at least that");
+    const c = await service.acceptBounty(streamer(), bounty.id, terms());
+    expect(c).toMatchObject({ status: "open", totalMicro: 9_000_000 });
+    expect(service.fundersOf(c.id).map((f) => f.amountMicro)).toEqual([6_000_000, 3_000_000]);
+    expect(service.getBounty(bounty.id)).toMatchObject({ status: "accepted", challengeId: c.id });
+    // The poster counts as first in, and a completed challenge pays out as usual.
+    expect(service.planterStats(maya).firstIn).toBe(1);
+    await service.lock(streamer(), c.id);
+    await service.simulateResult(streamer(), c.id, true);
+    expect(await service.balanceOf(streamer())).toBe(9_000_000);
+    await expect(service.backBounty(ben, bounty.id, 1)).rejects.toThrow("closed");
+  });
+
+  it("returns every backer's money on decline or expiry", async () => {
+    const maya = await service.signIn("Maya", "fan");
+    const ben = await service.signIn("Ben", "fan");
+    const declined = await post(maya, 5);
+    await service.backBounty(ben, declined.id, 2);
+    await service.declineBounty(streamer(), declined.id);
+    expect([await service.balanceOf(maya), await service.balanceOf(ben)]).toEqual([25_000_000, 25_000_000]);
+    await expect(service.declineBounty(streamer(), declined.id)).rejects.toThrow("closed");
+
+    const expiring = await post(maya, 4, 1);
+    expect(await service.expireBounties(Date.now() + 2 * 60 * 60_000)).toBe(1);
+    expect(service.getBounty(expiring.id).status).toBe("expired");
+    expect(await service.balanceOf(maya)).toBe(25_000_000);
+    expect(service.bountiesBackedBy(maya).map((r) => r.bounty.status)).toEqual(["expired", "declined"]);
+  });
+
+  it("checks who can post, how much, for how long, and the streamer's switch", async () => {
+    const maya = await service.signIn("Maya", "fan");
+    await expect(post(streamer() as never)).rejects.toThrow("Sign in as a planter");
+    await expect(post(maya, 0.1)).rejects.toThrow("smallest amount");
+    await expect(post(maya, 51)).rejects.toThrow("up to $50");
+    await expect(post(maya, 5, 100)).rejects.toThrow("1 to 72 hours");
+    expect(await service.balanceOf(maya)).toBe(25_000_000);
+    for (let i = 0; i < 3; i++) await post(maya, 1);
+    await expect(post(maya, 1)).rejects.toThrow("3 open bounties");
+    await service.updateSettings(streamer(), { ...service.settingsOf(streamer()), acceptingBounties: false });
+    const ben = await service.signIn("Ben", "fan");
+    await expect(post(ben, 1)).rejects.toThrow("not taking bounties");
+  });
+});

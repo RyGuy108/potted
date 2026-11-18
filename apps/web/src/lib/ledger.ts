@@ -19,6 +19,14 @@ export interface Ledger {
    */
   settle(challenge: Challenge, success: boolean, evidence: Evidence | undefined, payouts: Payout[]): Promise<string>;
   refund(challenge: Challenge, fanWallet: string, amountMicro: number): Promise<string>;
+  /**
+   * Bounties. Money is held per bounty until the streamer accepts or it
+   * closes. Accepting moves each backing into the new challenge's vault as
+   * a pledge from that backer; closing returns it to the backer.
+   */
+  holdBacking(bountyId: string, fanWallet: string, amountMicro: number): Promise<string>;
+  returnBacking(bountyId: string, fanWallet: string, amountMicro: number): Promise<string>;
+  backingToPledge(bountyId: string, challenge: Challenge, amountMicro: number): Promise<string>;
 }
 
 export interface Payout {
@@ -81,6 +89,18 @@ class SimLedger implements Ledger {
 
   async refund(challenge: Challenge, fanWallet: string, amountMicro: number) {
     return this.move(this.vault(challenge), fanWallet, amountMicro);
+  }
+
+  async holdBacking(bountyId: string, fanWallet: string, amountMicro: number) {
+    return this.move(fanWallet, `bounty:${bountyId}`, amountMicro);
+  }
+
+  async returnBacking(bountyId: string, fanWallet: string, amountMicro: number) {
+    return this.move(`bounty:${bountyId}`, fanWallet, amountMicro);
+  }
+
+  async backingToPledge(bountyId: string, challenge: Challenge, amountMicro: number) {
+    return this.move(`bounty:${bountyId}`, this.vault(challenge), amountMicro);
   }
 }
 

@@ -2,9 +2,10 @@ import { notFound } from "next/navigation";
 import { ChallengeCard } from "@/components/ChallengeCard";
 import { AutoRefresh } from "@/components/Live";
 import { SignInPanel } from "@/components/SignInPanel";
+import { BountyBoard } from "@/components/BountyBoard";
 import { SuggestForm } from "@/components/SuggestForm";
 import { formatUsd } from "@potted/core";
-import { getStreamer, raisedFor, settingsOf, stageChallenges, topPlanters } from "@/lib/service";
+import { expireBounties, getStreamer, openBounties, raisedFor, settingsOf, stageChallenges, topPlanters } from "@/lib/service";
 import { currentUser } from "@/lib/session";
 
 export default async function StreamerPage({ params }: { params: Promise<{ handle: string }> }) {
@@ -18,6 +19,8 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
 
   const planters = topPlanters(streamer.id);
   const cause = settingsOf(streamer);
+  await expireBounties();
+  const bounties = openBounties(streamer.id);
   const raised = raisedFor(streamer, cause.causeName);
   return (
     <>
@@ -65,10 +68,13 @@ export default async function StreamerPage({ params }: { params: Promise<{ handl
         </div>
       )}
 
-      {user?.role === "fan" && streamer.handle && settingsOf(streamer).acceptingSuggestions && (
+      {(bounties.length > 0 || (user?.role === "fan" && (cause.acceptingBounties || cause.acceptingSuggestions))) && (
         <>
-          <h2>Got an idea?</h2>
-          <SuggestForm handle={streamer.handle} streamerName={streamer.name} />
+          <h2>Bounties and ideas</h2>
+          {bounties.length > 0 && <BountyBoard bounties={bounties} canBack={user?.role === "fan"} minUsd={cause.minPledgeUsd} />}
+          {user?.role === "fan" && streamer.handle && (cause.acceptingBounties || cause.acceptingSuggestions) && (
+            <SuggestForm handle={streamer.handle} streamerName={streamer.name} bounties={cause.acceptingBounties} ideas={cause.acceptingSuggestions} />
+          )}
         </>
       )}
 

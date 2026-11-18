@@ -56,7 +56,7 @@ async function speak(event: OverlayEvent, muted: boolean): Promise<void> {
   if ("speechSynthesis" in window) window.speechSynthesis.speak(new SpeechSynthesisUtterance(event.message));
 }
 
-const SPOKEN = new Set(["pledged", "locked", "paid", "failed", "claimed", "refunded", "milestone", "recap"]);
+const SPOKEN = new Set(["pledged", "locked", "paid", "failed", "claimed", "refunded", "milestone", "recap", "bounty"]);
 
 export function Overlay({ handle, muted, qrSvg }: { handle: string; muted: boolean; /** QR code to the fan page, as SVG markup made on the server. */ qrSvg: string }) {
   const [challenges, setChallenges] = useState<OverlayChallenge[]>([]);

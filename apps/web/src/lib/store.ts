@@ -18,6 +18,8 @@ export type OverlayPosition = "bottom-left" | "bottom-right" | "top-left" | "top
 export interface StreamSettings {
   /** Whether fans can send challenge ideas. */
   acceptingSuggestions: boolean;
+  /** Let planters put money on ideas before you accept them. */
+  acceptingBounties: boolean;
   /** Smallest single pledge, in dollars. */
   minPledgeUsd: number;
   announcer: boolean;
@@ -44,6 +46,7 @@ export interface StreamSettings {
 
 export const DEFAULT_SETTINGS: StreamSettings = {
   acceptingSuggestions: true,
+  acceptingBounties: true,
   minPledgeUsd: 1,
   announcer: true,
   voice: "george",
@@ -73,6 +76,38 @@ export interface Suggestion {
   status: "pending" | "used" | "dismissed";
 }
 
+/**
+ * Money put on an idea before the streamer has agreed to it. It is held
+ * until the streamer accepts (it becomes a normal challenge and the money
+ * becomes pledges) or declines, or the bounty expires (all of it goes back).
+ */
+export interface Bounty {
+  id: string;
+  streamerId: string;
+  /** The planter who posted it. */
+  creatorId: string;
+  gameId: string;
+  customGame?: string;
+  text: string;
+  createdAt: number;
+  expiresAt: number;
+  status: "open" | "accepted" | "declined" | "expired";
+  challengeId?: string;
+  closedAt?: number;
+}
+
+/** One planter's money on a bounty. */
+export interface Backing {
+  id: string;
+  bountyId: string;
+  userId: string;
+  amountMicro: number;
+  createdAt: number;
+  /** Where the money went when the bounty closed. */
+  outcome?: "pledged" | "returned";
+  tx: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -90,7 +125,7 @@ export interface User {
   onboarded?: boolean;
 }
 
-export type EventType = "created" | "pledged" | "locked" | "claimed" | "disputed" | "paid" | "failed" | "refunded" | "milestone" | "recap";
+export type EventType = "created" | "pledged" | "locked" | "claimed" | "disputed" | "paid" | "failed" | "refunded" | "milestone" | "recap" | "bounty";
 
 /** What the overlay shows and reads aloud. */
 export interface StreamEvent {
@@ -108,6 +143,8 @@ export interface Db {
   challenges: Challenge[];
   pledges: Pledge[];
   suggestions: Suggestion[];
+  bounties: Bounty[];
+  backings: Backing[];
   /** Escrow events delivered by the QuickNode Stream. */
   chain: ChainEvent[];
   invites: Invite[];
@@ -163,6 +200,8 @@ function seed(): Db {
     challenges: [],
     pledges: [],
     suggestions: [],
+    bounties: [],
+    backings: [],
     chain: [],
     invites: [],
     events: [],
@@ -184,6 +223,8 @@ export function db(): Db {
       cache.__pottedDb = JSON.parse(fs.readFileSync(dataFile(), "utf8")) as Db;
       // Files written before suggestions existed.
       cache.__pottedDb.suggestions ??= [];
+      cache.__pottedDb.bounties ??= [];
+      cache.__pottedDb.backings ??= [];
       cache.__pottedDb.chain ??= [];
       cache.__pottedDb.invites ??= [];
       if (!cache.__pottedDb.users.some((u) => u.id === DEMO_GUEST_ID)) cache.__pottedDb.users.push(demoGuest());
