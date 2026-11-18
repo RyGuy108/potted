@@ -41,14 +41,14 @@ describe("escrow", () => {
   };
 
   /** Opens a challenge. Times are seconds from now. */
-  async function open(opts: { deadlineIn?: number; settleIn?: number; cap?: number } = {}) {
+  async function open(opts: { deadlineIn?: number; settleIn?: number; cap?: number; upfrontPct?: number } = {}) {
     const id = nextId++;
     const now = Math.floor(Date.now() / 1000);
     const deadline = now + (opts.deadlineIn ?? 600);
     const settleBy = now + (opts.settleIn ?? 1200);
     const p = pdas(id);
     await program.methods
-      .createChallenge(new BN(id), 0, Array(32).fill(7), new BN(deadline), new BN(settleBy), new BN(opts.cap ?? 10 * USDC))
+      .createChallenge(new BN(id), 0, Array(32).fill(7), new BN(deadline), new BN(settleBy), new BN(opts.cap ?? 10 * USDC), opts.upfrontPct ?? 0)
       .accountsPartial({
         payer: payer.publicKey,
         streamer: streamer.publicKey,
@@ -60,6 +60,14 @@ describe("escrow", () => {
       .signers([streamer])
       .rpc();
     return { id, ...p };
+  }
+
+  async function lock(c: ReturnType<typeof pdas>, who: Keypair) {
+    return program.methods
+      .lock()
+      .accountsPartial({ authority: who.publicKey, challenge: c.challenge, vault: c.vault, streamerToken: await tokenAccount(streamer.publicKey) })
+      .signers([who])
+      .rpc();
   }
 
   async function pledge(c: ReturnType<typeof pdas>, fan: Keypair, amount: number) {
@@ -127,7 +135,7 @@ describe("escrow", () => {
     await pledge(c, fanA, 1 * USDC);
 
     const before = await balance(streamer.publicKey);
-    await program.methods.lock().accountsPartial({ authority: streamer.publicKey, challenge: c.challenge }).signers([streamer]).rpc();
+    await lock(c, streamer);
     await settle(c, true);
 
     assert.equal((await balance(streamer.publicKey)) - before, 6 * USDC);
@@ -163,10 +171,10 @@ describe("escrow", () => {
     const c = await open({ cap: 5 * USDC });
     await pledge(c, fanA, 4 * USDC);
     await expectError(pledge(c, fanA, 2 * USDC), "OverPledgeCap");
-    await program.methods.lock().accountsPartial({ authority: verifier.publicKey, challenge: c.challenge }).signers([verifier]).rpc();
+    await lock(c, verifier);
     await expectError(pledge(c, fanB, 1 * USDC), "NotOpen");
     await expectError(
-      program.methods.lock().accountsPartial({ authority: fanA.publicKey, challenge: c.challenge }).signers([fanA]).rpc(),
+      lock(c, fanA),
       "Unauthorized",
     );
   });
@@ -201,6 +209,53 @@ describe("escrow", () => {
     await expectError(cancel(streamer), "AlreadySettled");
     await refund(c, fanA.publicKey);
     assert.equal(await balance(fanA.publicKey), start);
+  });
+
+  it("pays the up-front share at start and the rest only on success", async () => {
+    const c = await open({ upfrontPct: 50 });
+    await pledge(c, fanA, 3 * USDC);
+    await pledge(c, fanB, 1 * USDC);
+    const before = await balance(streamer.publicKey);
+    await lock(c, streamer);
+    assert.equal((await balance(streamer.publicKey)) - before, 2 * USDC);
+    assert.equal((await program.account.challenge.fetch(c.challenge)).upfrontPaid.toNumber(), 2 * USDC);
+    await settle(c, true);
+    assert.equal((await balance(streamer.publicKey)) - before, 4 * USDC);
+  });
+
+  it("refunds only the part not paid up front after a miss, rounding in the vault's favour", async () => {
+    const c = await open({ upfrontPct: 25 });
+    await pledge(c, fanA, 1_000_001);
+    await pledge(c, fanB, 3);
+    const aBefore = await balance(fanA.publicKey);
+    const bBefore = await balance(fanB.publicKey);
+    const sBefore = await balance(streamer.publicKey);
+    await lock(c, verifier);
+    // 25% of 1_000_004, rounded down.
+    assert.equal((await balance(streamer.publicKey)) - sBefore, 250_001);
+    await settle(c, false);
+    await refund(c, fanA.publicKey);
+    await refund(c, fanB.publicKey);
+    // Each keeps 25% of their pledge with the streamer, rounded up.
+    assert.equal((await balance(fanA.publicKey)) - aBefore, 1_000_001 - 250_001);
+    assert.equal((await balance(fanB.publicKey)) - bBefore, 3 - 1);
+    await expectError(refund(c, fanA.publicKey), "AlreadyRefunded");
+    // 1_000_004 pledged - 250_001 up front - 750_002 refunded leaves 1 unit of
+    // rounding in the vault: dust, never a shortfall.
+    assert.equal(Number((await getAccount(provider.connection, c.vault)).amount), 1);
+  });
+
+  it("refunds everything when cancelled before the attempt starts", async () => {
+    const c = await open({ upfrontPct: 50 });
+    await pledge(c, fanA, 2 * USDC);
+    const before = await balance(fanA.publicKey);
+    await program.methods.cancel().accountsPartial({ streamer: streamer.publicKey, challenge: c.challenge }).signers([streamer]).rpc();
+    await refund(c, fanA.publicKey);
+    assert.equal((await balance(fanA.publicKey)) - before, 2 * USDC);
+  });
+
+  it("caps the up-front share at half the pot", async () => {
+    await expectError(open({ upfrontPct: 51 }), "UpfrontTooHigh");
   });
 
   it("rejects bad timing at creation", async () => {

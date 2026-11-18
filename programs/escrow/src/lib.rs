@@ -15,6 +15,9 @@ declare_id!("2ppLCjxK534szs3T9o1vw3wW4gD9C6s2Dg5Coe2tqgNV");
 pub const MAX_EVIDENCE_LEN: usize = 96;
 /// The verifier gets at most this long after the deadline to report.
 pub const MAX_SETTLE_WINDOW_SECS: i64 = 7 * 24 * 60 * 60;
+/// The most of a pot that can go to the streamer when the attempt starts.
+/// The rest is paid only on success, and refunded on a miss.
+pub const MAX_UPFRONT_PCT: u8 = 50;
 
 #[program]
 pub mod escrow {
@@ -30,6 +33,7 @@ pub mod escrow {
         deadline: i64,
         settle_by: i64,
         pledge_cap: u64,
+        upfront_pct: u8,
     ) -> Result<()> {
         let now = Clock::get()?.unix_timestamp;
         require!(deadline > now, EscrowError::DeadlineInPast);
@@ -38,6 +42,7 @@ pub mod escrow {
             EscrowError::BadSettleWindow
         );
         require!(pledge_cap > 0, EscrowError::ZeroAmount);
+        require!(upfront_pct <= MAX_UPFRONT_PCT, EscrowError::UpfrontTooHigh);
 
         let challenge = &mut ctx.accounts.challenge;
         challenge.streamer = ctx.accounts.streamer.key();
@@ -49,6 +54,8 @@ pub mod escrow {
         challenge.deadline = deadline;
         challenge.settle_by = settle_by;
         challenge.pledge_cap = pledge_cap;
+        challenge.upfront_pct = upfront_pct;
+        challenge.upfront_paid = 0;
         challenge.total_pledged = 0;
         challenge.total_refunded = 0;
         challenge.status = Status::Open;
@@ -117,25 +124,50 @@ pub mod escrow {
     /// Closes pledging when the attempt starts. The streamer or the
     /// verifier can call it.
     pub fn lock(ctx: Context<LockChallenge>) -> Result<()> {
-        let challenge = &mut ctx.accounts.challenge;
         let authority = ctx.accounts.authority.key();
-        require!(
-            authority == challenge.streamer || authority == challenge.verifier,
-            EscrowError::Unauthorized
-        );
-        require!(challenge.status == Status::Open, EscrowError::NotOpen);
-        challenge.status = Status::Locked;
+        let (upfront, streamer, id, bump) = {
+            let challenge = &mut ctx.accounts.challenge;
+            require!(
+                authority == challenge.streamer || authority == challenge.verifier,
+                EscrowError::Unauthorized
+            );
+            require!(challenge.status == Status::Open, EscrowError::NotOpen);
+            challenge.status = Status::Locked;
+            // Starting the attempt releases the up-front share, rounded down.
+            let upfront = ((challenge.total_pledged as u128)
+                .checked_mul(challenge.upfront_pct as u128)
+                .ok_or(EscrowError::Overflow)?
+                / 100) as u64;
+            challenge.upfront_paid = upfront;
+            (upfront, challenge.streamer, challenge.id, challenge.bump)
+        };
+
+        if upfront > 0 {
+            let id_bytes = id.to_le_bytes();
+            let seeds: &[&[u8]] = &[b"challenge", streamer.as_ref(), &id_bytes, &[bump]];
+            token::transfer(
+                CpiContext::new_with_signer(
+                    ctx.accounts.token_program.to_account_info(),
+                    Transfer {
+                        from: ctx.accounts.vault.to_account_info(),
+                        to: ctx.accounts.streamer_token.to_account_info(),
+                        authority: ctx.accounts.challenge.to_account_info(),
+                    },
+                    &[seeds],
+                ),
+                upfront,
+            )?;
+        }
+
+        let challenge = &ctx.accounts.challenge;
         emit!(Locked {
             challenge: challenge.key(),
             total_pledged: challenge.total_pledged,
+            upfront_paid: upfront,
         });
         Ok(())
     }
 
-    /// Reports the result. Works exactly once, and only until `settle_by`,
-    /// so a late result can never race the timeout refunds.
-    /// The streamer calls the challenge off. It can only ever send money back
-    /// to fans: the status goes to Failed, which opens `refund` for everyone.
     pub fn cancel(ctx: Context<CancelChallenge>) -> Result<()> {
         let challenge = &mut ctx.accounts.challenge;
         require!(
@@ -220,8 +252,16 @@ pub mod escrow {
         );
         let pledge = &ctx.accounts.pledge;
         require!(!pledge.refunded, EscrowError::AlreadyRefunded);
-        let amount = pledge.amount;
-        require!(amount > 0, EscrowError::ZeroAmount);
+        require!(pledge.amount > 0, EscrowError::ZeroAmount);
+        // If the up-front share went out, each fan keeps that share of their
+        // pledge with the streamer, rounded up, so refunds can never ask the
+        // vault for more than the rounded-down share left in it.
+        let kept = if challenge.upfront_paid > 0 {
+            ((pledge.amount as u128) * (challenge.upfront_pct as u128)).div_ceil(100) as u64
+        } else {
+            0
+        };
+        let amount = pledge.amount - kept;
 
         let id_bytes = challenge.id.to_le_bytes();
         let seeds: &[&[u8]] = &[
@@ -230,18 +270,20 @@ pub mod escrow {
             &id_bytes,
             &[challenge.bump],
         ];
-        token::transfer(
-            CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
-                Transfer {
-                    from: ctx.accounts.vault.to_account_info(),
-                    to: ctx.accounts.fan_token.to_account_info(),
-                    authority: ctx.accounts.challenge.to_account_info(),
-                },
-                &[seeds],
-            ),
-            amount,
-        )?;
+        if amount > 0 {
+            token::transfer(
+                CpiContext::new_with_signer(
+                    ctx.accounts.token_program.to_account_info(),
+                    Transfer {
+                        from: ctx.accounts.vault.to_account_info(),
+                        to: ctx.accounts.fan_token.to_account_info(),
+                        authority: ctx.accounts.challenge.to_account_info(),
+                    },
+                    &[seeds],
+                ),
+                amount,
+            )?;
+        }
 
         let pledge = &mut ctx.accounts.pledge;
         pledge.refunded = true;
@@ -296,6 +338,10 @@ pub struct Challenge {
     pub evidence_ref: String,
     pub bump: u8,
     pub vault_bump: u8,
+    /// Share of the pot, 0 to MAX_UPFRONT_PCT, paid to the streamer at lock.
+    pub upfront_pct: u8,
+    /// What lock actually paid out up front.
+    pub upfront_paid: u64,
 }
 
 #[account]
@@ -368,6 +414,12 @@ pub struct LockChallenge<'info> {
     pub authority: Signer<'info>,
     #[account(mut)]
     pub challenge: Account<'info, Challenge>,
+    #[account(mut, seeds = [b"vault", challenge.key().as_ref()], bump = challenge.vault_bump)]
+    pub vault: Account<'info, TokenAccount>,
+    /// The streamer's own token account; the up-front share can go nowhere else.
+    #[account(mut, token::mint = challenge.mint, token::authority = challenge.streamer)]
+    pub streamer_token: Account<'info, TokenAccount>,
+    pub token_program: Program<'info, Token>,
 }
 
 #[derive(Accounts)]
@@ -431,6 +483,7 @@ pub struct Pledged {
 pub struct Locked {
     pub challenge: Pubkey,
     pub total_pledged: u64,
+    pub upfront_paid: u64,
 }
 
 #[event]
@@ -482,4 +535,6 @@ pub enum EscrowError {
     NotRefundable,
     #[msg("This pledge was already refunded")]
     AlreadyRefunded,
+    #[msg("At most half the pot can be paid up front")]
+    UpfrontTooHigh,
 }
