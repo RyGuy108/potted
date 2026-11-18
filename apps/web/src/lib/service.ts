@@ -1256,7 +1256,9 @@ export function planterActivity(fan: User, limit = 12): { at: number; challenge:
       );
     }
   }
-  return rows.sort((a, b) => b.at - a.at).slice(0, limit);
+  // Newest first. An outcome can share a millisecond with the last pledge; it still comes after it.
+  const order = (kind: string) => (kind === "pledged" ? 1 : 0);
+  return rows.sort((a, b) => b.at - a.at || order(a.kind) - order(b.kind)).slice(0, limit);
 }
 
 // ---------------------------------------------------------------------------
