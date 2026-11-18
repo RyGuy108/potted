@@ -1,6 +1,6 @@
 import type { NewChallenge } from "./service";
 import * as service from "./service";
-import { ledger } from "./ledger";
+import { giveRealWallets, ledger } from "./ledger";
 import { planterId } from "./sample-data";
 import { DEMO_GUEST_ID, DEMO_STREAMER_ID, db, save } from "./store";
 
@@ -109,6 +109,8 @@ export async function addSampleLive({ minutes, log = () => {} }: LiveOptions): P
   for (const fan of [p("noor"), p("benji"), p("chloe.mp4"), p("samwise"), p("tess"), p("omar.gg")]) needs.set(fan, (needs.get(fan) ?? 0) + 20);
   needs.set(p("Maya"), (needs.get(p("Maya")) ?? 0) + 30);
   const L = ledger();
+  // The sample's accounts were added after the ledger started, so on Solana they still have placeholder wallets.
+  giveRealWallets();
   for (const [fan, usd] of needs) {
     await step(() => L.faucet(user(fan).wallet, Math.round(usd * 1_000_000)));
     log(`funded ${user(fan).name} with $${usd}`);

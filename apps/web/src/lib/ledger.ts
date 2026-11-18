@@ -137,24 +137,33 @@ export function ledger(): Ledger {
   if (mode !== "solana") throw new Error(`Unknown POTTED_LEDGER "${mode}". Use "sim" or "solana".`);
   if (!solana) {
     solana = new SolanaLedger();
-    // Accounts made on the simulated ledger (including the demo ones) get a
-    // real wallet. So does any account whose key this server no longer has,
-    // since nothing can be signed for it; planters get their test money again.
-    const ready = solana;
-    let changed = false;
-    for (const user of db().users) {
-      const lost = !user.wallet.startsWith("sim:") && !ready.hasKey(user.wallet);
-      if (!user.wallet.startsWith("sim:") && !lost) continue;
-      user.wallet = ready.newWallet();
-      changed = true;
-      if (lost && user.role === "fan") {
-        void ready.faucet(user.wallet, 25_000_000).catch((err) => console.error(`Could not refund test USDC to ${user.name}:`, err));
-      }
-    }
-    if (changed) save();
+    giveRealWallets(solana);
   }
   ensureTestAccounts(solana);
   return solana;
+}
+
+/**
+ * Accounts made on the simulated ledger (the demo and sample ones) get a
+ * real wallet. So does any account whose key this server no longer has,
+ * since nothing can be signed for it; planters get their test money again.
+ * Runs when the Solana ledger starts, and again after the sample adds its
+ * accounts.
+ */
+export function giveRealWallets(ready: SolanaLedger | undefined = solana): number {
+  if (!ready) return 0;
+  let changed = 0;
+  for (const user of db().users) {
+    const lost = !user.wallet.startsWith("sim:") && !ready.hasKey(user.wallet);
+    if (!user.wallet.startsWith("sim:") && !lost) continue;
+    user.wallet = ready.newWallet();
+    changed += 1;
+    if (lost && user.role === "fan") {
+      void ready.faucet(user.wallet, 25_000_000).catch((err) => console.error(`Could not refund test USDC to ${user.name}:`, err));
+    }
+  }
+  if (changed > 0) save();
+  return changed;
 }
 
 export function explorerTxUrl(tx: string): string {
