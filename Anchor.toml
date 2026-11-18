@@ -6,10 +6,12 @@ package_manager = "pnpm"
 resolution = true
 skip-lint = false
 
-[programs.devnet]
+# Placeholder id. Run `anchor keys sync` after your first `anchor build`
+# so this matches the keypair in target/deploy.
+[programs.localnet]
 escrow = "2ppLCjxK534szs3T9o1vw3wW4gD9C6s2Dg5Coe2tqgNV"
 
-[programs.localnet]
+[programs.devnet]
 escrow = "2ppLCjxK534szs3T9o1vw3wW4gD9C6s2Dg5Coe2tqgNV"
 
 [registry]
