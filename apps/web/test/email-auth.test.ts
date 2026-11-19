@@ -29,4 +29,26 @@ describe("email sign-in", () => {
     expect(await sendCode("c@d.co", mail)).toEqual({});
     expect(String(sent!.subject)).toMatch(/^\d{6} is your Potted sign-in code$/);
   });
+
+  it("mails through Brevo from EMAIL_FROM when BREVO_API_KEY is set", async () => {
+    let url = "";
+    let sent: Record<string, unknown> | undefined;
+    let headers: Record<string, string> = {};
+    const mail = {
+      env: { NODE_ENV: "production", BREVO_API_KEY: "xkeysib-x", EMAIL_FROM: "Potted <potted.app@gmail.com>" },
+      fetch: (async (u: string, init: RequestInit) => { url = u; headers = init.headers as Record<string, string>; sent = JSON.parse(String(init.body)); return new Response("{}", { status: 201 }); }) as typeof fetch,
+    };
+    expect(await sendCode("e@f.co", mail)).toEqual({});
+    expect(url).toBe("https://api.brevo.com/v3/smtp/email");
+    expect(headers["api-key"]).toBe("xkeysib-x");
+    expect(sent!.sender).toEqual({ name: "Potted", email: "potted.app@gmail.com" });
+    expect(sent!.to).toEqual([{ email: "e@f.co" }]);
+    expect(String(sent!.subject)).toMatch(/^\d{6} is your Potted sign-in code$/);
+  });
+
+  it("drops the code when the mail service refuses, so a retry is allowed", async () => {
+    const mail = { env: { NODE_ENV: "production", RESEND_API_KEY: "re_x" }, fetch: (async () => new Response("nope", { status: 403 })) as unknown as typeof fetch };
+    await expect(sendCode("g@h.co", mail)).rejects.toThrow("could not be sent");
+    await expect(sendCode("g@h.co", mail)).rejects.toThrow("could not be sent");
+  });
 });
