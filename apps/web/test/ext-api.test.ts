@@ -174,3 +174,18 @@ describe("extension for climbers and keepers", () => {
     expect(((await call("GET", "channel", {}, ryan)).json as { watch: unknown }).watch).toBeNull();
   });
 });
+
+describe("signing the extension in from the website session", () => {
+  it("swaps a valid site session for an extension token for the same account", async () => {
+    const { extTokenFromSession, sessionToken } = await import("../src/lib/session");
+    const found = extTokenFromSession(sessionToken(DEMO_STREAMER_ID));
+    expect(found?.user.id).toBe(DEMO_STREAMER_ID);
+    expect(readExtToken(found!.token)).toBe(DEMO_STREAMER_ID);
+  });
+
+  it("refuses a missing or forged session", async () => {
+    const { extTokenFromSession } = await import("../src/lib/session");
+    expect(extTokenFromSession(undefined)).toBeUndefined();
+    expect(extTokenFromSession(`${DEMO_STREAMER_ID}.forged`)).toBeUndefined();
+  });
+});

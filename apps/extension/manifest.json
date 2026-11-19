@@ -2,11 +2,13 @@
   "manifest_version": 3,
   "name": "Potted",
   "description": "Fund and run stream challenges from a side panel, next to the stream.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "minimum_chrome_version": "116",
   "action": { "default_title": "Open Potted" },
   "side_panel": { "default_path": "panel.html" },
   "background": { "service_worker": "background.js", "type": "module" },
-  "permissions": ["sidePanel", "storage", "tabs"],
+  "permissions": ["sidePanel", "storage", "tabs", "cookies"],
+  "host_permissions": ["https://potted-production-25981257.up.railway.app/*", "http://localhost:3000/*"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
   "icons": { "16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png" }
 }

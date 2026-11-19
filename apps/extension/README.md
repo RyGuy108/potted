@@ -16,7 +16,8 @@ the Potted server's `/api/ext` endpoints, which enforce all the rules.
 
 ## Load it in Chrome
 
-1. Start the Potted server (`pnpm --filter @potted/web dev`).
+1. Nothing to start: it uses the hosted site. (For a local server, run
+   `pnpm --filter @potted/web dev` and set Server, below.)
 2. Open `chrome://extensions`, turn on **Developer mode**, click
    **Load unpacked** and choose this folder (`apps/extension`).
 3. Pin Potted from the puzzle-piece menu and click its icon. The panel
@@ -27,8 +28,14 @@ the extension's card in `chrome://extensions`.
 
 ## Connecting an account
 
-- **Log in / Sign up** opens the site's connect page. Once you are signed
-  in there, the extension picks up a token from that tab and closes it.
+- **Automatic:** if you are signed in on the Potted website in the same
+  Chrome profile, the panel signs itself in as that account. It asks the
+  site's `/api/ext-session` endpoint, which swaps the site's session for an
+  extension token. Signing in on the site later connects the panel within
+  a few seconds. **Disconnect** turns this off until you click Log in again.
+- **Log in / Sign up** checks the website first, and only opens the site's
+  connect page if you are not signed in there. Once you sign in on that
+  page, the extension picks up a token from the tab and closes it.
 - **Paste a connection code** does the same by hand, with the code the
   connect page shows.
 - **Demo** planters work with no sign-in: a new one with $25 of test
@@ -51,8 +58,14 @@ in its address, so it is not matched; the panel lists live streams there.
 
 ## Pointing it at a hosted server
 
-Open the panel while disconnected, expand **Server**, and enter the
-site's address. The default is `http://localhost:3000`.
+The default is the hosted site,
+`https://potted-production-25981257.up.railway.app`. To use another server
+(for example `http://localhost:3000` while developing), open the panel while
+disconnected, expand **Server**, and enter its address. Chrome asks for
+permission to reach a server other than these two.
+
+Updating from 0.1 (which defaulted to `http://localhost:3000`) drops that
+saved address, so the panel moves to the hosted site on its own.
 
 ## Permissions
 
@@ -60,6 +73,8 @@ site's address. The default is `http://localhost:3000`.
 | --- | --- |
 | `sidePanel` | To show the panel |
 | `storage` | To keep the server address and the account token |
+| `cookies` | To notice when you sign in on the Potted website, and to read its session if Chrome does not send it, so the panel can sign in automatically |
+| Host access to the Potted site (and `localhost:3000`) | To call the site's API and follow its sign-in. Other servers are asked for only when you enter one under Server |
 | `tabs` | To read the current tab's address, for matching the stream and picking up the token from the connect page |
 
 ## Files

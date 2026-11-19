@@ -1,4 +1,4 @@
-import { DEFAULT_BASE, getSettings, streamFromUrl } from "./shared.js";
+import { DEFAULT_BASE, getSettings, streamFromUrl, tokenFromSiteSession } from "./shared.js";
 
 /**
  * The side panel. Planters browse, back challenges and see their garden;
@@ -199,6 +199,7 @@ function disconnectedView() {
       <h2>Back challenges without leaving the stream</h2>
       <span class="muted">Planters pledge and grow their garden. Climbers run their challenges mid-stream. Keepers rule on clips.</span>
       <button class="primary" data-action="connect">Log in or sign up</button>
+      <span class="muted small">Signed in on the Potted website in this browser? The panel connects on its own.</span>
       <details>
         <summary>Paste a connection code instead</summary>
         <div class="row" style="margin-top:8px"><input id="code" placeholder="ext.…" aria-label="Connection code" style="flex:1" /><button data-action="use-code">Use</button></div>
@@ -563,6 +564,7 @@ async function refresh(force = false) {
       }
     } else {
       state.me = null;
+      if (await trySiteSession()) return;
     }
     const tab = await watchedTab();
     // Moving to another stream's tab drops a stream picked from the list.
@@ -576,6 +578,23 @@ async function refresh(force = false) {
     notify(error.message);
     if (!state.me) await draw(force);
   }
+}
+
+/**
+ * Signs in with the website's session when the user is already signed in
+ * there. Checked at most every 10 seconds while disconnected, and skipped
+ * after the user disconnects on purpose until they click Log in again.
+ */
+let lastSiteCheck = 0;
+async function trySiteSession({ force = false } = {}) {
+  if (!force && Date.now() - lastSiteCheck < 10_000) return false;
+  lastSiteCheck = Date.now();
+  const { autoLogin } = await chrome.storage.local.get("autoLogin");
+  if (!force && autoLogin === false) return false;
+  const token = await tokenFromSiteSession(state.base);
+  if (!token) return false;
+  await signInWith(token);
+  return true;
 }
 
 async function signInWith(token) {
@@ -596,6 +615,9 @@ async function act(action, target) {
   const post = (path, body) => api(path, { method: "POST", body: body ?? {} });
   switch (action) {
     case "connect":
+      // Already signed in on the site: no need to open it.
+      await chrome.storage.local.set({ autoLogin: true });
+      if (await trySiteSession({ force: true })) return notify(`Signed in as ${state.me?.name ?? "you"} from the website`, true);
       return chrome.tabs.create({ url: `${state.base}/ext/connect` });
     case "use-code":
       return signInWith($("code").value.trim());
@@ -605,6 +627,13 @@ async function act(action, target) {
       return signInWith((await post("demo", { as: target.dataset.id })).token);
     case "save-base": {
       const base = $("base").value.trim().replace(/\/+$/, "") || DEFAULT_BASE;
+      // Permission for a server other than the built-in ones, so the panel
+      // can call it and follow its sign-in. Asked while the click still counts.
+      try {
+        await chrome.permissions.request({ origins: [`${new URL(base).origin}/*`] });
+      } catch {
+        // A bad address; the request below reports it.
+      }
       await chrome.storage.local.set({ base });
       state.base = base;
       state.config = null;
@@ -612,6 +641,8 @@ async function act(action, target) {
       return refresh(true);
     }
     case "disconnect":
+      // Stay disconnected even though the site is still signed in.
+      await chrome.storage.local.set({ autoLogin: false });
       state.token = null;
       state.me = null;
       state.picked = null;
