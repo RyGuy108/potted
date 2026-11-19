@@ -7,10 +7,12 @@ export function ProviderButtons({ as, verb = "Continue" }: { as?: "fan" | "strea
       {PROVIDER_IDS.map((id) =>
         isConfigured(id) ? (
           <a key={id} className={`btn provider provider-${id}`} href={`/api/auth/${id}/start${as ? `?as=${as}` : ""}`}>
+            <img className="provider-logo" src={`/logos/${id}.png`} alt="" width={20} height={20} />
             {verb} with {PROVIDERS[id].label}
           </a>
         ) : (
           <span key={id} className={`btn provider provider-${id} provider-off`} aria-disabled="true" title="Not connected on this server">
+            <img className="provider-logo" src={`/logos/${id}.png`} alt="" width={20} height={20} />
             {verb} with {PROVIDERS[id].label}
             <span className="tag tag-quiet">not connected</span>
           </span>
