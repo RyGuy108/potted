@@ -1,7 +1,9 @@
-import { createHash, randomBytes, verify as verifySignature, createPublicKey } from "node:crypto";
-import { formatUsd } from "@potted/core";
+import { type AnnouncementKind, announcementKind, botOn, fitChat, publicBaseUrl, replyTo } from "./chat-replies";
+import * as kick from "./kick";
 import * as service from "./service";
 import { type User, save } from "./store";
+
+export { botOn, fitChat, replyTo } from "./chat-replies";
 
 /**
  * The `!potted` chat bot on Twitch, Kick and YouTube.
@@ -16,20 +18,13 @@ import { type User, save } from "./store";
  * - Twitch: one Potted bot account joins every linked channel over Twitch's
  *   chat connection (TWITCH_BOT_USERNAME, TWITCH_BOT_TOKEN).
  * - Kick: the streamer connects their Kick account (OAuth with PKCE); chat
- *   arrives as signed webhooks and replies go through Kick's chat API.
+ *   arrives as signed webhooks and replies go through Kick's chat API. All
+ *   of it lives in kick.ts.
  * - YouTube: the streamer connects with Google (YouTube permission); while
  *   they are live, the server reads the live chat and replies there.
  */
 
 export type ChatPlatform = "twitch" | "kick" | "youtube";
-
-export interface KickLink {
-  broadcasterUserId: number;
-  slug: string;
-  accessToken: string;
-  refreshToken: string;
-  expiresAt: number;
-}
 
 export interface YouTubeLink {
   channelTitle: string;
@@ -40,7 +35,7 @@ export interface YouTubeLink {
 
 /** A streamer's chat connections, kept on the user. Tokens never leave the server. */
 export interface ChatLinks {
-  kick?: KickLink;
+  kick?: kick.KickLink;
   youtube?: YouTubeLink;
 }
 
@@ -53,43 +48,7 @@ function setLinks(streamer: User, links: ChatLinks): void {
   save();
 }
 
-export function botOn(streamer: User): boolean {
-  return service.settingsOf(streamer).chatBot !== false;
-}
-
-const base = () => (process.env.POTTED_PUBLIC_URL ?? "http://localhost:3000").replace(/\/+$/, "");
-
-// ---------------------------------------------------------------------------
-// What the bot says
-// ---------------------------------------------------------------------------
-
-/** The bot's answer to a chat message, or undefined when it is not a command for us. */
-export function replyTo(streamer: User, text: string, siteBase = base()): string | undefined {
-  const words = text.trim().toLowerCase().split(/\s+/);
-  if (words[0] !== "!potted" && words[0] !== "!pot") return undefined;
-  if (!streamer.handle) return undefined;
-  if (words[1] === "top") {
-    const top = service.topPlanters(streamer.id, 3);
-    if (!top.length) return `No planters yet. Be the first: ${siteBase}/j/${streamer.handle}`;
-    return `Top planters: ${top.map((t, i) => `${i + 1}. ${t.name} ${formatUsd(t.amountMicro)}`).join(" · ")}`;
-  }
-  const open = service
-    .stageChallenges(streamer.id)
-    .filter((c) => c.status === "open" && c.deadline > Date.now())
-    .sort((a, b) => b.totalMicro - a.totalMicro);
-  const c = open[0];
-  if (!c) return `No challenge is open right now. Suggest one: ${siteBase}/s/${streamer.handle}`;
-  const goal = c.goalMicro > 0 ? ` of ${formatUsd(c.goalMicro)}` : "";
-  const more = open.length > 1 ? ` (+${open.length - 1} more)` : "";
-  return `🌱 ${c.title}: ${formatUsd(c.totalMicro)}${goal} from ${service.fundersOf(c.id).length} planters${more}. Pays only if ${streamer.name} pulls it off. Back it: ${siteBase}/j/${streamer.handle}`;
-}
-
-/** Chat messages are short; long titles are cut, links never. */
-export function fitChat(text: string, max = 400): string {
-  if (text.length <= max) return text;
-  const link = text.match(/https?:\/\/\S+$/)?.[0] ?? "";
-  return `${text.slice(0, max - link.length - 2).trimEnd()}… ${link}`.trim();
-}
+const base = publicBaseUrl;
 
 // ---------------------------------------------------------------------------
 // Announcements, rate-limited per streamer
@@ -109,19 +68,29 @@ export function useSender(next: Sender): void {
 
 /** The events worth a chat message, and what to say. */
 export function announcementFor(type: string, message: string, streamer: User, sfx?: string, siteBase = base()): string | undefined {
+  if (!announcementKind(type, sfx)) return undefined;
   if (type === "locked" || type === "paid" || type === "failed") return fitChat(`🌱 ${message}`);
   if (type === "milestone" && sfx === "goal") return fitChat(`☁️ ${message} ${siteBase}/j/${streamer.handle}`);
   return undefined;
 }
 
-/** Posts in every chat the streamer has connected. Never throws; a failed platform is skipped. */
-export async function announce(streamer: User, text: string, now = Date.now()): Promise<ChatPlatform[]> {
+/**
+ * Posts in every chat the streamer has connected. Never throws; a failed
+ * platform is skipped. Kick is opt-in per kind of announcement and goes
+ * through Kick's saved outbox; pass `kind` for a challenge announcement.
+ */
+export async function announce(streamer: User, text: string, now = Date.now(), kind?: AnnouncementKind): Promise<ChatPlatform[]> {
   if (!botOn(streamer)) return [];
   const last = lastSent.get(streamer.id);
   if (last !== undefined && now - last < GAP_MS) return [];
   lastSent.set(streamer.id, now);
   const sent: ChatPlatform[] = [];
+  if (kind && kick.queueKickAnnouncement(streamer, kind, text, now)) {
+    sent.push("kick");
+    void kick.drainKickOutbox().catch(() => undefined);
+  }
   for (const platform of connectedPlatforms(streamer)) {
+    if (platform === "kick") continue;
     try {
       await sender(platform, streamer, fitChat(text));
       sent.push(platform);
@@ -140,7 +109,7 @@ export function connectedPlatforms(streamer: User): ChatPlatform[] {
   const out: ChatPlatform[] = [];
   if (service.settingsOf(streamer).twitchChannel && twitchBotConfigured()) out.push("twitch");
   const links = linksOf(streamer);
-  if (links.kick) out.push("kick");
+  if (links.kick && !links.kick.needsReconnect) out.push("kick");
   if (links.youtube) out.push("youtube");
   return out;
 }
@@ -148,7 +117,7 @@ export function connectedPlatforms(streamer: User): ChatPlatform[] {
 /** Sends one message on one platform. */
 export async function sendChat(platform: ChatPlatform, streamer: User, text: string, doFetch: typeof fetch = fetch): Promise<void> {
   if (platform === "twitch") return twitch().say(service.settingsOf(streamer).twitchChannel, text);
-  if (platform === "kick") return kickSend(streamer, text, doFetch);
+  if (platform === "kick") return void (await kick.sendKickMessage(streamer, text, doFetch));
   return youtubeSend(streamer, text, doFetch);
 }
 
@@ -251,135 +220,6 @@ export function twitchChannels(): string[] {
     .listStreamers()
     .filter((s) => botOn(s) && service.settingsOf(s).twitchChannel)
     .map((s) => service.settingsOf(s).twitchChannel);
-}
-
-// ---------------------------------------------------------------------------
-// Kick: OAuth 2.1 with PKCE, webhooks in, chat API out
-// ---------------------------------------------------------------------------
-
-const KICK_ID = "https://id.kick.com";
-const KICK_API = "https://api.kick.com/public/v1";
-export const KICK_SCOPES = "user:read channel:read chat:write events:subscribe";
-
-export function kickConfigured(env = process.env): boolean {
-  return Boolean(env.KICK_CLIENT_ID && env.KICK_CLIENT_SECRET);
-}
-
-/** A PKCE pair: the verifier stays in a cookie, the challenge goes to Kick. */
-export function pkce(): { verifier: string; challenge: string } {
-  const verifier = randomBytes(32).toString("base64url");
-  return { verifier, challenge: createHash("sha256").update(verifier).digest("base64url") };
-}
-
-export function kickAuthorizeUrl(redirectUri: string, state: string, challenge: string): string {
-  const q = new URLSearchParams({
-    response_type: "code",
-    client_id: process.env.KICK_CLIENT_ID ?? "",
-    redirect_uri: redirectUri,
-    scope: KICK_SCOPES,
-    state,
-    code_challenge: challenge,
-    code_challenge_method: "S256",
-  });
-  return `${KICK_ID}/oauth/authorize?${q}`;
-}
-
-async function kickToken(body: Record<string, string>, doFetch: typeof fetch): Promise<{ accessToken: string; refreshToken: string; expiresAt: number }> {
-  const res = await doFetch(`${KICK_ID}/oauth/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ client_id: process.env.KICK_CLIENT_ID ?? "", client_secret: process.env.KICK_CLIENT_SECRET ?? "", ...body }),
-  });
-  const t = (await res.json().catch(() => ({}))) as { access_token?: string; refresh_token?: string; expires_in?: number };
-  if (!res.ok || !t.access_token) throw new Error(`Kick did not give a token (${res.status})`);
-  return { accessToken: t.access_token, refreshToken: t.refresh_token ?? "", expiresAt: Date.now() + (t.expires_in ?? 3600) * 1000 };
-}
-
-/** Finishes connecting Kick: swaps the code, finds the channel, and subscribes to its chat. */
-export async function connectKick(streamer: User, code: string, verifier: string, redirectUri: string, doFetch: typeof fetch = fetch): Promise<KickLink> {
-  if (streamer.role !== "streamer") throw new Error("Only a climber can connect a chat");
-  const token = await kickToken({ grant_type: "authorization_code", code, code_verifier: verifier, redirect_uri: redirectUri }, doFetch);
-  const auth = { Authorization: `Bearer ${token.accessToken}` };
-  const me = (await (await doFetch(`${KICK_API}/channels`, { headers: auth })).json()) as { data?: { broadcaster_user_id?: number; slug?: string }[] };
-  const channel = me.data?.[0];
-  if (!channel?.broadcaster_user_id) throw new Error("Kick did not say which channel this is");
-  const link: KickLink = { broadcasterUserId: channel.broadcaster_user_id, slug: channel.slug ?? "", ...token };
-  const sub = await doFetch(`${KICK_API}/events/subscriptions`, {
-    method: "POST",
-    headers: { ...auth, "Content-Type": "application/json" },
-    body: JSON.stringify({ broadcaster_user_id: link.broadcasterUserId, events: [{ name: "chat.message.sent", version: 1 }], method: "webhook" }),
-  });
-  if (!sub.ok) throw new Error(`Kick would not send this channel's chat (${sub.status})`);
-  setLinks(streamer, { ...linksOf(streamer), kick: link });
-  if (link.slug) streamer.settings = { ...service.settingsOf(streamer), kickChannel: link.slug.toLowerCase() };
-  save();
-  return link;
-}
-
-async function kickAccess(streamer: User, doFetch: typeof fetch): Promise<KickLink> {
-  const link = linksOf(streamer).kick;
-  if (!link) throw new Error("Kick is not connected");
-  if (link.expiresAt - Date.now() > 60_000) return link;
-  const fresh = { ...link, ...(await kickToken({ grant_type: "refresh_token", refresh_token: link.refreshToken }, doFetch)) };
-  setLinks(streamer, { ...linksOf(streamer), kick: fresh });
-  return fresh;
-}
-
-async function kickSend(streamer: User, text: string, doFetch: typeof fetch): Promise<void> {
-  const link = await kickAccess(streamer, doFetch);
-  const res = await doFetch(`${KICK_API}/chat`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${link.accessToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ broadcaster_user_id: link.broadcasterUserId, content: text.slice(0, 500), type: "bot" }),
-  });
-  if (!res.ok) throw new Error(`Kick refused the message (${res.status})`);
-}
-
-let kickKey: { pem: string; at: number } | undefined;
-
-/** Kick's public key for webhook signatures, fetched and cached for a day. */
-async function kickPublicKey(doFetch: typeof fetch): Promise<string> {
-  if (process.env.KICK_WEBHOOK_PUBLIC_KEY) return process.env.KICK_WEBHOOK_PUBLIC_KEY;
-  if (kickKey && Date.now() - kickKey.at < 86_400_000) return kickKey.pem;
-  const res = await doFetch(`${KICK_API}/public-key`);
-  const body = (await res.json().catch(() => ({}))) as { data?: { public_key?: string } };
-  if (!body.data?.public_key) throw new Error("Could not get Kick's public key");
-  kickKey = { pem: body.data.public_key, at: Date.now() };
-  return kickKey.pem;
-}
-
-/**
- * Checks a Kick webhook: the signature covers "<message id>.<timestamp>.<body>",
- * signed with Kick's key. Works whether the key is RSA (SHA-256) or Ed25519.
- */
-export async function verifyKickWebhook(headers: Headers, body: string, doFetch: typeof fetch = fetch): Promise<boolean> {
-  const id = headers.get("kick-event-message-id");
-  const timestamp = headers.get("kick-event-message-timestamp");
-  const signature = headers.get("kick-event-signature");
-  if (!id || !timestamp || !signature) return false;
-  try {
-    const key = createPublicKey(await kickPublicKey(doFetch));
-    const data = Buffer.from(`${id}.${timestamp}.${body}`);
-    return verifySignature(key.asymmetricKeyType === "ed25519" ? null : "sha256", data, key, Buffer.from(signature, "base64"));
-  } catch {
-    return false;
-  }
-}
-
-const seenKick = new Set<string>();
-
-/** One Kick chat event: answers a command for a connected streamer. Kick may deliver twice; each message is handled once. */
-export async function handleKickChat(messageId: string, event: { broadcaster?: { user_id?: number }; sender?: { username?: string; user_id?: number }; content?: string }, doFetch: typeof fetch = fetch): Promise<string | undefined> {
-  if (seenKick.has(messageId)) return undefined;
-  seenKick.add(messageId);
-  if (seenKick.size > 5000) seenKick.clear();
-  const streamer = service.listStreamers().find((s) => linksOf(s).kick?.broadcasterUserId === event.broadcaster?.user_id);
-  if (!streamer || !botOn(streamer)) return undefined;
-  const reply = replyTo(streamer, event.content ?? "");
-  if (!reply) return undefined;
-  const text = fitChat(`@${event.sender?.username ?? "friend"} ${reply}`);
-  await kickSend(streamer, text, doFetch);
-  return text;
 }
 
 // ---------------------------------------------------------------------------
@@ -514,6 +354,7 @@ export function startChatBots(): void {
   const tick = async () => {
     try {
       if (twitchBotConfigured()) twitch().sync(twitchChannels());
+      await kick.drainKickOutbox().catch(() => undefined);
       for (const s of service.listStreamers()) {
         if (linksOf(s).youtube && botOn(s) && service.liveSessionOf(s)?.platform === "youtube") await pollYouTube(s).catch(() => undefined);
       }
@@ -525,8 +366,12 @@ export function startChatBots(): void {
   setInterval(tick, 8000).unref?.();
 }
 
-/** Forgets a platform's connection. */
-export function disconnect(streamer: User, platform: "kick" | "youtube"): void {
+/** Forgets a platform's connection. Kick also removes its subscriptions and revokes its tokens. */
+export async function disconnect(streamer: User, platform: "kick" | "youtube"): Promise<void> {
+  if (platform === "kick") {
+    await kick.disconnectKick(streamer);
+    return;
+  }
   const links = { ...linksOf(streamer) };
   delete links[platform];
   setLinks(streamer, links);
@@ -538,7 +383,7 @@ export function botStatus(streamer: User) {
   return {
     on: botOn(streamer),
     twitch: { ready: twitchBotConfigured(), channel: service.settingsOf(streamer).twitchChannel || null },
-    kick: { ready: kickConfigured(), connected: links.kick ? links.kick.slug || String(links.kick.broadcasterUserId) : null },
+    kick: { ready: kick.kickConfigured(), connected: links.kick ? links.kick.slug || String(links.kick.broadcasterUserId) : null },
     youtube: { ready: youtubeConfigured(), connected: links.youtube?.channelTitle ?? null },
   };
 }

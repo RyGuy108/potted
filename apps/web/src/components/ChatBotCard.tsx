@@ -20,7 +20,7 @@ export function ChatBotCard({ status }: { status: Status }) {
     start(async () => {
       const result = await chatBotAction(change);
       if (!result.ok) setNote(result.error);
-      else if (change.test) setNote(result.sent?.length ? `Sent to ${result.sent.join(", ")}.` : "Nothing sent: connect a chat first, or wait a few seconds between tests.");
+      else if (change.test) setNote(result.sent?.length ? `Sent to ${result.sent.join(", ")}.` : "Nothing sent: connect Twitch or YouTube first. Kick has its own test button below.");
       router.refresh();
     });
 
@@ -48,20 +48,7 @@ export function ChatBotCard({ status }: { status: Status }) {
           "Twitch",
           !status.twitch.ready ? "Needs the Potted bot account on the server (TWITCH_BOT_USERNAME, TWITCH_BOT_TOKEN)" : status.twitch.channel ? `In twitch.tv/${status.twitch.channel}` : "Add your Twitch channel in the settings above",
         )}
-        {row(
-          "Kick",
-          !status.kick.ready ? "Needs KICK_CLIENT_ID and KICK_CLIENT_SECRET on the server" : status.kick.connected ? `Connected: kick.com/${status.kick.connected}` : "Not connected",
-          status.kick.ready &&
-            (status.kick.connected ? (
-              <button type="button" className="btn btn-ghost" disabled={pending} onClick={() => act({ disconnect: "kick" })}>
-                Disconnect
-              </button>
-            ) : (
-              <a className="btn btn-ghost" href="/api/connect/kick/start">
-                Connect Kick
-              </a>
-            )),
-        )}
+        {row("Kick", status.kick.connected ? `Connected: kick.com/${status.kick.connected}` : "Not connected", <a className="btn btn-ghost" href="#kick">Kick settings</a>)}
         {row(
           "YouTube",
           !status.youtube.ready ? "Needs Google sign-in keys on the server" : status.youtube.connected ? `Connected: ${status.youtube.connected} (reads chat while you're live)` : "Not connected",

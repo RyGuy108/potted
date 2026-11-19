@@ -257,6 +257,10 @@ export interface Db {
   campaigns?: Campaign[];
   /** Pending email sign-in codes, hashed, by email. */
   emailCodes?: Record<string, { hash: string; expires: number; tries: number; sentAt: number }>;
+  /** Kick chat messages waiting to be sent (replies, announcements). See kick.ts. */
+  kickOutbox?: import("./kick").KickOutboxItem[];
+  /** Kick webhook message ids already accepted, with when, so a redelivery is handled once. */
+  kickSeen?: Record<string, number>;
   /** Wallets Privy holds: address to Privy wallet id. */
   privyWallets?: Record<string, string>;
   /** Set while the demo sample is loaded: live challenges it opened, so it can be removed again. */

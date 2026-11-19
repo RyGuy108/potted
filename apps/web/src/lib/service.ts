@@ -255,9 +255,9 @@ function emit(type: EventType, challenge: Challenge, message: string, extra: Eve
   for (const streamer of streamersOf(challenge)) {
     emitTo(streamer.handle ?? "", type, challenge.id, message, extra);
     // The chat bot posts the big moments in the streamer's connected chats. Not awaited.
-    void import("./chat-bot").then(({ announce, announcementFor }) => {
+    void Promise.all([import("./chat-bot"), import("./chat-replies")]).then(([{ announce, announcementFor }, { announcementKind }]) => {
       const text = announcementFor(type, message, streamer, extra.sfx);
-      if (text) return announce(streamer, text);
+      if (text) return announce(streamer, text, Date.now(), announcementKind(type, extra.sfx));
     }).catch(() => undefined);
   }
   notifications.onChallengeEvent(type, challenge, message);
