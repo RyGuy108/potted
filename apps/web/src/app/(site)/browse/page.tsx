@@ -1,7 +1,7 @@
 import { GAMES, formatUsd } from "@potted/core";
 import { compact, mockActivityOn, mockGame, mockTotals } from "@/lib/mock-activity";
 import Link from "next/link";
-import { GameArt } from "@/components/GameArt";
+import { CategoryArt } from "@/components/CategoryArt";
 import { AutoRefresh } from "@/components/Live";
 import { StreamRow } from "@/components/StreamCard";
 import { forYou, trending } from "@/lib/discover";
@@ -80,7 +80,7 @@ export default async function Browse({ searchParams }: { searchParams: Promise<{
       <div className="category-grid">
         {games.map((game) => (
           <Link key={game.id} href={`/g/${game.id}`} className="category">
-            <GameArt id={game.id} name={game.name} />
+            <CategoryArt id={game.id} name={game.name} />
             <strong>{game.name}</strong>
             <span className="muted small">
               {mock

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ChallengeCard } from "@/components/ChallengeCard";
-import { GameArt } from "@/components/GameArt";
+import { CategoryArt } from "@/components/CategoryArt";
 import { search } from "@/lib/service";
 
 export default async function Search({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
@@ -46,7 +46,7 @@ export default async function Search({ searchParams }: { searchParams: Promise<{
           <div className="category-grid">
             {results.games.map((game) => (
               <Link key={game.id} href={`/g/${game.id}`} className="category">
-                <GameArt id={game.id} name={game.name} />
+                <CategoryArt id={game.id} name={game.name} />
                 <strong>{game.name}</strong>
               </Link>
             ))}
