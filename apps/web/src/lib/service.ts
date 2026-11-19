@@ -367,7 +367,7 @@ const POSITIONS: OverlayPosition[] = ["bottom-left", "bottom-right", "top-left",
 export async function updateSettings(actor: User, input: Partial<Record<keyof StreamSettings, unknown>>): Promise<StreamSettings> {
   if (actor.role !== "streamer") fail("Only a streamer has stream settings");
   const minPledgeUsd = Number(input.minPledgeUsd);
-  if (!(minPledgeUsd >= 0.5 && minPledgeUsd <= 100)) fail("Minimum pledge must be $0.50 to $100");
+  if (!(minPledgeUsd >= 0.5 && minPledgeUsd <= 500)) fail("Minimum pledge must be $0.50 to $500");
   const position = String(input.overlayPosition) as OverlayPosition;
   if (!POSITIONS.includes(position)) fail("Unknown overlay position");
   const blockedWords = (Array.isArray(input.blockedWords) ? input.blockedWords : String(input.blockedWords ?? "").split(","))
@@ -1682,7 +1682,7 @@ export function planterActivity(fan: User, limit = 12): { at: number; challenge:
 // ---------------------------------------------------------------------------
 
 /** Most one planter can hold on a single bounty. */
-const MAX_BACKING_MICRO = toMicro(50);
+const MAX_BACKING_MICRO = toMicro(500);
 const MAX_OPEN_BOUNTIES_PER_FAN = 3;
 
 /** The shared checks for a fan's idea: length, game, blocked words. */

@@ -9,7 +9,7 @@ import { db, save } from "./store";
  * - each wallet: POTTED_BLINK_PER_WALLET per hour (default 10)
  * - each network address: POTTED_BLINK_PER_IP per hour (default 30), so one person cannot use many fresh wallets
  * - everyone together: POTTED_BLINK_PER_HOUR per hour (default 300)
- * - test USDC top-ups: POTTED_BLINK_TOPUP_USD per wallet, ever (default 25)
+ * - test USDC top-ups: POTTED_BLINK_TOPUP_USD per wallet, ever (default 500)
  */
 
 const HOUR = 60 * 60_000;
@@ -50,7 +50,7 @@ export function takeBlinkSlot(wallet: string, ip: string, now = Date.now()): str
 /** How much more test USDC the faucet may give this wallet, in micro-USDC. */
 export function topUpLeft(wallet: string): number {
   const given = db().blinkTopUps?.[wallet] ?? 0;
-  return Math.max(0, num("POTTED_BLINK_TOPUP_USD", 25) * 1_000_000 - given);
+  return Math.max(0, num("POTTED_BLINK_TOPUP_USD", 500) * 1_000_000 - given);
 }
 
 export function recordTopUp(wallet: string, amountMicro: number): void {

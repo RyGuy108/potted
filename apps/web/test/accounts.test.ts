@@ -328,7 +328,7 @@ describe("bounties", () => {
     const maya = await service.signIn("Maya", "fan");
     await expect(post(streamer() as never)).rejects.toThrow("Sign in as a planter");
     await expect(post(maya, 0.1)).rejects.toThrow("smallest amount");
-    await expect(post(maya, 51)).rejects.toThrow("up to $50");
+    await expect(post(maya, 501)).rejects.toThrow("up to $500");
     await expect(post(maya, 5, 100)).rejects.toThrow("1 to 72 hours");
     expect(await service.balanceOf(maya)).toBe(25_000_000);
     for (let i = 0; i < 3; i++) await post(maya, 1);
