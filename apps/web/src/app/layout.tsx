@@ -13,6 +13,8 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase: new URL(await publicBase()),
     title: "Potted · fan-funded stream challenges",
     description: "Fans fund a challenge, game data decides the result, and the pot pays out or refunds itself.",
+    // Google Search Console's HTML-tag check, to prove the site is ours (needed for Google sign-in branding).
+    ...(process.env.GOOGLE_SITE_VERIFICATION ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION } } : {}),
   };
 }
 

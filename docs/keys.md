@@ -15,6 +15,7 @@ a commit or a pull request.
 
 | What it turns on | Variable | Where to get it |
 | --- | --- | --- |
+| Google Search Console ownership (for Google sign-in branding) | `GOOGLE_SITE_VERIFICATION` | search.google.com/search-console → Add property → URL prefix → your site → HTML tag. Copy only the `content` value. The site then serves `<meta name="google-site-verification">` on every page. |
 | Google sign-in | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | console.cloud.google.com → APIs & Services → Credentials → Create credentials → OAuth client ID → Web application. Authorized redirect URI: `http://localhost:3000/api/auth/google/callback`. You are asked to set up the consent screen first; choose External and add your own address as a test user. |
 | Twitch sign-in | `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET` | dev.twitch.tv/console → Register Your Application. OAuth redirect URL: `http://localhost:3000/api/auth/twitch/callback`. Category: Website Integration. Then Manage → New Secret. |
 | Announcer voices, milestone sound effects, streamers' own cloned voices | `ELEVENLABS_API_KEY` | elevenlabs.io → your profile → API Keys → Create. Give the key Text to Speech, Sound Effects and Voices (write) access. Voice cloning needs a plan that includes Instant Voice Cloning. |
