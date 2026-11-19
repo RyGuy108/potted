@@ -1,0 +1,21 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='480' height='480' viewBox='0 0 480 480'>
+<defs>
+<radialGradient id='g' cx='50%' cy='42%' r='60%'><stop offset='0' stop-color='#3ecf8e' stop-opacity='0.32'/><stop offset='1' stop-color='#0c0a08' stop-opacity='0'/></radialGradient>
+<linearGradient id='bg' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#1a1511'/><stop offset='1' stop-color='#0c0a08'/></linearGradient>
+</defs>
+<rect width='480' height='480' fill='url(#bg)'/>
+<rect width='480' height='480' fill='url(#g)'/>
+<g fill='none' stroke='#faf7f2' stroke-opacity='0.05'><path d='M0 80 H480'/><path d='M0 160 H480'/><path d='M0 240 H480'/><path d='M0 320 H480'/><path d='M0 400 H480'/></g>
+<g font-family='Geist, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif'>
+<path d='M240 300 C 214 262, 266 232, 240 196 S 220 132, 242 92 S 262 52, 240 30' fill='none' stroke='#3ecf8e' stroke-width='9' stroke-linecap='round'/>
+<path d='M240 300 C 266 262, 214 232, 240 196 S 260 132, 238 92 S 218 52, 240 30' fill='none' stroke='#2a9d6a' stroke-width='6' stroke-linecap='round'/>
+<path d='M242 250 q18 -20 38 -4 q-18 17 -38 4 z M238 190 q-18 -20 -38 -4 q18 17 38 4 z M243 134 q18 -20 38 -4 q-18 17 -38 4 z M238 80 q-18 -20 -38 -4 q18 17 38 4 z' fill='#3ecf8e'/>
+<g fill='#e6b450'><circle cx='150' cy='150' r='14'/><circle cx='330' cy='108' r='11'/><circle cx='344' cy='214' r='14'/><circle cx='134' cy='236' r='10'/></g>
+<ellipse cx='240' cy='306' rx='86' ry='14' fill='#7a5a3a'/>
+<path d='M164 306 h152 l-18 54 h-116 z' fill='#5b4129' stroke='#b4875a' stroke-width='2'/>
+<rect x='300' y='390' width='140' height='10' rx='5' fill='#faf7f2' fill-opacity='0.12'/>
+<rect x='300' y='390' width='98' height='10' rx='5' fill='#3ecf8e'/>
+<text x='440' y='376' text-anchor='end' font-size='18' font-weight='700' fill='#faf7f2'>$28 of $40</text>
+<text x='40' y='436' font-size='15' font-weight='600' letter-spacing='3' fill='#d4b088'>PAYS ONLY IF THEY DO IT</text><text x='40' y='412' font-size='44' font-weight='700' fill='#faf7f2'>Back</text>
+</g>
+</svg>

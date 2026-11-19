@@ -1,0 +1,22 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='480' height='480' viewBox='0 0 480 480'>
+<defs>
+<radialGradient id='g' cx='50%' cy='42%' r='60%'><stop offset='0' stop-color='#e6b450' stop-opacity='0.32'/><stop offset='1' stop-color='#0c0a08' stop-opacity='0'/></radialGradient>
+<linearGradient id='bg' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#1a1511'/><stop offset='1' stop-color='#0c0a08'/></linearGradient>
+</defs>
+<rect width='480' height='480' fill='url(#bg)'/>
+<rect width='480' height='480' fill='url(#g)'/>
+<g fill='none' stroke='#faf7f2' stroke-opacity='0.05'><path d='M0 80 H480'/><path d='M0 160 H480'/><path d='M0 240 H480'/><path d='M0 320 H480'/><path d='M0 400 H480'/></g>
+<g font-family='Geist, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif'>
+<path d='M150 104 l4 10 10 4 -10 4 -4 10 -4 -10 -10 -4 10 -4 z M344 70 l3 8 8 3 -8 3 -3 8 -3 -8 -8 -3 8 -3 z M360 196 l3 7 7 3 -7 3 -3 7 -3 -7 -7 -3 7 -3 z' fill='#faf7f2' fill-opacity='0.8'/>
+<path d='M240 60 v34' stroke='#e6b450' stroke-width='3' stroke-linecap='round' stroke-dasharray='2 8' stroke-opacity='0.7'/>
+<circle cx='240' cy='132' r='40' fill='#e6b450'/>
+<circle cx='240' cy='132' r='30' fill='none' stroke='#0c0a08' stroke-opacity='0.25' stroke-width='3'/>
+<text x='240' y='146' text-anchor='middle' font-size='40' font-weight='800' fill='#0c0a08'>$</text>
+<path d='M146 236 q94 40 188 0 v14 q0 92 -94 92 q-94 0 -94 -92 z' fill='#5b4129' stroke='#b4875a' stroke-width='2'/>
+<ellipse cx='240' cy='236' rx='94' ry='20' fill='#2a1e14' stroke='#b4875a' stroke-width='2'/>
+<ellipse cx='240' cy='232' rx='36' ry='6' fill='#e6b450' fill-opacity='0.85'/>
+<path d='M236 290 q-14 -14 -28 -4 q14 14 28 4 z M244 290 q14 -14 28 -4 q-14 14 -28 4 z' fill='#3ecf8e'/>
+<path d='M240 300 v-16' stroke='#3ecf8e' stroke-width='4' stroke-linecap='round'/>
+<text x='40' y='436' font-size='15' font-weight='600' letter-spacing='3' fill='#d4b088'>PAID STRAIGHT AWAY</text><text x='40' y='412' font-size='44' font-weight='700' fill='#faf7f2'>Tip</text>
+</g>
+</svg>

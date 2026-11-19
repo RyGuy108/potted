@@ -5351,6 +5351,42 @@ body {
   margin: 0 0 6px;
 }
 
+/* Three ways to take part: a fan of picture cards over the written rules. */
+.ways-fan-stage {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+ol.ways {
+  list-style: none;
+  padding: 0;
+}
+
+.way {
+  position: relative;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.way-active {
+  border-color: var(--wood-line);
+  background-color: var(--wood-soft);
+}
+
+.way-no {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  color: var(--wood-light);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .way {
+    transition: none;
+  }
+}
+
 .way dl {
   display: grid;
   gap: 10px;
