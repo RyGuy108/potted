@@ -4,14 +4,36 @@ import { Icon, type IconName } from "@/components/Icon";
 import { Beanstalk } from "@/components/Beanstalk";
 import { Wordmark } from "@/components/Wordmark";
 import { HowItWorks } from "@/components/HowItWorks";
+import { WaysToTakePart, type Way } from "@/components/WaysToTakePart";
 import { currentUser } from "@/lib/session";
 
 
 /** The three kinds of money, and exactly when each one pays. */
-const WAYS: [string, string, string, string][] = [
-  ["Request", "Ask for something specific and put money on it.", "Paid when the streamer takes it on and starts", "Refunded if they pass or never start"],
-  ["Back", "Add to the pot for a challenge that's open.", "Paid only if they complete it", "Refunded if they miss"],
-  ["Tip", "Support the streamer directly, no challenge attached.", "Paid straight away", "Not refundable"],
+const WAYS: Way[] = [
+  {
+    title: "Request",
+    what: "Ask for something specific and put money on it.",
+    pays: "Paid when the streamer takes it on and starts",
+    otherwise: "Refunded if they pass or never start",
+    image: "/ways/request.svg",
+    alt: "A fan asks in chat for a no-hit boss fight and puts $12 on it",
+  },
+  {
+    title: "Back",
+    what: "Add to the pot for a challenge that's open.",
+    pays: "Paid only if they complete it",
+    otherwise: "Refunded if they miss",
+    image: "/ways/back.svg",
+    alt: "A beanstalk grows in its pot as fans back a challenge, $28 of $40",
+  },
+  {
+    title: "Tip",
+    what: "Support the streamer directly, no challenge attached.",
+    pays: "Paid straight away",
+    otherwise: "Not refundable",
+    image: "/ways/tip.svg",
+    alt: "A coin drops into a pot for the streamer",
+  },
 ];
 
 const GUARANTEES: [IconName, string, string][] = [
@@ -146,24 +168,7 @@ export async function Marketing() {
       <section>
         <p className="eyebrow">Three ways to take part</p>
         <h2 className="section-title">Every kind of support says when it pays</h2>
-        <div className="ways">
-          {WAYS.map(([title, what, pays, back]) => (
-            <article key={title} className="card way">
-              <h3>{title}</h3>
-              <p className="muted">{what}</p>
-              <dl>
-                <div>
-                  <dt>Pays</dt>
-                  <dd>{pays}</dd>
-                </div>
-                <div>
-                  <dt>Otherwise</dt>
-                  <dd>{back}</dd>
-                </div>
-              </dl>
-            </article>
-          ))}
-        </div>
+        <WaysToTakePart ways={WAYS} />
       </section>
 
       <section className="split">
