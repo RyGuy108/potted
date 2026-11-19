@@ -76,6 +76,7 @@ their transactions. The demo and test accounts stay custodial.
 | `!potted` bot on Twitch | `TWITCH_BOT_USERNAME`, `TWITCH_BOT_TOKEN` | Make a Twitch account for the bot, then a user access token for it with the `chat:read chat:edit` scopes (for example with the Twitch CLI: `twitch token -u -s 'chat:read chat:edit'`). The bot joins every streamer's linked Twitch channel. |
 | `!potted` bot on Kick | `KICK_CLIENT_ID`, `KICK_CLIENT_SECRET` | Turn on two-factor sign-in on your Kick account, then kick.com/settings/developer → create an app. Redirect URL `https://<domain>/api/connect/kick/callback`, scopes `user:read channel:read chat:write events:subscribe`, webhooks on with URL `https://<domain>/api/webhooks/kick`. Streamers press "Connect Kick" on their Channel page. |
 | `!potted` bot on YouTube | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (the sign-in ones) | In Google Cloud, enable the YouTube Data API v3 and add `https://<domain>/api/connect/youtube/callback` as a redirect URI. Streamers press "Connect YouTube"; the bot reads their live chat while they are live on YouTube. Each read costs YouTube API quota, so it reads every 8 seconds at most. |
+| Garden badges as compressed NFTs (instead of Token-2022 mints) | `POTTED_BADGES=compressed`, `BADGE_TREE`, `BADGE_COLLECTION` | Nothing to sign up for. With Solana set up and `POTTED_PUBLIC_URL` set, run `pnpm badges:setup` from `apps/web` once (the server key needs about 0.5 SOL); it prints the three lines. Wallets and explorers show compressed NFTs through an RPC with the DAS API (QuickNode's DAS add-on, Helius). |
 | Pledge from X (Solana Actions / Blinks) | `POTTED_PUBLIC_URL` | Nothing to sign up for. Wallets and X need a public https address, so run the app behind a tunnel (e.g. `cloudflared tunnel --url http://localhost:3000`) and set this to it. To unfurl on X itself, register the domain at dial.to/register; "Open the Blink" on a challenge page works without that. |
 
 ## Email sign-in
@@ -124,6 +125,7 @@ every change back, so it survives redeploys and serverless hosts.
 | --- | --- |
 | `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` | Discord sign-in. discord.com/developers → New Application → OAuth2. Redirect: `http://localhost:3000/api/auth/discord/callback`. |
 | `ELEVENLABS_VOICE_ID` | Use one custom voice for every stream, overriding the streamer's choice. |
+| `XAI_COMMENTARY_MODEL` | A faster Grok model for the overlay's one-line reaction to each pledge (default: `XAI_MODEL`). The reaction is shown, never read aloud; streamers can turn it off in settings. |
 
 ## Running it for real: one server, the background job, Blink limits
 

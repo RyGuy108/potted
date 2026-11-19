@@ -5,7 +5,22 @@ export const dynamic = "force-dynamic";
 
 /** A badge's public metadata, in the shape wallets and explorers read for a token's `uri`. */
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const badge = badgeInfo((await params).id);
+  const id = (await params).id;
+  if (id === "collection") {
+    // The compressed badges' collection (see badge-cnft.ts).
+    const base = baseOf(request);
+    return Response.json(
+      {
+        name: "Potted Garden Badges",
+        symbol: "POTTED",
+        description: "Badges planters earn by backing streamers' challenges on Potted. Soulbound: they cannot be sold or moved.",
+        image: `${base}/api/badges/first-bean/image`,
+        external_url: `${base}/garden`,
+      },
+      { headers: { "Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=3600" } },
+    );
+  }
+  const badge = badgeInfo(id);
   if (!badge) return Response.json({ error: "No such badge" }, { status: 404 });
   const base = baseOf(request);
   return Response.json(

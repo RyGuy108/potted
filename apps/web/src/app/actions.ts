@@ -14,7 +14,7 @@ import * as notifications from "@/lib/notifications";
 import { DEMO_GUEST_ID, DEMO_STREAMER_ID, type Role } from "@/lib/store";
 
 /** Expected failures come back as values so forms can show them inline. */
-export type ActionResult = { ok: true } | { ok: false; error: string };
+export type ActionResult = { ok: true; pledgeId?: string } | { ok: false; error: string };
 
 async function run(work: () => Promise<unknown>): Promise<ActionResult> {
   try {
@@ -213,7 +213,11 @@ export async function chatBotAction(change: { on?: boolean; disconnect?: "kick" 
 }
 
 export async function pledgeAction(challengeId: string, amountUsd: number): Promise<ActionResult> {
-  return run(async () => service.pledge(await requireUser(), String(challengeId), Number(amountUsd)));
+  let pledgeId: string | undefined;
+  const result = await run(async () => {
+    pledgeId = (await service.pledge(await requireUser(), String(challengeId), Number(amountUsd))).id;
+  });
+  return result.ok && pledgeId ? { ok: true, pledgeId } : result;
 }
 
 export async function lockAction(challengeId: string): Promise<ActionResult> {

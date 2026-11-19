@@ -1,5 +1,5 @@
-import { type ChainMoment, briefWithGrok, checkPost, draftWithGrok, postLength, postWithGrok, recapWithGrok, translateWithGrok } from "./grok";
-export { type ChainMoment, checkPost, postLength } from "./grok";
+import { type ChainMoment, type PledgeFacts, briefWithGrok, checkComment, checkPost, commentWithGrok, draftWithGrok, postLength, postWithGrok, recapWithGrok, translateWithGrok } from "./grok";
+export { type ChainMoment, type PledgeFacts, checkComment, checkPost, postLength } from "./grok";
 import { briefWithRules, draftWithRules } from "./rules";
 import { type ScoutInput, type Scouting, scoutWithGrok, scoutWithRules } from "./scout";
 import type { Brief, Deps, DisputeCase, Draft, Idea, RecapFacts } from "./types";
@@ -116,4 +116,34 @@ export async function draftPost(moment: ChainMoment, deps: Deps = defaultDeps())
     }
   }
   return { text: checkPost(postByRules(moment), moment), source: "rules" };
+}
+
+/**
+ * A fixed aside on what makes a pledge notable, or undefined when nothing
+ * does (the plain pledge line already says who and how much).
+ */
+export function commentByRules(f: PledgeFacts): string | undefined {
+  const first = f.planter.split(" ")[0] ?? f.planter;
+  if (f.firstOnChallenge) return `${first} plants the very first bean on this one.`;
+  if (f.biggestOnChallenge && f.planters > 1) return `That is the biggest pledge on this challenge so far.`;
+  if (f.toGo && f.minutesLeft !== undefined && f.minutesLeft <= 5) return `Only ${f.toGo} to go, with ${f.minutesLeft} ${f.minutesLeft === 1 ? "minute" : "minutes"} on the clock.`;
+  if (f.planterPledgesTonight >= 2) return `${first} is back again: pledge number ${f.planterPledgesTonight} tonight.`;
+  if (f.toGo && f.goal) return `Only ${f.toGo} left until the ${f.goal} goal.`;
+  return undefined;
+}
+
+/**
+ * The overlay's one-line aside on a pledge. Grok writes it from the facts;
+ * with no key, or a line that fails the checks, the fixed aside is used.
+ */
+export async function commentOnPledge(facts: PledgeFacts, deps: Deps = defaultDeps()): Promise<{ text: string; source: "grok" | "rules" } | undefined> {
+  if (usesGrok(deps)) {
+    try {
+      return { text: await commentWithGrok(facts, deps), source: "grok" };
+    } catch {
+      // fall through to the fixed aside
+    }
+  }
+  const text = commentByRules(facts);
+  return text ? { text: checkComment(text, facts), source: "rules" } : undefined;
 }

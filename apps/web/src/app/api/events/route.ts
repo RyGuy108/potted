@@ -37,7 +37,7 @@ export async function GET(request: Request) {
     },
     seq: service.latestSeq(),
     // A first poll (since < 0) only syncs the cursor, so old events never replay.
-    events: since < 0 ? [] : service.eventsSince(streamer.handle, since).map(({ seq, type, message, sfx, by, chain }) => ({ seq, type, message, sfx, by, chain })),
+    events: since < 0 ? [] : service.eventsSince(streamer.handle, since).map(({ seq, type, message, sfx, by, chain, about }) => ({ seq, type, message, sfx, by, chain, about })),
     // The server's clock, so the overlay can time a pledge against when it was confirmed.
     now: Date.now(),
     challenges,
