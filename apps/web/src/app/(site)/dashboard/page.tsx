@@ -74,9 +74,9 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     <>
       <AutoRefresh pollIds={challenges.filter((c) => c.status === "locked").map((c) => c.id)} />
       <DashHead user={user} label="Challenges" title="Run your challenges" lede="What's running, what's waiting on you, a new challenge, and past ones to run again." />
-      <GoLiveCard session={session} gameName={session ? (session.customGame ?? sessionGame?.name ?? null) : null} />
 
       <div className="dash-stack">
+        <GoLiveCard session={session} gameName={session ? (session.customGame ?? sessionGame?.name ?? null) : null} />
         <ApprovalQueue
           items={[
             { label: ["fan idea to review", "fan ideas to review"], count: suggestions.length, href: "#ideas" },

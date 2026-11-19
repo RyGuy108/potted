@@ -6581,3 +6581,144 @@ button.badge-tile:focus-visible {
 .legal li {
   margin-bottom: 8px;
 }
+
+/* Challenges page: one rhythm. Cards in the stack sit 20px apart, a section
+   heading sits 12px above its content, and nothing inside a card adds extra
+   space at its top or bottom edge. */
+.dash-stack > .card > :first-child,
+.dash-stack .scout .eyebrow {
+  margin-top: 0;
+}
+
+.dash-stack > .card > :last-child,
+.dash-stack > * > .card > :last-child {
+  margin-bottom: 0;
+}
+
+.dash-stack .approvals .row.between {
+  margin-bottom: 6px;
+}
+
+.dash-stack .approvals h3 {
+  margin: 0;
+}
+
+.dash-live > .row.between,
+#history > h2 {
+  margin: 0 0 12px;
+  min-height: 0;
+}
+
+.dash-live > .row.between h2 {
+  margin: 0;
+}
+
+.dash-live > .empty,
+#history > .empty,
+.dash-live .list,
+#history .past-grid {
+  margin: 0;
+}
+
+.dash-live > .empty + .list:empty {
+  display: none;
+}
+
+/* New challenge form: four groups (game, terms, pot, payout) and the button,
+   each 22px apart; inside a group, items sit 10px apart. */
+.card.create {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.card.create > *,
+.card.create > .create-group > *,
+.card.create .grid {
+  margin: 0;
+}
+
+.card.create > .grid:empty {
+  display: none;
+}
+
+.create-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card.create .field {
+  gap: 8px;
+}
+
+.card.create .grid {
+  gap: 16px;
+}
+
+.card.create .game-tabs {
+  margin: 0;
+}
+
+.card.create .more-types {
+  max-width: 260px;
+}
+
+.card.create .open-pot-toggle {
+  min-height: 0;
+  align-items: flex-start;
+  line-height: 1.45;
+}
+
+.card.create .open-pot-toggle input {
+  margin-top: 2px;
+}
+
+.card.create .upfront-field .muted {
+  line-height: 1.4;
+}
+
+.card.create .create-actions {
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.dash-head + .dash-stack {
+  margin-top: 12px;
+}
+
+.dash-stack .scout .eyebrow {
+  margin-bottom: 4px;
+}
+
+.dash-stack .scout h3 {
+  margin: 0;
+}
+
+.dash-stack .scout > .row.between + p {
+  margin-top: 8px;
+}
+
+.card.create .grid {
+  align-items: start;
+}
+
+.card.create .grid > * {
+  margin: 0;
+}
+
+/* Phones: the stream link field and button stay inside the card. */
+.go-live-form {
+  flex-basis: min(340px, 100%);
+  min-width: 0;
+}
+
+.go-live-form input {
+  min-width: 0;
+}
+
+.card.create .open-pot-toggle input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}

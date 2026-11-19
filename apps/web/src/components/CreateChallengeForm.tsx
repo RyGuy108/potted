@@ -158,35 +158,37 @@ export function CreateChallengeForm({
           </span>
         </p>
       )}
-      <div className="game-tabs" role="tablist" aria-label="Game">
-        {GAMES.filter((g) => g.featured || g.id === gameId).map((g) => (
-          <button
-            key={g.id}
-            type="button"
-            role="tab"
-            aria-selected={g.id === gameId}
-            className={g.id === gameId ? "tab tab-on" : "tab"}
-            onClick={() => setGameId(g.id)}
-          >
-            {g.name}
-          </button>
-        ))}
+      <div className="create-group">
+        <div className="game-tabs" role="tablist" aria-label="Game">
+          {GAMES.filter((g) => g.featured || g.id === gameId).map((g) => (
+            <button
+              key={g.id}
+              type="button"
+              role="tab"
+              aria-selected={g.id === gameId}
+              className={g.id === gameId ? "tab tab-on" : "tab"}
+              onClick={() => setGameId(g.id)}
+            >
+              {g.name}
+            </button>
+          ))}
+        </div>
+        {GAMES.some((g) => !g.featured) && (
+          <label className="field more-types">
+            <span>More stream types</span>
+            <select value={game.featured ? "" : gameId} onChange={(e) => e.target.value && setGameId(e.target.value)}>
+              <option value="">Choose…</option>
+              {GAMES.filter((g) => !g.featured).map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <p className="muted small">{game.how}</p>
+        {warning && <p className="warn small">{warning}</p>}
       </div>
-      {GAMES.some((g) => !g.featured) && (
-        <label className="field more-types">
-          <span>More stream types</span>
-          <select value={game.featured ? "" : gameId} onChange={(e) => e.target.value && setGameId(e.target.value)}>
-            <option value="">Choose…</option>
-            {GAMES.filter((g) => !g.featured).map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-      <p className="muted small">{game.how}</p>
-      {warning && <p className="warn small">{warning}</p>}
 
       <div className="grid">
         {game.verifier === "steam" && (
@@ -247,59 +249,62 @@ export function CreateChallengeForm({
         )}
       </div>
 
-      <label className="check open-pot-toggle">
-        <input type="checkbox" checked={open} onChange={(e) => setOpen(e.target.checked)} />
-        <span>
-          <strong>Open pot</strong>: no goal and no per-fan limit. Anyone can keep adding until it settles; it still pays out only if you complete the
-          challenge.
-        </span>
-      </label>
+      <div className="create-group">
+        <label className="check open-pot-toggle">
+          <input type="checkbox" checked={open} onChange={(e) => setOpen(e.target.checked)} />
+          <span>
+            <strong>Open pot</strong>: no goal or per-fan limit. It still pays out only if you complete the challenge.
+          </span>
+        </label>
 
-      <div className="grid">
-        {!open && input("goalUsd", "Reaches the clouds at ($)", { inputMode: "decimal", required: true })}
-        {!open && input("pledgeCapUsd", "Per-fan limit ($)", { inputMode: "decimal", required: true })}
-        {input("minutes", "Deadline (minutes from now)", { inputMode: "numeric", required: true })}
+        <div className="grid">
+          {!open && input("goalUsd", "Reaches the clouds at ($)", { inputMode: "decimal", required: true })}
+          {!open && input("pledgeCapUsd", "Per-fan limit ($)", { inputMode: "decimal", required: true })}
+          {input("minutes", "Deadline (minutes from now)", { inputMode: "numeric", required: true })}
+        </div>
       </div>
 
-      <label className="field upfront-field">
-        <span>Paid to you when you start</span>
-        <select value={fields.upfrontPct} onChange={(e) => setFields({ ...fields, upfrontPct: e.target.value })}>
-          {UPFRONT_OPTIONS.map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <span className="muted small">
-          {fields.upfrontPct === "0"
-            ? "The whole pot pays out only if you complete the challenge; a miss refunds every fan in full."
-            : `${fields.upfrontPct}% of the pot comes to you when you press Start attempt. The rest pays out only if you complete it; on a miss, fans get that part back.`}
-        </span>
-      </label>
+      <div className="grid payout-fields">
+        <label className="field upfront-field">
+          <span>Paid to you when you start</span>
+          <select value={fields.upfrontPct} onChange={(e) => setFields({ ...fields, upfrontPct: e.target.value })}>
+            {UPFRONT_OPTIONS.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <span className="muted small">
+            {fields.upfrontPct === "0"
+              ? "Pays out only if you complete it. A miss refunds every fan."
+              : `${fields.upfrontPct}% comes to you at Start attempt. The rest pays only if you complete it.`}
+          </span>
+        </label>
 
-      {partners.length > 0 && suggestion?.kind !== "bounty" && (
-        <div className="grid collab-fields">
-          <label className="field">
-            <span>Collab with (optional)</span>
-            <select value={partner} onChange={(e) => setPartner(e.target.value)}>
-              <option value="">Just me</option>
-              {partners.map((p) => (
-                <option key={p.handle} value={p.handle}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          {partner && (
+        {partners.length > 0 && suggestion?.kind !== "bounty" && (
+          <>
             <label className="field">
-              <span>Their share of the pot (%)</span>
-              <input inputMode="numeric" value={partnerPct} onChange={(e) => setPartnerPct(e.target.value)} required />
+              <span>Collab with (optional)</span>
+              <select value={partner} onChange={(e) => setPartner(e.target.value)}>
+                <option value="">Just me</option>
+                {partners.map((p) => (
+                  <option key={p.handle} value={p.handle}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
             </label>
-          )}
-        </div>
-      )}
+            {partner && (
+              <label className="field">
+                <span>Their share of the pot (%)</span>
+                <input inputMode="numeric" value={partnerPct} onChange={(e) => setPartnerPct(e.target.value)} required />
+              </label>
+            )}
+          </>
+        )}
+      </div>
 
-      <div className="row">
+      <div className="row create-actions">
         <button className="btn btn-primary" disabled={pending}>
           {pending ? (partner ? "Sending…" : "Creating…") : partner ? "Send invite" : suggestion?.kind === "bounty" ? "Take the request on" : "Open for pledges"}
         </button>
