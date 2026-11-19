@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { DemoSignUp } from "@/components/DemoSignUp";
 import { EmailSignIn } from "@/components/EmailSignIn";
 import { ProviderButtons } from "@/components/ProviderButtons";
+import { demoAccountsOn } from "@/lib/demo-mode";
 import { currentUser } from "@/lib/session";
 import { SIGNUP } from "../roles";
 
@@ -14,6 +15,8 @@ export default async function SignUpAs({ params }: { params: Promise<{ role: str
   const page = SIGNUP.find((r) => r.path === role);
   if (!page) notFound();
   if (await currentUser()) redirect("/");
+  // Keepers sign up by name; planters and climbers get the name-only demo only while demo accounts are on.
+  const demo = page.role === "mod" || demoAccountsOn();
   return (
     <div className="login-page">
       <section className="card signin-panel">
@@ -36,12 +39,14 @@ export default async function SignUpAs({ params }: { params: Promise<{ role: str
             <>
               <EmailSignIn as={page.role} verb="Sign up" />
               <ProviderButtons as={page.role} verb="Sign up" />
-              <div className="divider">
-                <span>or try the demo with test money</span>
-              </div>
+              {demo && (
+                <div className="divider">
+                  <span>or try the demo with test money</span>
+                </div>
+              )}
             </>
           )}
-          <DemoSignUp role={page.role} redirectTo={HOME[page.role]} />
+          {demo && <DemoSignUp role={page.role} redirectTo={HOME[page.role]} />}
         </div>
       </section>
     </div>

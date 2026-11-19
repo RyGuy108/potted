@@ -4,6 +4,7 @@ import path from "node:path";
 import type { ChainEvent } from "@potted/chain";
 import type { ScoutInput, Scouting } from "@potted/coordinator";
 import type { Challenge, Pledge } from "@potted/core";
+import { demoAccountsOn } from "./demo-mode";
 import { flushSupabase, loadFromSupabase, scheduleSync, supabaseConfigured, syncToSupabase } from "./supabase";
 import type { VoiceKey } from "./voices";
 
@@ -260,6 +261,8 @@ export interface Db {
   privyWallets?: Record<string, string>;
   /** Set while the demo sample is loaded: live challenges it opened, so it can be removed again. */
   sample?: { challengeIds: string[]; addedAt: number };
+  /** One-time clean slates already run on this state (see purge.ts). */
+  purges?: string[];
 }
 
 /** A named run of challenges, like "Road to 2000" or a week-long charity drive. New challenges join the running one. */
@@ -371,17 +374,19 @@ export interface Invite {
 
 function seed(): Db {
   return {
-    users: [
-      {
-        id: DEMO_STREAMER_ID,
-        name: "Ryan",
-        role: "streamer",
-        handle: "ryan",
-        wallet: `sim:${DEMO_STREAMER_ID}`,
-        createdAt: Date.now(),
-      },
-      demoGuest(),
-    ],
+    users: demoAccountsOn()
+      ? [
+          {
+            id: DEMO_STREAMER_ID,
+            name: "Ryan",
+            role: "streamer",
+            handle: "ryan",
+            wallet: `sim:${DEMO_STREAMER_ID}`,
+            createdAt: Date.now(),
+          },
+          demoGuest(),
+        ]
+      : [],
     challenges: [],
     pledges: [],
     suggestions: [],
@@ -418,7 +423,7 @@ function upgrade(state: Db): Db {
   state.events ??= [];
   state.balances ??= {};
   state.seq ??= 0;
-  if (!state.users.some((u) => u.id === DEMO_GUEST_ID)) state.users.push(demoGuest());
+  if (demoAccountsOn() && !state.users.some((u) => u.id === DEMO_GUEST_ID)) state.users.push(demoGuest());
   return state;
 }
 
@@ -449,7 +454,6 @@ export function db(): Db {
     try {
       // Files written by older versions lack newer collections; upgrade fills them in.
       cache.__pottedDb = upgrade(JSON.parse(fs.readFileSync(dataFile(), "utf8")) as Db);
-      if (!cache.__pottedDb.users.some((u) => u.id === DEMO_GUEST_ID)) cache.__pottedDb.users.push(demoGuest());
     } catch {
       cache.__pottedDb = seed();
     }
@@ -488,6 +492,11 @@ export function dataDir(): string {
 
 export function lastSavedAt(): number | null {
   return (globalThis as { __pottedSavedAt?: number }).__pottedSavedAt ?? null;
+}
+
+/** Swaps the whole in-memory state (used by purge.ts). Call save() after. */
+export function replaceDb(state: Db): void {
+  cache.__pottedDb = state;
 }
 
 /** Test hook: start from a clean in-memory database that is never written. */

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { demoAccountsOn } from "@/lib/demo-mode";
 import { DemoSignUp } from "./DemoSignUp";
 import { ProviderButtons } from "./ProviderButtons";
 
@@ -23,10 +24,14 @@ export function SignInPanel({ title = "Sign up to start planting", redirectTo }:
       </div>
       <div className="signin-ways">
         <ProviderButtons as="fan" />
-        <div className="divider">
-          <span>or try the demo with test money</span>
-        </div>
-        <DemoSignUp role="fan" redirectTo={redirectTo} />
+        {demoAccountsOn() && (
+          <>
+            <div className="divider">
+              <span>or try the demo with test money</span>
+            </div>
+            <DemoSignUp role="fan" redirectTo={redirectTo} />
+          </>
+        )}
       </div>
     </section>
   );

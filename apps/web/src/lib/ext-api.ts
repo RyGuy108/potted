@@ -7,6 +7,7 @@ import { give } from "./gifts";
 import { pointsConfig, pointsOf, redeem, redemptionsFor, resolveRedemption } from "./points";
 import { SAMPLE_SIGN_INS } from "./sample-data";
 import { TEST_ACCOUNTS } from "./test-accounts";
+import { demoAccountsOn } from "./demo-mode";
 import { twitchChannel } from "./twitch";
 import { DEMO_GUEST_ID, DEMO_STREAMER_ID, type LiveSession, type User } from "./store";
 import { POT_FIELDS, conditionFromFields, termFields } from "./terms";
@@ -109,13 +110,14 @@ async function route(method: string, path: string[], query: URLSearchParams, bod
         potFields: POT_FIELDS,
         rehearsal: service.simulatedResultsAllowed(),
         // Ready-made planters from the demo sample, when it is loaded.
-        samples: [...TEST_ACCOUNTS.map((t) => ({ id: t.id, label: t.name, role: t.role, note: t.note })), ...SAMPLE_SIGN_INS]
+        samples: (demoAccountsOn() ? [...TEST_ACCOUNTS.map((t) => ({ id: t.id, label: t.name, role: t.role, note: t.note })), ...SAMPLE_SIGN_INS]
           .filter((s) => service.getUser(s.id))
-          .map((s) => ({ id: s.id, label: s.label, note: s.note, role: s.role })),
+          .map((s) => ({ id: s.id, label: s.label, note: s.note, role: s.role })) : []),
       });
 
     case "POST demo": {
       // The same ready-made accounts the website's demo sign-in offers.
+      if (!demoAccountsOn()) fail(403, "Demo accounts are off on this server. Sign in on the website instead.");
       const as = String(body.as);
       const who =
         as === "ryan"

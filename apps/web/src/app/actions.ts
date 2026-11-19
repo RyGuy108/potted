@@ -7,6 +7,7 @@ import * as service from "@/lib/service";
 import { currentUser, endSession, startSession } from "@/lib/session";
 import { SAMPLE_SIGN_INS } from "@/lib/sample-data";
 import { isTestAccount } from "@/lib/test-accounts";
+import { demoAccountsOn } from "@/lib/demo-mode";
 import * as scouting from "@/lib/scout";
 import * as points from "@/lib/points";
 import * as gifts from "@/lib/gifts";
@@ -34,6 +35,8 @@ async function requireUser() {
 
 export async function signInAction(name: string, role: Role): Promise<ActionResult> {
   return run(async () => {
+    // Name-only accounts: keepers always, planters only while demo accounts are on.
+    if (role !== "mod" && !demoAccountsOn()) throw new Error("Sign up with email, Google, Twitch or Discord");
     const user = await service.signIn(String(name), role === "mod" ? "mod" : "fan");
     await startSession(user.id);
   });
@@ -41,27 +44,34 @@ export async function signInAction(name: string, role: Role): Promise<ActionResu
 
 export async function signUpClimberAction(name: string, handle: string): Promise<ActionResult> {
   return run(async () => {
+    if (!demoAccountsOn()) throw new Error("Sign up with email, Google, Twitch or Discord");
     const user = await service.signUpClimber(String(name), String(handle));
     await startSession(user.id);
   });
 }
 
 export async function useDemoStreamerAction(): Promise<ActionResult> {
-  return run(() => startSession(DEMO_STREAMER_ID));
+  return run(async () => {
+    if (!demoAccountsOn() || !service.getUser(DEMO_STREAMER_ID)) throw new Error("Demo accounts are off on this server");
+    await startSession(DEMO_STREAMER_ID);
+  });
 }
 
 /** Signs in to one of the demo's ready-made accounts. Only listed accounts can be used this way. */
 export async function useDemoAccountAction(id: string): Promise<ActionResult> {
   return run(async () => {
     const allowed = id === DEMO_STREAMER_ID || id === DEMO_GUEST_ID || SAMPLE_SIGN_INS.some((s) => s.id === id) || isTestAccount(id);
-    if (!allowed || !service.getUser(id)) throw new Error("That demo account is not loaded");
+    if (!allowed || !demoAccountsOn() || !service.getUser(id)) throw new Error("That demo account is not loaded");
     await startSession(id);
   });
 }
 
 /** The second demo streamer, for trying collabs. */
 export async function useDemoGuestAction(): Promise<ActionResult> {
-  return run(() => startSession(DEMO_GUEST_ID));
+  return run(async () => {
+    if (!demoAccountsOn() || !service.getUser(DEMO_GUEST_ID)) throw new Error("Demo accounts are off on this server");
+    await startSession(DEMO_GUEST_ID);
+  });
 }
 
 export async function inviteAction(guestHandle: string, guestPct: number, input: service.NewChallenge): Promise<ActionResult> {
