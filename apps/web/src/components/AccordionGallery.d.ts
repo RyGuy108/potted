@@ -5,6 +5,12 @@ export interface AccordionGalleryItem {
   label?: string;
   link?: string;
   alt?: string;
+  /** Step number shown in a circle at the centre of the panel. */
+  step?: number;
+  /** One word under the step number. */
+  word?: string;
+  /** Longer text shown only on the open panel; falls back to label. */
+  detail?: string;
 }
 
 export interface AccordionGalleryProps {
@@ -14,6 +20,8 @@ export interface AccordionGalleryProps {
   overlayColor?: string;
   textColor?: string;
   grayscale?: boolean;
+  /** Blur the artwork of closed panels until they open. */
+  blurInactive?: boolean;
   showLabels?: boolean;
   duration?: number;
   ease?: string;

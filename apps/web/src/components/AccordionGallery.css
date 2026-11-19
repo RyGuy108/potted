@@ -54,12 +54,13 @@
 .ag-panel__media {
   --ag-gray: 1;
   --ag-dim: 0.35;
+  --ag-blur: 0px;
   position: absolute;
   top: 50%;
   left: 50%;
   width: var(--ag-media-size);
   height: 100%;
-  filter: grayscale(var(--ag-gray));
+  filter: grayscale(var(--ag-gray)) blur(var(--ag-blur));
   will-change: transform, filter;
 }
 
@@ -121,6 +122,63 @@
   text-shadow: 0 2px 14px rgba(0, 0, 0, 0.55);
 }
 
+/* Step badge: centred number and word on closed panels, tucked top-left on the open one */
+.ag-panel__step {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  transform-origin: top left;
+  transition:
+    top 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
+    left 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.ag-panel__step-no {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 2px solid var(--ag-accent);
+  background: color-mix(in srgb, var(--ag-overlay) 72%, transparent);
+  color: var(--ag-text);
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  box-shadow: 0 0 24px color-mix(in srgb, var(--ag-accent) 25%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+.ag-panel__step-word {
+  color: var(--ag-text);
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.7);
+}
+
+.ag-panel--active .ag-panel__step {
+  top: 20px;
+  left: 20px;
+  flex-direction: row;
+  transform: translate(0, 0) scale(0.85);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ag-panel__step {
+    transition: none;
+  }
+}
+
 @media (max-width: 520px) {
   .accordion-gallery {
     flex-direction: column;
@@ -128,8 +186,17 @@
     height: auto !important;
   }
   .ag-panel {
-    min-height: 84px;
+    min-height: 96px;
     transform: none !important;
+  }
+  .ag-panel--active {
+    min-height: 320px;
+  }
+  .ag-panel__step {
+    flex-direction: row;
+  }
+  .ag-panel__text {
+    white-space: normal;
   }
   .accordion-gallery .ag-panel__media {
     width: 100%;

@@ -28,6 +28,7 @@ const AccordionGallery = ({
   trigger = 'hover',
   showLabels = true,
   grayscale = true,
+  blurInactive = false,
   className = ''
 }) => {
   const rootRef = useRef(null);
@@ -86,6 +87,7 @@ const AccordionGallery = ({
               y: vertical ? (isActive ? 0 : shift) : 0,
               '--ag-gray': gray,
               '--ag-dim': isActive ? 0 : 0.35,
+              '--ag-blur': isActive || !blurInactive ? '0px' : '7px',
               duration: dur,
               ease
             },
@@ -114,6 +116,7 @@ const AccordionGallery = ({
       tilt,
       parallax,
       grayscale,
+      blurInactive,
       showLabels,
       stagger,
       prefersReduced
@@ -213,11 +216,17 @@ const AccordionGallery = ({
               </span>
               <span className="ag-panel__overlay" aria-hidden="true" />
             </span>
+            {item.step != null && (
+              <span className="ag-panel__step" aria-hidden="true">
+                <span className="ag-panel__step-no">{item.step}</span>
+                {item.word && <span className="ag-panel__step-word">{item.word}</span>}
+              </span>
+            )}
             {showLabels && (
               <span className="ag-panel__label" aria-hidden="true">
                 <span className="ag-panel__bar" ref={el => (barRefs.current[i] = el)} />
                 <span className="ag-panel__text" ref={el => (textRefs.current[i] = el)}>
-                  {item.label}
+                  {item.detail ?? item.label}
                 </span>
               </span>
             )}
