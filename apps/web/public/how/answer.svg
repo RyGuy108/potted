@@ -1,0 +1,20 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1000' height='625' viewBox='0 0 1000 625'>
+<defs>
+<radialGradient id='g' cx='50%' cy='45%' r='55%'><stop offset='0' stop-color='#3ecf8e' stop-opacity='0.3'/><stop offset='1' stop-color='#0c0a08' stop-opacity='0'/></radialGradient>
+<linearGradient id='bg' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#1a1511'/><stop offset='1' stop-color='#0c0a08'/></linearGradient>
+</defs>
+<rect width='1000' height='625' fill='url(#bg)'/>
+<rect width='1000' height='625' fill='url(#g)'/>
+<g fill='none' stroke='#faf7f2' stroke-opacity='0.05'><path d='M0 80 H1000'/><path d='M0 160 H1000'/><path d='M0 240 H1000'/><path d='M0 320 H1000'/><path d='M0 400 H1000'/><path d='M0 480 H1000'/><path d='M0 560 H1000'/></g>
+<g transform='translate(135.5 -128.4) scale(0.8099)'><g font-family='Geist, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif'>
+ <circle cx='450' cy='330' r='78' fill='#3a2a1c' stroke='#e3b25c' stroke-width='5'/>
+ <text x='450' y='356' text-anchor='middle' font-size='76' font-weight='700' fill='#e6c9a3'>R</text>
+ <text x='450' y='470' text-anchor='middle' font-size='36' font-weight='600' fill='#faf7f2'>No-hit run on the next boss</text>
+ <text x='450' y='515' text-anchor='middle' font-size='28' fill='#aaa298'>$12 waiting from 4 fans</text>
+ <rect x='185' y='590' width='530' height='110' rx='26' fill='#3ecf8e'/>
+ <text x='450' y='660' text-anchor='middle' font-size='38' font-weight='700' fill='#04150c'>Take it on</text>
+ <rect x='185' y='730' width='530' height='110' rx='26' fill='none' stroke='#faf7f2' stroke-opacity='0.35' stroke-width='3'/>
+ <text x='450' y='800' text-anchor='middle' font-size='38' font-weight='600' fill='#faf7f2'>Pass · everyone refunded</text>
+</g>
+</g>
+</svg>

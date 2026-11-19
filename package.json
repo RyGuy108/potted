@@ -4,14 +4,26 @@
   "version": "0.1.0",
   "description": "Fan-funded stream challenges that settle on evidence. USDC escrow on Solana.",
   "packageManager": "pnpm@10.28.0",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "pnpm --filter @potted/web dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "test:program": "anchor test"
   },
   "devDependencies": {
-    "typescript": "^5.9.0"
+    "typescript": "^5.9.0",
+    "@coral-xyz/anchor": "^0.32.1",
+    "@solana/spl-token": "^0.4.9",
+    "@solana/web3.js": "^1.98.0",
+    "@types/chai": "^4.3.20",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.0.0",
+    "chai": "^4.5.0",
+    "mocha": "^10.8.2",
+    "ts-mocha": "^10.0.0"
   }
 }

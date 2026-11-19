@@ -1,0 +1,21 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1000' height='625' viewBox='0 0 1000 625'>
+<defs>
+<radialGradient id='g' cx='50%' cy='45%' r='55%'><stop offset='0' stop-color='#3ecf8e' stop-opacity='0.3'/><stop offset='1' stop-color='#0c0a08' stop-opacity='0'/></radialGradient>
+<linearGradient id='bg' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#1a1511'/><stop offset='1' stop-color='#0c0a08'/></linearGradient>
+</defs>
+<rect width='1000' height='625' fill='url(#bg)'/>
+<rect width='1000' height='625' fill='url(#g)'/>
+<g fill='none' stroke='#faf7f2' stroke-opacity='0.05'><path d='M0 80 H1000'/><path d='M0 160 H1000'/><path d='M0 240 H1000'/><path d='M0 320 H1000'/><path d='M0 400 H1000'/><path d='M0 480 H1000'/><path d='M0 560 H1000'/></g>
+<g transform='translate(277.7 10.7) scale(0.4940)'><g font-family='Geist, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif'>
+ <path d='M450 880 C 400 800, 500 740, 450 660 S 410 520, 455 430 S 500 300, 450 230' fill='none' stroke='#3ecf8e' stroke-width='14' stroke-linecap='round'/>
+ <path d='M450 880 C 500 800, 400 740, 450 660 S 490 520, 445 430 S 400 300, 450 230' fill='none' stroke='#2a9d6a' stroke-width='9' stroke-linecap='round'/>
+ <path d='M452 760 q28 -30 58 -6 q-28 26 -58 6 z' fill='#3ecf8e'/><path d='M448 640 q-28 -30 -58 -6 q--28 26 --58 6 z' fill='#3ecf8e'/><path d='M455 520 q28 -30 58 -6 q-28 26 -58 6 z' fill='#3ecf8e'/><path d='M445 400 q-28 -30 -58 -6 q--28 26 --58 6 z' fill='#3ecf8e'/><path d='M452 300 q28 -30 58 -6 q-28 26 -58 6 z' fill='#3ecf8e'/>
+ <g fill='#e3b25c'><circle cx='300' cy='420' r='22'/><circle cx='610' cy='360' r='18'/><circle cx='640' cy='560' r='22'/><circle cx='270' cy='620' r='16'/></g>
+ <g fill='#7a5a3a'><ellipse cx='450' cy='900' rx='190' ry='34'/></g>
+ <path d='M285 900 h330 l-40 150 h-250 z' fill='#5b4129' stroke='#b4875a' stroke-width='3'/>
+ <rect x='170' y='1090' width='560' height='16' rx='8' fill='#faf7f2' fill-opacity='0.1'/>
+ <rect x='170' y='1090' width='390' height='16' rx='8' fill='#3ecf8e'/>
+ <text x='450' y='170' text-anchor='middle' font-size='44' font-weight='700' fill='#faf7f2'>$28 backed</text>
+</g>
+</g>
+</svg>

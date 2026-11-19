@@ -7,11 +7,15 @@ sits in escrow. If the challenge is verified, the streamer is paid. If it
 fails or the deadline passes, every fan is refunded. Each settlement keeps a
 receipt that points at the evidence, so anyone can check why money moved.
 
-The mascot is a money tree: every pledge waters the pot, and the plant grows
-as the pot fills.
+The mascot is a beanstalk: every pledge is a magic bean, and the stalk climbs
+toward the clouds as the pot fills.
 
 Built for the University Blockchain Conference 2026 hackathon
 (Consumer Applications track, Solana).
+
+## Grok's role
+
+Grok watches Potted's on-chain activity: a QuickNode Stream delivers every event from the escrow program on Solana, and when a pot crosses half its goal, reaches it, or a challenge settles, Grok writes a post for X with the challenge's Blink link so anyone can pledge from the post. On the climber's dashboard, Grok is a scout that searches X and the web for what is popular in the streamer's games and weighs it against the stream's own record and recent escrow activity to pitch ready-to-run challenges. At the end of a stream it writes the spoken recap from that on-chain activity, which ElevenLabs reads on the overlay, and it turns fans' loose ideas into exact, checkable terms and briefs moderators on disputed clips. Every value Grok returns is checked by the app (figures must match the chain, links and terms must be valid), it can never move money or rule on a result, and each job falls back to fixed rules without a key. Details: `docs/grok.md`.
 
 ## How a challenge works
 
@@ -27,18 +31,43 @@ One escrow serves every game. Only the verifier plugged into it changes.
 
 | Tier | How it decides | Games in this repo |
 | --- | --- | --- |
-| Data | Reads a public game API and checks a precise condition | Chess (Lichess), Brawl Stars, Fortnite |
-| Optimistic | Streamer claims with a clip; settles unless a funder disputes in time | GTA IV and any game without a data source |
+| Data | Reads a public game or stream API and checks a precise condition | Chess (Lichess), Brawl Stars, Fortnite, any Steam achievement, Twitch stream goals |
+| Optimistic | Streamer claims with a clip; settles unless a funder disputes in time | GTA VI and any game without a data source |
 
 See [docs/architecture.md](docs/architecture.md) for the trust boundary and
 the anti-collusion rules.
+
+## Three ways to take part
+
+| | Pays | Otherwise |
+| --- | --- | --- |
+| **Fund a request**: ask for a specific challenge and put money on it | When the streamer takes it on and starts the attempt, whatever the result | Refunded if they pass or never start; the fan can send it on as a tip |
+| **Back a challenge**: add to the pot of an open challenge | Only if the streamer completes it (held by the escrow program) | Refunded on a miss |
+| **Tip**: support the streamer directly | Straight away | Not refundable |
+
+## Architecture
+
+| Component | What it does | Where |
+| --- | --- | --- |
+| Escrow program | Holds pledges; enforces payout and refund rules (Open → Locked → Paid or Refunded) | `programs/escrow` on `feat/escrow-program`; Anchor, USDC, devnet |
+| Verifier service | One adapter per tier checks results and signs settlements | `packages/verifier`: Lichess, Brawl Stars, Fortnite, Steam, Twitch stream, optimistic claim and dispute |
+| Fan web app | Email (and Google, Twitch, Discord) sign-in, pledges, challenge pages with receipts | `apps/web`; Privy wallets when configured, prices in dollars |
+| Streamer dashboard | Accepted challenge types, approval queue, campaigns, payouts | `apps/web/src/app/(site)/dashboard` |
+| Stream overlay | Live funding bars and paid or refunded alerts | QuickNode Stream on the program's events → `/api/webhooks/quicknode` → `/overlay/<handle>` |
+| Voice announcer | Reads pledges and results aloud | ElevenLabs via `/api/tts` |
+| Hype assistant | Turns fan ideas and X chatter into checkable terms, pitches them for approval, opens them through the app, writes the stream recap | Grok, `packages/coordinator` |
+| Off-chain data | Profiles, challenge text, pledges, clips | Supabase (`supabase/migrations`), or a local JSON file with no keys |
 
 ## Repository layout
 
 ```
 apps/web            Next.js app: fan pages, streamer dashboard, stream overlay
+apps/extension      Chrome side panel for planters
 packages/core       Domain model: challenges, conditions, money, state machine
-packages/verifier   Verifier engine and one adapter per game
+packages/verifier   Verifier engine and one adapter per game (Lichess, Brawl Stars, Fortnite, Steam, Twitch, clips)
+packages/coordinator Grok: drafts terms, scouts challenges, writes recaps, briefs keepers
+packages/chain      Escrow event decoder and QuickNode Streams webhook
+supabase/           Postgres tables for off-chain data
 programs/escrow     Anchor program: USDC escrow with payout and refund rules
 tests/              Anchor integration tests for the escrow program
 docs/               Architecture and demo notes
@@ -53,6 +82,7 @@ Solana CLI and Anchor 0.32.
 pnpm install
 pnpm test          # unit tests
 pnpm dev           # web app on http://localhost:3000
+pnpm --filter @potted/web sample   # optional: demo accounts and history (stop the dev server first)
 ```
 
 Copy `.env.example` to `apps/web/.env.local` and fill in what you need. The
