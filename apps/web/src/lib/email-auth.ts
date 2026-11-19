@@ -2,8 +2,10 @@ import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 import { db, save } from "./store";
 
 /**
- * Email sign-in with a six-digit code. The code is mailed through Resend
- * when RESEND_API_KEY is set. With no mail service, a development server
+ * Email sign-in with a six-digit code. The code is mailed through Brevo
+ * when BREVO_API_KEY is set (it can send from a verified single address,
+ * such as a Gmail one, to anyone with no domain), or through Resend when
+ * RESEND_API_KEY is set. With no mail service, a development server
  * shows the code on screen instead, so the flow can be tried locally; a
  * production server refuses rather than show it.
  */
@@ -29,7 +31,32 @@ export function normalizeEmail(raw: string): string {
 const hash = (email: string, code: string) => createHash("sha256").update(`${email}:${code}`).digest("hex");
 
 export function emailConfigured(env: Record<string, string | undefined> = process.env): boolean {
-  return Boolean(env.RESEND_API_KEY);
+  return Boolean(env.BREVO_API_KEY || env.RESEND_API_KEY);
+}
+
+/** Splits "Name <a@b.co>" or "a@b.co" into its parts. */
+export function parseFrom(from: string): { name?: string; email: string } {
+  const m = /^\s*(.*?)\s*<([^>]+)>\s*$/.exec(from);
+  if (m) return { ...(m[1] ? { name: m[1].replace(/^"|"$/g, "") } : {}), email: m[2]!.trim() };
+  return { email: from.trim() };
+}
+
+function mailRequest(env: Record<string, string | undefined>, email: string, subject: string, text: string): [string, RequestInit] {
+  if (env.BREVO_API_KEY) {
+    const from = env.EMAIL_FROM;
+    if (!from) throw new Error("Email sign-in is not connected on this server yet.");
+    const sender = parseFrom(from);
+    return ["https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: { "api-key": env.BREVO_API_KEY, "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ sender: { name: sender.name ?? "Potted", email: sender.email }, to: [{ email }], subject, textContent: text }),
+    }];
+  }
+  return ["https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: env.EMAIL_FROM || "Potted <onboarding@resend.dev>", to: [email], subject, text }),
+  }];
 }
 
 /** Whether codes may be shown on screen: only with no mail service, and never in production unless asked for. */
@@ -50,17 +77,15 @@ export async function sendCode(rawEmail: string, deps: EmailDeps = defaults()): 
   codes[email] = { hash: hash(email, code), expires: now + TTL_MS, tries: 0, sentAt: now };
   save();
   if (!emailConfigured(deps.env)) return { shown: code };
-  const res = await deps.fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${deps.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from: deps.env.EMAIL_FROM || "Potted <onboarding@resend.dev>",
-      to: [email],
-      subject: `${code} is your Potted sign-in code`,
-      text: `Your Potted sign-in code is ${code}. It works for 10 minutes. If you did not ask for it, you can ignore this email.`,
-    }),
-  });
+  const [url, init] = mailRequest(
+    deps.env,
+    email,
+    `${code} is your Potted sign-in code`,
+    `Your Potted sign-in code is ${code}. It works for 10 minutes. If you did not ask for it, you can ignore this email.`,
+  );
+  const res = await deps.fetch(url, init);
   if (!res.ok) {
+    console.error(`[email] send failed: ${res.status} ${(await res.text().catch(() => "")).slice(0, 300)}`);
     delete codes[email];
     save();
     throw new Error("The sign-in email could not be sent. Try again in a minute.");
