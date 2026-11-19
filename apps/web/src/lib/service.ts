@@ -21,7 +21,6 @@ import {
   pledgeError,
   refundReason,
   toMicro,
-  MAX_USD,
 } from "@potted/core";
 import { type Deps as CoordinatorDeps, type RecapFacts, defaultDeps as coordinatorDeps, draftRecap } from "@potted/coordinator";
 import { type Deps, defaultDeps, snapshot, verify } from "@potted/verifier";
@@ -368,7 +367,7 @@ const POSITIONS: OverlayPosition[] = ["bottom-left", "bottom-right", "top-left",
 export async function updateSettings(actor: User, input: Partial<Record<keyof StreamSettings, unknown>>): Promise<StreamSettings> {
   if (actor.role !== "streamer") fail("Only a streamer has stream settings");
   const minPledgeUsd = Number(input.minPledgeUsd);
-  if (!(minPledgeUsd >= 0.5 && minPledgeUsd <= MAX_USD)) fail(`Minimum pledge must be $0.50 to $${MAX_USD}`);
+  if (!(minPledgeUsd >= 0.5 && minPledgeUsd <= 500)) fail("Minimum pledge must be $0.50 to $500");
   const position = String(input.overlayPosition) as OverlayPosition;
   if (!POSITIONS.includes(position)) fail("Unknown overlay position");
   const blockedWords = (Array.isArray(input.blockedWords) ? input.blockedWords : String(input.blockedWords ?? "").split(","))
@@ -525,8 +524,8 @@ function validate(actor: User, input: NewChallenge) {
   if (condition.kind !== game.verifier) fail("That condition does not match the game");
   if (!(input.minutes >= 1 && input.minutes <= 24 * 60)) fail("Deadline must be 1 minute to 24 hours away");
   if (!input.open) {
-    if (!(input.goalUsd >= 1 && input.goalUsd <= MAX_USD)) fail(`Goal must be $1 to $${MAX_USD}`);
-    if (!(input.pledgeCapUsd >= 1 && input.pledgeCapUsd <= MAX_USD)) fail(`Per-fan limit must be $1 to $${MAX_USD}`);
+    if (!(input.goalUsd >= 1 && input.goalUsd <= 10_000)) fail("Goal must be $1 to $10,000");
+    if (!(input.pledgeCapUsd >= 1 && input.pledgeCapUsd <= 1_000)) fail("Per-fan limit must be $1 to $1,000");
   }
   const upfront = Number(input.upfrontPct ?? 0);
   if (!Number.isInteger(upfront) || upfront < 0 || upfront > MAX_UPFRONT_PCT) fail(`The up-front share must be a whole percent from 0 to ${MAX_UPFRONT_PCT}`);
@@ -747,8 +746,8 @@ export async function pledge(actor: User, challengeId: string, amountUsd: number
     .reduce((sum, p) => sum + p.amountMicro, 0);
   const problem = pledgeError(challenge, already, amountMicro, Date.now());
   if (problem) fail(problem);
-  // An open pot has no per-fan limit; one pledge still stops at the site-wide limit.
-  if (amountMicro > toMicro(MAX_USD)) fail(`One pledge can be up to $${MAX_USD}`);
+  // An open pot has no per-fan limit; one pledge still stops at $10,000.
+  if (isOpenPot(challenge) && amountMicro > toMicro(10_000)) fail("One pledge can be up to $10,000");
   const streamer = getUser(challenge.streamerId);
   const minMicro = toMicro(streamer ? settingsOf(streamer).minPledgeUsd : DEFAULT_SETTINGS.minPledgeUsd);
   if (amountMicro < minMicro) fail(`The smallest pledge on this stream is ${formatUsd(minMicro)}`);
@@ -1683,7 +1682,7 @@ export function planterActivity(fan: User, limit = 12): { at: number; challenge:
 // ---------------------------------------------------------------------------
 
 /** Most one planter can hold on a single bounty. */
-const MAX_BACKING_MICRO = toMicro(MAX_USD);
+const MAX_BACKING_MICRO = toMicro(500);
 const MAX_OPEN_BOUNTIES_PER_FAN = 3;
 
 /** The shared checks for a fan's idea: length, game, blocked words. */
@@ -1934,7 +1933,7 @@ export async function startCampaign(actor: User, name: string, goalUsd: number):
   const clean = String(name).trim().replace(/\s+/g, " ");
   if (clean.length < 3 || clean.length > 50) fail("Name the campaign in 3 to 50 characters");
   const goal = Number(goalUsd || 0);
-  if (!(goal >= 0 && goal <= MAX_USD)) fail(`A campaign target is $0 to $${MAX_USD}`);
+  if (!(goal >= 0 && goal <= 100_000)) fail("A campaign target is $0 to $100,000");
   const campaign: Campaign = { id: newId("cmp"), streamerId: actor.id, name: clean, goalMicro: toMicro(goal), startedAt: Date.now() };
   (db().campaigns ??= []).push(campaign);
   save();
@@ -2045,7 +2044,7 @@ export function walletPledgeProblem(challenge: Challenge, wallet: string, amount
   const already = fan ? db().pledges.filter((p) => p.challengeId === challenge.id && p.userId === fan.id).reduce((sum, p) => sum + p.amountMicro, 0) : 0;
   const problem = pledgeError(challenge, already, amountMicro, Date.now());
   if (problem) return problem;
-  if (amountMicro > toMicro(MAX_USD)) return `One pledge can be up to $${MAX_USD}`;
+  if (isOpenPot(challenge) && amountMicro > toMicro(10_000)) return "One pledge can be up to $10,000";
   const streamer = getUser(challenge.streamerId);
   const minMicro = toMicro(streamer ? settingsOf(streamer).minPledgeUsd : DEFAULT_SETTINGS.minPledgeUsd);
   if (amountMicro < minMicro) return `The smallest pledge on this stream is ${formatUsd(minMicro)}`;

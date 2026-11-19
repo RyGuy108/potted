@@ -1,4 +1,4 @@
-import { MAX_USD, formatUsd, toMicro } from "@potted/core";
+import { formatUsd, toMicro } from "@potted/core";
 import { ledger } from "./ledger";
 import * as notifications from "./notifications";
 import * as service from "./service";
@@ -15,7 +15,7 @@ const fail = (message: string): never => {
   throw new Error(message);
 };
 
-export const GIFT_MAX_USD = MAX_USD;
+export const GIFT_MAX_USD = 1_000;
 
 export async function give(actor: User, handle: string, amountUsd: number, note = ""): Promise<Gift> {
   if (actor.role !== "fan") fail("Sign in as a planter to give");

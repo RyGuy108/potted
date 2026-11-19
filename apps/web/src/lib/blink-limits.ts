@@ -1,4 +1,3 @@
-import { MAX_USD } from "@potted/core";
 import { db, save } from "./store";
 
 /**
@@ -51,7 +50,7 @@ export function takeBlinkSlot(wallet: string, ip: string, now = Date.now()): str
 /** How much more test USDC the faucet may give this wallet, in micro-USDC. */
 export function topUpLeft(wallet: string): number {
   const given = db().blinkTopUps?.[wallet] ?? 0;
-  return Math.max(0, num("POTTED_BLINK_TOPUP_USD", MAX_USD) * 1_000_000 - given);
+  return Math.max(0, num("POTTED_BLINK_TOPUP_USD", 500) * 1_000_000 - given);
 }
 
 export function recordTopUp(wallet: string, amountMicro: number): void {

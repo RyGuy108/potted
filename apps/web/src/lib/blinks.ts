@@ -1,4 +1,4 @@
-import { type Challenge, MAX_USD, formatUsd, growthOf } from "@potted/core";
+import { type Challenge, formatUsd, growthOf } from "@potted/core";
 import { gameOf } from "./format";
 import { ledger } from "./ledger";
 import * as service from "./service";
@@ -92,7 +92,7 @@ export function actionCard(challenge: Challenge, base: string) {
           type: "transaction",
           label: "Pledge",
           href: href("{amount}"),
-          parameters: [{ type: "number", name: "amount", label: `Amount in USDC (from $${minUsd})`, required: true, min: minUsd, max: MAX_USD }],
+          parameters: [{ type: "number", name: "amount", label: `Amount in USDC (from $${minUsd})`, required: true, min: minUsd, max: 10_000 }],
         },
       ],
     },

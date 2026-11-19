@@ -1,4 +1,4 @@
-import { GAMES, MAX_USD } from "@potted/core";
+import { GAMES } from "@potted/core";
 import { tidy } from "./rules";
 import type { Deps } from "./types";
 
@@ -167,7 +167,7 @@ export function checkPitch(raw: Record<string, unknown>, input: ScoutInput, cita
     }
   }
   const goalUsd = clampInt(raw.goalUsd, 5, input.limits.maxGoalUsd, Math.min(30, input.limits.maxGoalUsd));
-  const capUsd = clampInt(raw.capUsd, 1, Math.min(goalUsd, MAX_USD), Math.min(10, goalUsd));
+  const capUsd = clampInt(raw.capUsd, 1, Math.min(goalUsd, 1000), Math.min(10, goalUsd));
   const upfront = Number(raw.upfrontPct);
   const sources = (Array.isArray(raw.sources) ? raw.sources : [])
     .map((s) => String(s))
