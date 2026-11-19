@@ -1,0 +1,25 @@
+[toolchain]
+anchor_version = "0.32.1"
+package_manager = "pnpm"
+
+[features]
+resolution = true
+skip-lint = false
+
+# Placeholder id. Run `anchor keys sync` after your first `anchor build`
+# so this matches the keypair in target/deploy.
+[programs.localnet]
+escrow = "2XGLRNEBZeU3zQ8aasikUti1j9B63JW1kxUcvG5MujbV"
+
+[programs.devnet]
+escrow = "2XGLRNEBZeU3zQ8aasikUti1j9B63JW1kxUcvG5MujbV"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "pnpm exec ts-mocha -p ./tsconfig.anchor.json -t 1000000 'tests/**/*.ts'"

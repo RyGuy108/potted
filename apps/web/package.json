@@ -11,7 +11,8 @@
     "solana:setup": "node --env-file-if-exists=.env.local scripts/solana-setup.mjs",
     "test:solana": "SOLANA_TEST_RPC=http://127.0.0.1:8899 vitest run test/solana.integration.test.ts",
     "sample": "node --env-file-if-exists=.env.local --import tsx scripts/sample-data.ts",
-    "quicknode": "node --env-file-if-exists=.env.local --import tsx scripts/quicknode.ts"
+    "quicknode": "node --env-file-if-exists=.env.local --import tsx scripts/quicknode.ts",
+    "keys": "node --env-file-if-exists=.env.local --import tsx scripts/keys.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "0.32.1",

@@ -15,15 +15,7 @@ Built for the University Blockchain Conference 2026 hackathon
 
 ## Grok's role
 
-Grok is the climber's scout and the platform's coordinator. On the climber
-dashboard it searches X and the web for what is popular in the streamer's
-games this week, weighs that against the stream's own record and the escrow
-activity QuickNode streams in from Solana, and pitches ready-to-run
-challenges with a line to post on X; with autopilot on, it opens the next
-pitch itself whenever the stage is empty and the overlay announces it. Grok
-also turns fans' loose ideas into exact, checkable terms and briefs keepers
-on what to look for in a disputed clip, while the app checks every value it
-returns and never lets it move money or rule. Details: `docs/grok.md`.
+Grok watches Potted's on-chain activity: a QuickNode Stream delivers every event from the escrow program on Solana, and when a pot crosses half its goal, reaches it, or a challenge settles, Grok writes a post for X with the challenge's Blink link so anyone can pledge from the post. On the climber's dashboard, Grok is a scout that searches X and the web for what is popular in the streamer's games and weighs it against the stream's own record and recent escrow activity to pitch ready-to-run challenges. At the end of a stream it writes the spoken recap from that on-chain activity, which ElevenLabs reads on the overlay, and it turns fans' loose ideas into exact, checkable terms and briefs moderators on disputed clips. Every value Grok returns is checked by the app (figures must match the chain, links and terms must be valid), it can never move money or rule on a result, and each job falls back to fixed rules without a key. Details: `docs/grok.md`.
 
 ## How a challenge works
 
