@@ -7,6 +7,7 @@ import { SAMPLE_SIGN_INS } from "@/lib/sample-data";
 import { ledger } from "@/lib/ledger";
 import { getUser } from "@/lib/service";
 import { TEST_ACCOUNTS } from "@/lib/test-accounts";
+import { demoAccountsOn } from "@/lib/demo-mode";
 import { currentUser } from "@/lib/session";
 import { DEMO_GUEST_ID, DEMO_STREAMER_ID } from "@/lib/store";
 
@@ -25,12 +26,13 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
   const { error } = await searchParams;
   // Make sure the test accounts exist before listing them.
   ledger();
+  const demoOn = demoAccountsOn();
   const testing: DemoAccount[] = TEST_ACCOUNTS.filter((t) => getUser(t.id)).map((t) => ({ id: t.id, label: t.name, note: t.note, group: GROUP[t.role], home: HOME[t.role] }));
   const demo: DemoAccount[] = [
     { id: DEMO_STREAMER_ID, label: "Ryan", note: "Demo climber", group: GROUP.streamer, home: HOME.streamer },
     { id: DEMO_GUEST_ID, label: "Kai", note: "Demo climber, for collabs", group: GROUP.streamer, home: HOME.streamer },
     ...SAMPLE_SIGN_INS.filter((s) => getUser(s.id)).map((s) => ({ id: s.id, label: s.label, note: s.note, group: GROUP[s.role], home: HOME[s.role] })),
-  ].filter((a) => getUser(a.id));
+  ].filter((a) => demoOn && getUser(a.id));
   return (
     <div className="login-page">
       {error && ERRORS[error] && (
@@ -50,10 +52,14 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
         <div className="signin-ways">
           <EmailSignIn />
           <ProviderButtons />
-          <div className="divider">
-            <span>or use a test account</span>
-          </div>
-          <DemoAccounts accounts={testing} />
+          {demoOn && testing.length > 0 && (
+            <>
+              <div className="divider">
+                <span>or use a test account</span>
+              </div>
+              <DemoAccounts accounts={testing} />
+            </>
+          )}
           {demo.length > 0 && (
             <details className="more-accounts">
               <summary>More demo accounts (Ryan, Kai and the sample)</summary>

@@ -145,3 +145,9 @@ every change back, so it survives redeploys and serverless hosts.
 | `POTTED_BLINK_PER_IP` | 30 | pledges per network address per hour |
 | `POTTED_BLINK_PER_HOUR` | 300 | pledges from everyone per hour |
 | `POTTED_BLINK_TOPUP_USD` | 500 | test USDC the faucet gives a wallet, ever |
+
+## Demo accounts and clean slates
+
+**Demo accounts.** `POTTED_DEMO_ACCOUNTS=on|off` controls the six test accounts (Tester One/Two, Test Climber/Two, Keeper Test/Two), the demo climbers Ryan and Kai, the one-click demo logins (website and extension) and the name-only "try the demo" sign-ups for planters and climbers. Unset, they are **off on Railway production** (`RAILWAY_ENVIRONMENT_NAME=production`) and on everywhere else. Keeper sign-up stays name-only either way. `POTTED_TEST_ACCOUNTS=off` still turns off just the six test accounts.
+
+**Clean slates.** `apps/web/src/lib/purge.ts` lists one-time purges. On Railway production each runs once at start: it writes the whole state to `/data/backups/pre-purge-<id>.json` (and the wallet keys to `pre-purge-<id>-wallets.json`), then removes every account and everything tied to accounts. It keeps the cookie secret, cause wallets and the wallet key file. The server log lists every account removed. `POTTED_PURGE=off` skips it; `POTTED_PURGE=force` runs it off Railway. To undo one: stop the service, copy the pre-purge backup over `/data/potted.json`, set `POTTED_PURGE=off`, start it (with Supabase on, the restored file is not pushed back automatically, so restore Supabase too or unset its keys first).

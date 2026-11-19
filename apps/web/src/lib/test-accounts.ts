@@ -1,3 +1,4 @@
+import { demoAccountsOn } from "./demo-mode";
 import type { Ledger } from "./ledger";
 import { type Role, type User, db, save } from "./store";
 
@@ -5,7 +6,8 @@ import { type Role, type User, db, save } from "./store";
  * Clean accounts for trying things by hand: two of each kind, no history.
  * They are created the first time the app starts and kept from then on;
  * loading or removing the demo sample does not touch them. Turn them off
- * with POTTED_TEST_ACCOUNTS=off.
+ * with POTTED_TEST_ACCOUNTS=off; they are also off whenever demo accounts
+ * are (see demo-mode.ts), as on the live server.
  */
 export const TEST_ACCOUNTS: { id: string; name: string; role: Role; handle?: string; note: string }[] = [
   { id: "u_t_planter1", name: "Tester One", role: "fan", note: "Test planter, $50 test USDC" },
@@ -21,7 +23,7 @@ let checked = false;
 
 /** Adds any test account that is missing. Runs once per process. */
 export function ensureTestAccounts(ledger: Ledger): void {
-  if (checked || process.env.POTTED_TEST_ACCOUNTS === "off") return;
+  if (checked || process.env.POTTED_TEST_ACCOUNTS === "off" || !demoAccountsOn()) return;
   checked = true;
   const state = db();
   let added = false;
