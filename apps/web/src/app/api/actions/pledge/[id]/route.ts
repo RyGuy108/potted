@@ -1,6 +1,7 @@
 import { PublicKey } from "@solana/web3.js";
 import { formatUsd, toMicro } from "@potted/core";
 import { actionCard, actionError, actionHeaders, actionJson, actionUrl, baseOf, solanaLedger } from "@/lib/blinks";
+import { clientAddress, recordTopUp, takeBlinkSlot, topUpLeft } from "@/lib/blink-limits";
 import * as service from "@/lib/service";
 
 export const dynamic = "force-dynamic";
@@ -40,9 +41,12 @@ export async function POST(request: Request, { params }: Context) {
   if (!(amountUsd > 0)) return actionError("Enter an amount");
   const problem = service.walletPledgeProblem(challenge, account, toMicro(amountUsd));
   if (problem) return actionError(problem);
+  const limited = takeBlinkSlot(account, clientAddress(request));
+  if (limited) return actionError(limited, 429);
 
   try {
-    const { transaction, toppedUpMicro } = await chain.pledgeTransactionFor(challenge, account, toMicro(amountUsd));
+    const { transaction, toppedUpMicro } = await chain.pledgeTransactionFor(challenge, account, toMicro(amountUsd), topUpLeft(account));
+    recordTopUp(account, toppedUpMicro);
     const top = toppedUpMicro > 0 ? ` Your wallet gets ${formatUsd(toppedUpMicro)} of test USDC from the devnet faucet in the same transaction.` : "";
     return actionJson({
       type: "transaction",
