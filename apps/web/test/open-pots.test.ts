@@ -41,7 +41,7 @@ describe("open pots", () => {
     await expect(service.createChallenge(ryan, { gameId: "gta6", condition: clip, goalUsd: 0, pledgeCapUsd: 5, minutes: 30 })).rejects.toThrow("Goal");
     const fan = await service.signIn("Maya", "fan");
     const c = await service.createChallenge(ryan, { gameId: "gta6", condition: clip, goalUsd: 0, pledgeCapUsd: 0, minutes: 30, open: true });
-    await expect(service.pledge(fan, c.id, 20_000)).rejects.toThrow("up to $10,000");
+    await expect(service.pledge(fan, c.id, 600)).rejects.toThrow("up to $500");
   });
 });
 
@@ -64,7 +64,7 @@ describe("just give", () => {
     const fan = await service.signIn("Maya", "fan");
     await expect(give(ryan, "ryan", 5)).rejects.toThrow("planter");
     await expect(give(fan, "ryan", 0.1)).rejects.toThrow("smallest gift");
-    await expect(give(fan, "ryan", 5000)).rejects.toThrow("up to $1,000");
+    await expect(give(fan, "ryan", 600)).rejects.toThrow("up to $500");
     await expect(give(fan, "ryan", 100)).rejects.toThrow("Not enough");
   });
 });

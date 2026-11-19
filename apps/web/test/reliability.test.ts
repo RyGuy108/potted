@@ -75,13 +75,13 @@ describe("limits on Blink pledges", () => {
     expect(takeBlinkSlot("w1", "ip1", t + 60 * 60_000 + 1)).toBeUndefined();
   });
 
-  it("gives each wallet at most $25 of test USDC, ever", () => {
-    expect(topUpLeft("w1")).toBe(25_000_000);
-    recordTopUp("w1", 20_000_000);
-    expect(topUpLeft("w1")).toBe(5_000_000);
-    recordTopUp("w1", 9_000_000);
+  it("gives each wallet at most $500 of test USDC, ever", () => {
+    expect(topUpLeft("w1")).toBe(500_000_000);
+    recordTopUp("w1", 400_000_000);
+    expect(topUpLeft("w1")).toBe(100_000_000);
+    recordTopUp("w1", 150_000_000);
     expect(topUpLeft("w1")).toBe(0);
-    expect(db().blinkTopUps!.w1).toBe(29_000_000);
+    expect(db().blinkTopUps!.w1).toBe(550_000_000);
   });
 
   it("reads the caller's address from the proxy's header", () => {

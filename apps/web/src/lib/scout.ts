@@ -1,5 +1,5 @@
 import { type Pitch, type ScoutGame, type ScoutInput, scout } from "@potted/coordinator";
-import { type Challenge, GAMES } from "@potted/core";
+import { type Challenge, GAMES, MAX_USD } from "@potted/core";
 import * as service from "./service";
 import { type ScoutRun, type User, db, save } from "./store";
 import { conditionFromFields } from "./terms";
@@ -159,7 +159,7 @@ export async function openPitch(actor: User, index: number, by: "climber" | "aut
 
 export async function setAutopilot(actor: User, on: boolean, maxGoalUsd: number): Promise<void> {
   if (actor.role !== "streamer") fail("Only a climber has a scout");
-  if (!(Number.isInteger(maxGoalUsd) && maxGoalUsd >= 5 && maxGoalUsd <= 1000)) fail("The scout's goal limit must be a whole $5 to $1,000");
+  if (!(Number.isInteger(maxGoalUsd) && maxGoalUsd >= 5 && maxGoalUsd <= MAX_USD)) fail(`The scout's goal limit must be a whole $5 to $${MAX_USD}`);
   actor.settings = { ...service.settingsOf(actor), autopilot: on, scoutMaxGoalUsd: maxGoalUsd };
   save();
 }

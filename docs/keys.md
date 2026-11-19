@@ -142,4 +142,4 @@ every change back, so it survives redeploys and serverless hosts.
 | `POTTED_BLINK_PER_WALLET` | 10 | pledges per wallet per hour |
 | `POTTED_BLINK_PER_IP` | 30 | pledges per network address per hour |
 | `POTTED_BLINK_PER_HOUR` | 300 | pledges from everyone per hour |
-| `POTTED_BLINK_TOPUP_USD` | 25 | test USDC the faucet gives a wallet, ever |
+| `POTTED_BLINK_TOPUP_USD` | 500 | test USDC the faucet gives a wallet, ever |
