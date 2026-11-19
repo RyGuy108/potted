@@ -5,6 +5,10 @@
 //! success pays the whole pot to the streamer, failure makes every pledge
 //! refundable. If no result arrives by `settle_by`, anyone can trigger the
 //! refunds, so fans never depend on our servers to get their money back.
+//!
+//! A challenge can also name shares for a collab guest or a cause, fixed
+//! before anyone pledges. The program pays those shares itself, straight
+//! from the vault, so no one has to be trusted to pass them on.
 
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
@@ -18,6 +22,10 @@ pub const MAX_SETTLE_WINDOW_SECS: i64 = 7 * 24 * 60 * 60;
 /// The most of a pot that can go to the streamer when the attempt starts.
 /// The rest is paid only on success, and refunded on a miss.
 pub const MAX_UPFRONT_PCT: u8 = 50;
+/** At most this many shares besides the host's. */
+pub const MAX_SHARES: usize = 4;
+/** Shares can add up to this much at most, so the host always keeps some. */
+pub const MAX_SHARES_PCT: u16 = 90;
 
 #[program]
 pub mod escrow {
@@ -74,6 +82,29 @@ pub mod escrow {
         Ok(())
     }
 
+    /// Fixes who else is paid, and what whole percent each gets, before any
+    /// fan pledges. Only the streamer can set them, and only once.
+    pub fn set_splits(ctx: Context<SetSplits>, shares: Vec<Share>) -> Result<()> {
+        let challenge = &ctx.accounts.challenge;
+        require!(challenge.status == Status::Open, EscrowError::NotOpen);
+        require!(challenge.total_pledged == 0, EscrowError::SplitsAfterPledges);
+        require!(!shares.is_empty() && shares.len() <= MAX_SHARES, EscrowError::BadSplits);
+        let mut total: u16 = 0;
+        for share in &shares {
+            require!(share.pct >= 1 && share.pct <= 99, EscrowError::BadSplits);
+            require!(share.wallet != challenge.streamer, EscrowError::BadSplits);
+            total += share.pct as u16;
+        }
+        require!(total <= MAX_SHARES_PCT, EscrowError::BadSplits);
+
+        let splits = &mut ctx.accounts.splits;
+        splits.challenge = challenge.key();
+        splits.shares = shares.clone();
+        splits.bump = ctx.bumps.splits;
+        emit!(SplitsSet { challenge: challenge.key(), shares });
+        Ok(())
+    }
+
     /// Moves `amount` from the fan into the vault. A fan can pledge more
     /// than once, up to the per-fan cap.
     pub fn pledge(ctx: Context<PledgeFunds>, amount: u64) -> Result<()> {
@@ -123,7 +154,7 @@ pub mod escrow {
 
     /// Closes pledging when the attempt starts. The streamer or the
     /// verifier can call it.
-    pub fn lock(ctx: Context<LockChallenge>) -> Result<()> {
+    pub fn lock<'info>(ctx: Context<'_, '_, '_, 'info, LockChallenge<'info>>) -> Result<()> {
         let authority = ctx.accounts.authority.key();
         let (upfront, streamer, id, bump) = {
             let challenge = &mut ctx.accounts.challenge;
@@ -145,17 +176,15 @@ pub mod escrow {
         if upfront > 0 {
             let id_bytes = id.to_le_bytes();
             let seeds: &[&[u8]] = &[b"challenge", streamer.as_ref(), &id_bytes, &[bump]];
-            token::transfer(
-                CpiContext::new_with_signer(
-                    ctx.accounts.token_program.to_account_info(),
-                    Transfer {
-                        from: ctx.accounts.vault.to_account_info(),
-                        to: ctx.accounts.streamer_token.to_account_info(),
-                        authority: ctx.accounts.challenge.to_account_info(),
-                    },
-                    &[seeds],
-                ),
+            pay_out(
                 upfront,
+                &ctx.accounts.splits,
+                ctx.remaining_accounts,
+                &ctx.accounts.challenge,
+                &ctx.accounts.vault,
+                &ctx.accounts.streamer_token,
+                &ctx.accounts.token_program,
+                seeds,
             )?;
         }
 
@@ -182,8 +211,8 @@ pub mod escrow {
         Ok(())
     }
 
-    pub fn settle(
-        ctx: Context<Settle>,
+    pub fn settle<'info>(
+        ctx: Context<'_, '_, '_, 'info, Settle<'info>>,
         success: bool,
         evidence_ref: String,
         evidence_hash: [u8; 32],
@@ -209,17 +238,15 @@ pub mod escrow {
                 &id_bytes,
                 &[challenge.bump],
             ];
-            token::transfer(
-                CpiContext::new_with_signer(
-                    ctx.accounts.token_program.to_account_info(),
-                    Transfer {
-                        from: ctx.accounts.vault.to_account_info(),
-                        to: ctx.accounts.streamer_token.to_account_info(),
-                        authority: ctx.accounts.challenge.to_account_info(),
-                    },
-                    &[seeds],
-                ),
+            pay_out(
                 amount,
+                &ctx.accounts.splits,
+                ctx.remaining_accounts,
+                &ctx.accounts.challenge,
+                &ctx.accounts.vault,
+                &ctx.accounts.streamer_token,
+                &ctx.accounts.token_program,
+                seeds,
             )?;
             amount
         } else {
@@ -314,6 +341,79 @@ pub enum Status {
     Failed,
 }
 
+/// One share of a successful pot, besides the host's.
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
+pub struct Share {
+    pub wallet: Pubkey,
+    /// Whole percent, 1 to 99.
+    pub pct: u8,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct Splits {
+    pub challenge: Pubkey,
+    #[max_len(4)]
+    pub shares: Vec<Share>,
+    pub bump: u8,
+}
+
+/// Pays `amount` out of the vault: each share rounded down, straight to
+/// that wallet's token account, and the rest to the streamer. The splits
+/// account is always at its fixed address, so a caller cannot skip it; when
+/// it holds nothing, the streamer gets everything. Share token accounts come
+/// in `remaining` in the same order as the shares.
+#[allow(clippy::too_many_arguments)]
+fn pay_out<'info>(
+    amount: u64,
+    splits_info: &UncheckedAccount<'info>,
+    remaining: &[AccountInfo<'info>],
+    challenge: &Account<'info, Challenge>,
+    vault: &Account<'info, TokenAccount>,
+    streamer_token: &Account<'info, TokenAccount>,
+    token_program: &Program<'info, Token>,
+    seeds: &[&[u8]],
+) -> Result<()> {
+    let mut host = amount;
+    if splits_info.owner == &crate::ID && !splits_info.data_is_empty() {
+        let data = splits_info.try_borrow_data()?;
+        let splits = Splits::try_deserialize(&mut &data[..])?;
+        require_keys_eq!(splits.challenge, challenge.key(), EscrowError::BadSplits);
+        require!(remaining.len() >= splits.shares.len(), EscrowError::MissingShareAccount);
+        for (share, account) in splits.shares.iter().zip(remaining.iter()) {
+            require_keys_eq!(*account.owner, token_program.key(), EscrowError::WrongShareAccount);
+            let token = TokenAccount::try_deserialize(&mut &account.try_borrow_data()?[..])?;
+            require_keys_eq!(token.owner, share.wallet, EscrowError::WrongShareAccount);
+            require_keys_eq!(token.mint, challenge.mint, EscrowError::WrongShareAccount);
+            let part = ((amount as u128) * (share.pct as u128) / 100) as u64;
+            if part == 0 {
+                continue;
+            }
+            host = host.checked_sub(part).ok_or(EscrowError::Overflow)?;
+            token::transfer(
+                CpiContext::new_with_signer(
+                    token_program.to_account_info(),
+                    Transfer { from: vault.to_account_info(), to: account.clone(), authority: challenge.to_account_info() },
+                    &[seeds],
+                ),
+                part,
+            )?;
+            emit!(SharePaid { challenge: challenge.key(), wallet: share.wallet, amount: part });
+        }
+    }
+    if host > 0 {
+        token::transfer(
+            CpiContext::new_with_signer(
+                token_program.to_account_info(),
+                Transfer { from: vault.to_account_info(), to: streamer_token.to_account_info(), authority: challenge.to_account_info() },
+                &[seeds],
+            ),
+            host,
+        )?;
+    }
+    Ok(())
+}
+
 #[account]
 #[derive(InitSpace)]
 pub struct Challenge {
@@ -386,6 +486,24 @@ pub struct CreateChallenge<'info> {
 }
 
 #[derive(Accounts)]
+pub struct SetSplits<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    pub streamer: Signer<'info>,
+    #[account(has_one = streamer @ EscrowError::Unauthorized)]
+    pub challenge: Account<'info, Challenge>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Splits::INIT_SPACE,
+        seeds = [b"splits", challenge.key().as_ref()],
+        bump
+    )]
+    pub splits: Account<'info, Splits>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
 pub struct PledgeFunds<'info> {
     /// Pays rent for the pledge record, so fans need no SOL.
     #[account(mut)]
@@ -419,6 +537,9 @@ pub struct LockChallenge<'info> {
     /// The streamer's own token account; the up-front share can go nowhere else.
     #[account(mut, token::mint = challenge.mint, token::authority = challenge.streamer)]
     pub streamer_token: Account<'info, TokenAccount>,
+    /// CHECK: The challenge's splits, at their fixed address. Empty when it has none.
+    #[account(seeds = [b"splits", challenge.key().as_ref()], bump)]
+    pub splits: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
 }
 
@@ -436,9 +557,12 @@ pub struct Settle<'info> {
     pub challenge: Account<'info, Challenge>,
     #[account(mut, seeds = [b"vault", challenge.key().as_ref()], bump = challenge.vault_bump)]
     pub vault: Account<'info, TokenAccount>,
-    /// The streamer's own token account; the pot can go nowhere else.
+    /// The streamer's own token account; the host's part can go nowhere else.
     #[account(mut, token::mint = challenge.mint, token::authority = challenge.streamer)]
     pub streamer_token: Account<'info, TokenAccount>,
+    /// CHECK: The challenge's splits, at their fixed address. Empty when it has none.
+    #[account(seeds = [b"splits", challenge.key().as_ref()], bump)]
+    pub splits: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
 }
 
@@ -501,6 +625,20 @@ pub struct Settled {
 }
 
 #[event]
+pub struct SplitsSet {
+    pub challenge: Pubkey,
+    pub shares: Vec<Share>,
+}
+
+/// A guest's or a cause's share, paid straight from the vault.
+#[event]
+pub struct SharePaid {
+    pub challenge: Pubkey,
+    pub wallet: Pubkey,
+    pub amount: u64,
+}
+
+#[event]
 pub struct Refunded {
     pub challenge: Pubkey,
     pub fan: Pubkey,
@@ -537,4 +675,12 @@ pub enum EscrowError {
     AlreadyRefunded,
     #[msg("At most half the pot can be paid up front")]
     UpfrontTooHigh,
+    #[msg("Splits must be set before anyone pledges")]
+    SplitsAfterPledges,
+    #[msg("Up to 4 shares, each a whole percent from 1 to 99, adding up to 90% at most, none to the streamer")]
+    BadSplits,
+    #[msg("Pass a token account for every share")]
+    MissingShareAccount,
+    #[msg("A share's token account belongs to someone else or holds another token")]
+    WrongShareAccount,
 }

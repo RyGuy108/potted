@@ -5,6 +5,7 @@ USDC pots that pay out or refund on a verified result.
 | Instruction | Who | What it does |
 | --- | --- | --- |
 | `create_challenge` | Streamer | Opens a challenge and its vault, and fixes the verifier, deadline and per-fan cap |
+| `set_splits` | Streamer | Fixes up to 4 shares (a collab guest, a cause) as whole percents, before anyone pledges |
 | `pledge` | Fan | Moves USDC into the vault while the challenge is open |
 | `lock` | Streamer or verifier | Closes pledging when the attempt starts |
 | `cancel` | Streamer only | Calls the challenge off before a result; it can only open refunds, never pay out |
@@ -14,6 +15,13 @@ USDC pots that pay out or refund on a verified result.
 Rules the tests cover:
 
 - Only the verifier can settle, and only once.
+- Shares are set once, before the first pledge, adding up to 90% at most.
+  `lock` and `settle` always take the splits account at its fixed address,
+  so a caller cannot skip it: each share is paid from the vault straight to
+  that wallet's token account (checked against the wallet and the mint),
+  rounded down, and the streamer gets the rest. Each payment emits
+  `SharePaid`. The app's tests on a local validator cover this, including a
+  payout that leaves a share's account out being refused.
 - The pot can only go to the streamer's token account; a refund can only go to the fan who pledged.
 - A result that arrives after `settle_by` is rejected, so it can never race the timeout refunds.
 - A fee payer separate from the fan and streamer lets the app cover fees.
