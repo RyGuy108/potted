@@ -124,3 +124,22 @@ every change back, so it survives redeploys and serverless hosts.
 | --- | --- |
 | `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` | Discord sign-in. discord.com/developers → New Application → OAuth2. Redirect: `http://localhost:3000/api/auth/discord/callback`. |
 | `ELEVENLABS_VOICE_ID` | Use one custom voice for every stream, overriding the streamer's choice. |
+
+## Running it for real: one server, the background job, Blink limits
+
+**Exactly one server.** All data lives in `POTTED_DATA_DIR` (`potted.json` and the custodial wallet keys `wallets.json`). On Railway: one service, a volume at `/data`, `POTTED_DATA_DIR=/data`, replicas = 1. On start the server claims the folder (`server.lock`, refreshed every 15s) and logs an error if another live server holds it. Supabase, if set, is a mirror that the server loads back on start, not a second writer.
+
+**Backups.** Every hour, `potted.json` and `wallets.json` are copied to `/data/backups/` (the newest 48 of each are kept; wallet copies are owner-only). To restore: stop the service, copy a backup over `potted.json`, start it.
+
+**Background job.** Every 20s the server expires old requests, refunds challenges past their deadline, checks results, and releases held overlay lines, with no page load needed. `POTTED_TICK_MS` changes the interval; `POTTED_SCHEDULER=off` turns it off.
+
+**Health.** `GET /api/health` shows the background job, last save, last backup, and a warning if a second server shares the data. Point Railway's health check at it.
+
+**Blink limits** (each Blink pledge costs the server a fee and may top the wallet up with test USDC):
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `POTTED_BLINK_PER_WALLET` | 10 | pledges per wallet per hour |
+| `POTTED_BLINK_PER_IP` | 30 | pledges per network address per hour |
+| `POTTED_BLINK_PER_HOUR` | 300 | pledges from everyone per hour |
+| `POTTED_BLINK_TOPUP_USD` | 25 | test USDC the faucet gives a wallet, ever |

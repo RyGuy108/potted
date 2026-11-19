@@ -1079,10 +1079,27 @@ async function applyVerdict(challenge: Challenge, verdict: Verdict): Promise<voi
  * Asks the verifier for a result and settles if there is one. Safe to call
  * as often as you like; `force` skips the rate limit for a manual check.
  */
-export async function check(
-  challengeId: string,
-  opts: { force?: boolean; deps?: Deps } = {},
-): Promise<Challenge> {
+/** Checks in progress, by challenge: a second caller waits for the first instead of settling twice. */
+const checking = new Map<string, Promise<Challenge>>();
+
+/**
+ * Settles a challenge when its result is in, or refunds it once its time
+ * has run out. The background job, page loads and "Check now" all call
+ * this; calls for the same challenge run one at a time, so a result can
+ * never be applied twice.
+ */
+export async function check(challengeId: string, opts: { force?: boolean; deps?: Deps } = {}): Promise<Challenge> {
+  const running = checking.get(challengeId);
+  if (running) {
+    await running.catch(() => undefined);
+    return getChallenge(challengeId);
+  }
+  const run = checkOnce(challengeId, opts).finally(() => checking.delete(challengeId));
+  checking.set(challengeId, run);
+  return run;
+}
+
+async function checkOnce(challengeId: string, opts: { force?: boolean; deps?: Deps }): Promise<Challenge> {
   const challenge = getChallenge(challengeId);
   const now = Date.now();
 
