@@ -238,6 +238,8 @@ describe.skipIf(!RPC)("Solana ledger against a local validator", () => {
     const chain = ledger.ledger() as unknown as InstanceType<typeof SolanaLedger>;
     const c = await service.createChallenge(streamer(), clip("Win the street race without crashing"));
     const wallet = Keypair.generate();
+    // A wallet past its faucet allowance gets no top-up and is told why.
+    await expect(chain.pledgeTransactionFor(c, Keypair.generate().publicKey.toBase58(), usd(3), 0)).rejects.toThrow(/test USDC/);
     const { transaction, toppedUpMicro } = await chain.pledgeTransactionFor(c, wallet.publicKey.toBase58(), usd(3));
     expect(toppedUpMicro).toBe(usd(3));
     const tx = Transaction.from(Buffer.from(transaction, "base64"));

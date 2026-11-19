@@ -290,7 +290,7 @@ export class SolanaLedger implements Ledger {
    * pays the fee and rent. On devnet, a wallet short of test USDC is topped
    * up by the faucet in the same transaction, so a judge's fresh wallet works.
    */
-  async pledgeTransactionFor(challenge: Challenge, fanWallet: string, amountMicro: number): Promise<{ transaction: string; toppedUpMicro: number }> {
+  async pledgeTransactionFor(challenge: Challenge, fanWallet: string, amountMicro: number, maxTopUpMicro = Number.POSITIVE_INFINITY): Promise<{ transaction: string; toppedUpMicro: number }> {
     const { account, vault } = this.accountsFor(challenge);
     const fan = new PublicKey(fanWallet);
     const fanToken = this.tokenAccount(fan);
@@ -304,6 +304,7 @@ export class SolanaLedger implements Ledger {
     }
     let toppedUpMicro = 0;
     if (have < amountMicro && process.env.SOLANA_CLUSTER !== "mainnet-beta") {
+      if (amountMicro - have > maxTopUpMicro) throw new Error("This wallet has had all the test USDC the faucet gives. Add test USDC to it to pledge more.");
       const mint = await getMint(this.connection, this.mint);
       if (mint.mintAuthority?.equals(this.server.publicKey)) {
         toppedUpMicro = amountMicro - have;

@@ -221,6 +221,8 @@ export interface Db {
   causeReceipts: CauseReceipt[];
   /** Garden badges put on Solana, by "<user id>:<badge id>". */
   badgeMints: Record<string, { mint: string; tx: string; at: number }>;
+  /** Test USDC the faucet has given each wallet through Blinks (see blink-limits.ts). */
+  blinkTopUps?: Record<string, number>;
   /** Grok's posts on X about on-chain moments (see x-posts.ts). */
   xPosts?: import("./x-posts").XPost[];
   invites: Invite[];
@@ -469,7 +471,17 @@ export function save(): void {
   const tmp = `${file}.${process.pid}.${crypto.randomUUID().slice(0, 8)}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(db()));
   fs.renameSync(tmp, file);
+  (globalThis as { __pottedSavedAt?: number }).__pottedSavedAt = Date.now();
   scheduleSync(db);
+}
+
+/** The folder the data file and wallet keys live in. */
+export function dataDir(): string {
+  return path.dirname(dataFile());
+}
+
+export function lastSavedAt(): number | null {
+  return (globalThis as { __pottedSavedAt?: number }).__pottedSavedAt ?? null;
 }
 
 /** Test hook: start from a clean in-memory database that is never written. */
