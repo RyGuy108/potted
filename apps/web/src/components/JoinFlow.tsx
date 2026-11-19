@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { emailCodeAction, joinVerifyAction, pledgeAction } from "@/app/actions";
+import { ShareButtons } from "./ShareButtons";
 import { Beanstalk } from "./Beanstalk";
 
 interface Props {
@@ -32,6 +33,7 @@ export function JoinFlow({ handle, streamerName, challenge, me }: Props) {
   const [spoken, setSpoken] = useState(me?.name ?? "");
   // The figures as the page opened; the refresh after pledging brings new ones, which would count this pledge twice.
   const [start0] = useState(challenge);
+  const [pledgeId, setPledgeId] = useState<string | null>(null);
 
   const pledge = async () => {
     const result = await pledgeAction(challenge.id, amount);
@@ -39,6 +41,7 @@ export function JoinFlow({ handle, streamerName, challenge, me }: Props) {
       setError(result.error);
       return;
     }
+    setPledgeId(result.pledgeId ?? null);
     setStep("done");
     router.refresh();
   };
@@ -150,6 +153,14 @@ export function JoinFlow({ handle, streamerName, challenge, me }: Props) {
             Listen to the stream: the announcer is about to say <strong>&ldquo;{spoken || "you"} added {formatUsd(amount * 1_000_000)}&rdquo;</strong>.
           </p>
           <p className="muted small">If {streamerName} misses, your {formatUsd(amount * 1_000_000)} comes back on its own.</p>
+          {pledgeId && (
+            <ShareButtons
+              path={`/c/${challenge.id}/planted/${pledgeId}`}
+              text={`I just planted ${formatUsd(amount * 1_000_000)} on ${streamerName}'s challenge. It only pays if they pull it off. Back it with me:`}
+              card={`/api/cards/pledge/${pledgeId}`}
+              cardName={`potted-${pledgeId}.png`}
+            />
+          )}
           <div className="join-next">
             <Link className="btn btn-primary" href="/garden">
               See your garden grow

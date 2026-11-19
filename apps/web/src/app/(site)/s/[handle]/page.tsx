@@ -22,6 +22,19 @@ import { GroupedByGame } from "@/components/GroupedByGame";
 import { groupByGame } from "@/lib/format";
 import { followersOf, isFollowing } from "@/lib/notifications";
 import { CategoryPreview, StreamHeader, StreamPreview } from "@/components/StreamHeader";
+import { ShareButtons } from "@/components/ShareButtons";
+import type { Metadata } from "next";
+
+/** A shared streamer link unfurls as their card: what is live and their record. */
+export async function generateMetadata({ params }: { params: Promise<{ handle: string }> }): Promise<Metadata> {
+  const { handle } = await params;
+  const streamer = getStreamer(handle);
+  if (!streamer) return {};
+  const title = `${streamer.name} on Potted`;
+  const description = `Back ${streamer.name}'s challenges. A pledge pays out only if they pull it off, and comes back if they miss.`;
+  const image = { url: `/api/cards/streamer/${handle}`, width: 1200, height: 630, alt: title };
+  return { title, description, openGraph: { title, description, images: [image] }, twitter: { card: "summary_large_image", title, description, images: [image.url] } };
+}
 
 export default async function StreamerPage({ params, searchParams }: { params: Promise<{ handle: string }>; searchParams: Promise<{ from?: string }> }) {
   const { handle } = await params;
@@ -78,6 +91,12 @@ export default async function StreamerPage({ params, searchParams }: { params: P
             }
           />
           <p className="lede">Pick a challenge and add to its pot. If {streamer.name} misses it, you get your pledge back.</p>
+          <ShareButtons
+            path={`/s/${streamer.handle}`}
+            text={user?.id === streamer.id ? "Back my challenges on Potted. Every pledge pays only if I pull it off:" : `Back ${streamer.name}'s challenges on Potted. It only pays if they pull it off:`}
+            card={`/api/cards/streamer/${streamer.handle}`}
+            cardName={`potted-${streamer.handle}.png`}
+          />
         </div>
         {twitch ? (
           <StreamPreview twitch={twitch} name={streamer.name} />

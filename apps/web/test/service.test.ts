@@ -53,7 +53,7 @@ describe("challenge lifecycle on the sim ledger", () => {
     expect(await service.balanceOf(streamer())).toBe(toMicro(7.5));
     expect(await service.balanceOf(ana)).toBe(toMicro(20));
     const types = service.eventsSince("ryan", 0).map((e) => e.type);
-    expect(types).toEqual(["created", "pledged", "pledged", "milestone", "locked", "paid"]);
+    expect(types).toEqual(["created", "pledged", "comment", "pledged", "milestone", "locked", "paid"]);
   });
 
   it("refunds every fan in full when the streamer loses", async () => {

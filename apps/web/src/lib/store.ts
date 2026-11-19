@@ -38,6 +38,8 @@ export interface StreamSettings {
   overlayCards: 1 | 2;
   /** Show a QR code to the fan page on the overlay. */
   overlayQr: boolean;
+  /** A one-line aside from Grok under pledge alerts. Shown, not read aloud. */
+  overlayCommentary: boolean;
   /** The streamer's Twitch login and YouTube handle, so the extension can match a tab to this stream. */
   twitchChannel: string;
   youtubeChannel: string;
@@ -73,6 +75,7 @@ export const DEFAULT_SETTINGS: StreamSettings = {
   overlayPosition: "bottom-left",
   overlayCards: 2,
   overlayQr: true,
+  overlayCommentary: true,
   twitchChannel: "",
   youtubeChannel: "",
   kickChannel: "",
@@ -160,7 +163,7 @@ export interface User {
   awarded?: { badges: string[]; level: number; milestones: string[] };
 }
 
-export type EventType = "created" | "pledged" | "locked" | "claimed" | "disputed" | "paid" | "failed" | "refunded" | "milestone" | "recap" | "bounty" | "redeemed" | "gift" | "charity";
+export type EventType = "created" | "pledged" | "locked" | "claimed" | "disputed" | "paid" | "failed" | "refunded" | "milestone" | "recap" | "bounty" | "redeemed" | "gift" | "charity" | "comment";
 
 /** USDC that reached a cause's wallet, as the charity Stream reported it from the chain. */
 export interface CauseReceipt {
@@ -199,6 +202,8 @@ export interface StreamEvent {
   sfx?: "half" | "goal";
   /** Who wrote the line, when it was not a fixed sentence. */
   by?: "grok";
+  /** For an aside ("comment"): the pledge line it reacts to. */
+  about?: number;
   /**
    * For a pledge made on Solana: when the transaction was confirmed and
    * when the QuickNode Stream delivered it (server clock, ms), so the
@@ -220,7 +225,8 @@ export interface Db {
   chain: ChainEvent[];
   causeReceipts: CauseReceipt[];
   /** Garden badges put on Solana, by "<user id>:<badge id>". */
-  badgeMints: Record<string, { mint: string; tx: string; at: number }>;
+  /** "compressed": a Bubblegum leaf, and `mint` is its asset id. Absent: a Token-2022 mint. */
+  badgeMints: Record<string, { mint: string; tx: string; at: number; kind?: "compressed" }>;
   /** Test USDC the faucet has given each wallet through Blinks (see blink-limits.ts). */
   blinkTopUps?: Record<string, number>;
   /** Grok's posts on X about on-chain moments (see x-posts.ts). */

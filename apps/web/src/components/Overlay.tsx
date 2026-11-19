@@ -131,6 +131,9 @@ const SPOKEN = new Set(["charity", "pledged", "locked", "paid", "failed", "claim
 export function Overlay({ handle, muted, qrSvg }: { handle: string; muted: boolean; /** QR code to the fan page, as SVG markup made on the server. */ qrSvg: string }) {
   const [challenges, setChallenges] = useState<OverlayChallenge[]>([]);
   const [toast, setToast] = useState<Shown | null>(null);
+  /** Grok's one-line aside on the latest pledge: shown under the alerts, never read aloud. */
+  const [aside, setAside] = useState<OverlayEvent | null>(null);
+  const asideTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [cause, setCause] = useState<OverlayCause | null>(null);
   const [settings, setSettings] = useState<OverlaySettings>({ announcer: true, position: "bottom-left", cards: 2, qr: false });
   // Read inside the timer callbacks, so a settings change applies without restarting the poll.
@@ -172,6 +175,15 @@ export function Overlay({ handle, muted, qrSvg }: { handle: string; muted: boole
         setSettings(feed.settings);
         setCause(feed.cause);
         setChallenges(feed.challenges);
+        const asides = feed.events.filter((e) => e.type === "comment");
+        feed.events = feed.events.filter((e) => e.type !== "comment");
+        const latest = asides.at(-1);
+        if (latest) {
+          // Lands just after the pledge alert it reacts to.
+          setTimeout(() => setAside(latest), showing.current ? 900 : 0);
+          clearTimeout(asideTimer.current);
+          asideTimer.current = setTimeout(() => setAside((a) => (a?.seq === latest.seq ? null : a)), 7500);
+        }
         if (feed.events.length > 0) {
           // Timed as it reaches this screen, so a line waiting in the queue does not look slower.
           const arrived = Date.now() + offset.current;
@@ -211,6 +223,14 @@ export function Overlay({ handle, muted, qrSvg }: { handle: string; muted: boole
               {toast.by === "grok" && <span>Written by Grok{toast.voiced ? " · voiced by ElevenLabs" : ""}</span>}
             </span>
           )}
+        </div>
+      )}
+      {aside && (
+        <div key={aside.seq} className="overlay-aside" data-testid="overlay-aside">
+          <span className="overlay-aside-mark" aria-hidden>
+            {aside.by === "grok" ? "Grok" : "Potted"}
+          </span>
+          {aside.message}
         </div>
       )}
       <div className="overlay-stack">

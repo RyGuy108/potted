@@ -12,13 +12,19 @@
     "test:solana": "SOLANA_TEST_RPC=http://127.0.0.1:8899 vitest run test/solana.integration.test.ts",
     "sample": "node --env-file-if-exists=.env.local --import tsx scripts/sample-data.ts",
     "quicknode": "node --env-file-if-exists=.env.local --import tsx scripts/quicknode.ts",
-    "keys": "node --env-file-if-exists=.env.local --import tsx scripts/keys.ts"
+    "keys": "node --env-file-if-exists=.env.local --import tsx scripts/keys.ts",
+    "badges:setup": "node --env-file-if-exists=.env.local --import tsx scripts/badges-setup.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "0.32.1",
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@fontsource-variable/space-grotesk": "^5.3.0",
+    "@metaplex-foundation/mpl-bubblegum": "^6.0.0",
+    "@metaplex-foundation/mpl-core": "^1.10.0",
+    "@metaplex-foundation/umi": "^1.6.0",
+    "@metaplex-foundation/umi-bundle-defaults": "^1.6.0",
+    "@metaplex-foundation/umi-web3js-adapters": "^1.6.0",
     "@potted/chain": "workspace:*",
     "@potted/coordinator": "workspace:*",
     "@potted/core": "workspace:*",

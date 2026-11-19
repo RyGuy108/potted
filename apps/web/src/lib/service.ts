@@ -22,7 +22,7 @@ import {
   refundReason,
   toMicro,
 } from "@potted/core";
-import { type Deps as CoordinatorDeps, type RecapFacts, defaultDeps as coordinatorDeps, draftRecap } from "@potted/coordinator";
+import { type Deps as CoordinatorDeps, type PledgeFacts, type RecapFacts, commentOnPledge, defaultDeps as coordinatorDeps, draftRecap } from "@potted/coordinator";
 import { type Deps, defaultDeps, snapshot, verify } from "@potted/verifier";
 import * as notifications from "./notifications";
 import { isSimTx, ledger } from "./ledger";
@@ -164,6 +164,10 @@ export function pledgesFor(challengeId: string): (Pledge & { fanName: string })[
 }
 
 /** One row per fan, for the funders list. */
+export function pledgeById(pledgeId: string): Pledge | undefined {
+  return db().pledges.find((p) => p.id === pledgeId);
+}
+
 export function fundersOf(challengeId: string): { userId: string; fanName: string; amountMicro: number; refunded: boolean }[] {
   const byFan = new Map<string, { userId: string; fanName: string; amountMicro: number; refunded: boolean }>();
   for (const p of pledgesFor(challengeId)) {
@@ -242,7 +246,7 @@ export function announce(type: EventType, challenge: Challenge, message: string)
   emit(type, challenge, message);
 }
 
-type EventExtra = Pick<StreamEvent, "sfx" | "by" | "chain"> & {
+type EventExtra = Pick<StreamEvent, "sfx" | "by" | "chain" | "about"> & {
   /** Keep the line off the overlay until the QuickNode Stream delivers this transaction. */
   hold?: boolean;
 };
@@ -434,6 +438,7 @@ export async function updateSettings(actor: User, input: Partial<Record<keyof St
     overlayCards: Number(input.overlayCards) === 1 ? 1 : 2,
     // Absent in settings saved before the QR existed; keep the current value then.
     overlayQr: input.overlayQr === undefined ? settingsOf(actor).overlayQr : input.overlayQr === true,
+    overlayCommentary: input.overlayCommentary === undefined ? current.overlayCommentary !== false : input.overlayCommentary === true,
     blockedWords,
     autopilot: input.autopilot === undefined ? current.autopilot : input.autopilot === true,
     scoutMaxGoalUsd: current.scoutMaxGoalUsd,
@@ -773,6 +778,7 @@ function applyPledge(challenge: Challenge, actor: User, amountMicro: number, tx:
     createdAt: Date.now(),
     tx,
   };
+  const earlier = db().pledges.filter((p) => p.challengeId === challenge.id && !p.refunded);
   db().pledges.push(record);
   const before = growthOf(challenge.totalMicro, challenge.goalMicro).index;
   const ratioBefore = challenge.goalMicro > 0 ? challenge.totalMicro / challenge.goalMicro : 0;
@@ -781,6 +787,7 @@ function applyPledge(challenge: Challenge, actor: User, amountMicro: number, tx:
   const chain = onChain ? { signature: tx, confirmedAt: timing.confirmedAt, ...(timing.streamAt ? { streamAt: timing.streamAt } : {}) } : undefined;
   const extra: EventExtra = chain ? { chain, hold: Boolean(timing.hold) && !timing.streamAt } : {};
   emit("pledged", challenge, `${actor.name} added ${formatUsd(amountMicro)}. The pot is at ${formatUsd(challenge.totalMicro)}.`, extra);
+  void commentOn(challenge, actor, record, earlier, chain);
   // One line for the highest stage this pledge reached, so a big pledge
   // that jumps two stages is announced once. Crossing half way or the goal
   // also plays a sound effect before the line.
@@ -791,6 +798,64 @@ function applyPledge(challenge: Challenge, actor: User, amountMicro: number, tx:
   if (line) emit("milestone", challenge, line(challenge), { ...extra, ...(sfx ? { sfx } : {}) });
   else if (sfx === "half") emit("milestone", challenge, `Half way there! ${formatUsd(challenge.totalMicro)} of ${formatUsd(challenge.goalMicro)}.`, { ...extra, sfx });
   return record;
+}
+
+/** One aside per streamer every few seconds at most, so a burst of pledges does not flood the overlay or Grok. */
+const lastAside = ((globalThis as { __pottedAside?: Map<string, number> }).__pottedAside ??= new Map());
+const ASIDE_EVERY_MS = 8_000;
+
+/** What the commentator may say about a pledge: only facts from our records. */
+export function pledgeFacts(challenge: Challenge, actor: User, pledge: Pledge, earlier: Pledge[], now = Date.now()): PledgeFacts {
+  const streamer = getUser(challenge.streamerId);
+  const planters = new Set([...earlier.map((p) => p.userId), actor.id]).size;
+  const sameStreamer = new Set(db().challenges.filter((c) => c.streamerId === challenge.streamerId).map((c) => c.id));
+  const tonight = db().pledges.filter((p) => p.userId === actor.id && sameStreamer.has(p.challengeId) && now - p.createdAt < 12 * 3_600_000).length;
+  const short = challenge.goalMicro - challenge.totalMicro;
+  const minutes = Math.ceil((challenge.settleBy - now) / 60_000);
+  return {
+    planter: actor.name,
+    streamer: streamer?.name ?? "the streamer",
+    title: challenge.title,
+    amount: formatUsd(pledge.amountMicro),
+    pot: formatUsd(challenge.totalMicro),
+    ...(challenge.goalMicro > 0 ? { goal: formatUsd(challenge.goalMicro) } : {}),
+    ...(challenge.goalMicro > 0 && short > 0 ? { toGo: formatUsd(short) } : {}),
+    planters,
+    planterPledgesTonight: Math.max(1, tonight),
+    firstOnChallenge: earlier.length === 0,
+    biggestOnChallenge: earlier.length > 0 && earlier.every((p) => p.amountMicro < pledge.amountMicro),
+    ...(challenge.status === "open" || challenge.status === "locked" ? (minutes > 0 && minutes <= 60 ? { minutesLeft: minutes } : {}) : {}),
+  };
+}
+
+/**
+ * Puts Grok's one-line aside on the overlay, under the pledge it reacts to.
+ * Not awaited by the pledge: Grok can take a few seconds. If the pledge line
+ * is still waiting for the QuickNode Stream, the aside waits with it.
+ */
+async function commentOn(challenge: Challenge, actor: User, pledge: Pledge, earlier: Pledge[], chain: StreamEvent["chain"], deps: CoordinatorDeps = coordinatorDeps()): Promise<void> {
+  try {
+    const streamers = streamersOf(challenge).filter((s) => s.handle && settingsOf(s).overlayCommentary !== false);
+    if (streamers.length === 0) return;
+    const key = challenge.streamerId;
+    const now = Date.now();
+    if (now - (lastAside.get(key) ?? 0) < ASIDE_EVERY_MS) return;
+    lastAside.set(key, now);
+    const aside = await commentOnPledge(pledgeFacts(challenge, actor, pledge, earlier, now), deps);
+    if (!aside) return;
+    const held = chain ? heldEvents.some((e) => e.chain?.signature === chain.signature) : false;
+    for (const s of streamers) {
+      const line = [...db().events].reverse().find((e) => e.handle === s.handle && e.type === "pledged" && e.challengeId === challenge.id);
+      emitTo(s.handle!, "comment", challenge.id, aside.text, {
+        ...(aside.source === "grok" ? { by: "grok" as const } : {}),
+        ...(line && !held ? { about: line.seq } : {}),
+        ...(held && chain ? { chain, hold: true } : {}),
+      });
+    }
+    save();
+  } catch {
+    // An aside is a nice extra; never let it break a pledge.
+  }
 }
 
 /** Shortens a wallet address for a name: "7xKX…3fAq". */
@@ -2056,8 +2121,8 @@ export function walletPledgeProblem(challenge: Challenge, wallet: string, amount
 // ---------------------------------------------------------------------------
 
 /** Each earned badge's token, if it has been put on Solana. */
-export function badgeMintsOf(user: User): Record<string, { mint: string; tx: string; at: number }> {
-  const out: Record<string, { mint: string; tx: string; at: number }> = {};
+export function badgeMintsOf(user: User): Record<string, { mint: string; tx: string; at: number; kind?: "compressed" }> {
+  const out: Record<string, { mint: string; tx: string; at: number; kind?: "compressed" }> = {};
   for (const [key, value] of Object.entries(db().badgeMints)) {
     const [userId, badgeId] = key.split(":");
     if (userId === user.id && badgeId) out[badgeId] = value;
@@ -2075,13 +2140,19 @@ export async function mintBadges(user: User, base: string): Promise<{ minted: st
   const chain = ledger();
   if (chain.kind !== "solana") fail("Badges go on Solana only when the app runs on the Solana ledger");
   const { mintBadge } = await import("./badge-mint");
+  const cnft = await import("./badge-cnft");
   const solana = chain as unknown as { connection: import("@solana/web3.js").Connection; server: import("@solana/web3.js").Keypair };
+  // Compressed NFTs when the tree is set up; Token-2022 soulbound mints otherwise.
+  const compressed = cnft.compressedBadgesOn();
+  const umi = compressed ? cnft.badgeUmi(solana.connection.rpcEndpoint, solana.server) : undefined;
+  const where = { tree: process.env.BADGE_TREE ?? "", collection: process.env.BADGE_COLLECTION ?? "" };
   const minted: string[] = [];
   for (const badge of planterStats(user).badges.filter((b) => b.earned)) {
     const key = `${user.id}:${badge.id}`;
     if (db().badgeMints[key]) continue;
-    const result = await mintBadge(solana.connection, solana.server, user.wallet, { id: badge.id, name: badge.name, uri: `${base}/api/badges/${badge.id}` });
-    db().badgeMints[key] = { ...result, at: Date.now() };
+    const meta = { id: badge.id, name: badge.name, uri: `${base}/api/badges/${badge.id}` };
+    const result = umi ? await cnft.mintCompressedBadge(umi, where, user.wallet!, meta) : await mintBadge(solana.connection, solana.server, user.wallet, meta);
+    db().badgeMints[key] = { ...result, at: Date.now(), ...(umi ? { kind: "compressed" as const } : {}) };
     save();
     minted.push(badge.id);
   }

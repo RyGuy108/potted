@@ -24,11 +24,11 @@ export function SettingsForm({ initial, bounties = true }: { initial: StreamSett
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
 
-  const toggle = (key: "acceptingSuggestions" | "acceptingBounties" | "announcer" | "overlayQr" | "causeOn", label: string) => (
+  const toggle = (key: "acceptingSuggestions" | "acceptingBounties" | "announcer" | "overlayQr" | "overlayCommentary" | "causeOn", label: string) => (
     <label className="check">
       <input
         type="checkbox"
-        checked={settings[key]}
+        checked={settings[key] !== false}
         onChange={(e) => setSettings({ ...settings, [key]: e.target.checked })}
       />
       {label}
@@ -54,6 +54,7 @@ export function SettingsForm({ initial, bounties = true }: { initial: StreamSett
         {bounties && toggle("acceptingBounties", "Let fans fund requests (paid when you start them)")}
         {toggle("announcer", "Read events aloud on stream")}
         {toggle("overlayQr", "Show a QR code on the overlay")}
+        {toggle("overlayCommentary", "Grok's one-line reaction under pledge alerts")}
       </div>
       <div className="grid">
         <label className="field">
