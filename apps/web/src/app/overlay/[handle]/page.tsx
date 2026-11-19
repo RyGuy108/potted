@@ -19,7 +19,8 @@ export default async function OverlayPage({
   const { muted, bg } = await searchParams;
   const streamer = getStreamer(handle);
   if (!streamer?.handle) notFound();
-  const qrSvg = await QRCode.toString(`${await publicBase()}/s/${streamer.handle}`, {
+  // The QR opens the first-time fan path: one screen from scanning to pledged.
+  const qrSvg = await QRCode.toString(`${await publicBase()}/j/${streamer.handle}`, {
     type: "svg",
     margin: 1,
     errorCorrectionLevel: "M",

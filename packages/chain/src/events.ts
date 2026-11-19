@@ -2,17 +2,22 @@ import { createHash } from "node:crypto";
 import { base58 } from "./base58";
 
 /** The escrow program's events, in the field order the program writes them. */
-const LAYOUTS = {
+/** Each event's fields in order, as the program writes them. */
+export const EVENT_LAYOUTS = {
   ChallengeCreated: [["challenge", "pubkey"], ["streamer", "pubkey"], ["id", "u64"], ["deadline", "i64"], ["settleBy", "i64"]],
   Pledged: [["challenge", "pubkey"], ["fan", "pubkey"], ["amount", "u64"], ["totalPledged", "u64"]],
   Locked: [["challenge", "pubkey"], ["totalPledged", "u64"], ["upfrontPaid", "u64"]],
   Cancelled: [["challenge", "pubkey"], ["totalPledged", "u64"]],
   Settled: [["challenge", "pubkey"], ["success", "bool"], ["paidOut", "u64"], ["evidenceRef", "string"]],
   Refunded: [["challenge", "pubkey"], ["fan", "pubkey"], ["amount", "u64"]],
-} as const satisfies Record<string, readonly (readonly [string, "pubkey" | "u64" | "i64" | "bool" | "string"])[]>;
+  /** A guest's or a cause's share, paid by the program straight from the vault. */
+  SharePaid: [["challenge", "pubkey"], ["wallet", "pubkey"], ["amount", "u64"]],
+  /** The shares fixed when a challenge opened, as "wallet:pct" pairs joined by commas. */
+  SplitsSet: [["challenge", "pubkey"], ["shares", "shares"]],
+} as const satisfies Record<string, readonly (readonly [string, "pubkey" | "u64" | "i64" | "bool" | "string" | "shares"])[]>;
 
-export type EventName = keyof typeof LAYOUTS;
-export const EVENT_NAMES = Object.keys(LAYOUTS) as EventName[];
+export type EventName = keyof typeof EVENT_LAYOUTS;
+export const EVENT_NAMES = Object.keys(EVENT_LAYOUTS) as EventName[];
 
 export interface EscrowEvent {
   name: EventName;
@@ -34,7 +39,7 @@ function decodeEvent(data: Buffer): EscrowEvent | undefined {
   const fields: Record<string, string | number | boolean> = {};
   let at = 8;
   try {
-    for (const [field, type] of LAYOUTS[name]) {
+    for (const [field, type] of EVENT_LAYOUTS[name]) {
       if (type === "pubkey") {
         if (at + 32 > data.length) return undefined;
         fields[field] = base58(data.subarray(at, at + 32));
@@ -46,6 +51,16 @@ function decodeEvent(data: Buffer): EscrowEvent | undefined {
       } else if (type === "bool") {
         fields[field] = data.readUInt8(at) === 1;
         at += 1;
+      } else if (type === "shares") {
+        const count = data.readUInt32LE(at);
+        at += 4;
+        if (count > 8 || at + count * 33 > data.length) return undefined;
+        const parts: string[] = [];
+        for (let i = 0; i < count; i++) {
+          parts.push(`${base58(data.subarray(at, at + 32))}:${data.readUInt8(at + 32)}`);
+          at += 33;
+        }
+        fields[field] = parts.join(",");
       } else {
         const length = data.readUInt32LE(at);
         at += 4;

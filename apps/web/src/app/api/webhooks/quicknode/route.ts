@@ -1,6 +1,8 @@
-import { gunzipSync } from "node:zlib";
-import { parseDelivery, verifySignature } from "@potted/chain";
+import { parseDelivery } from "@potted/chain";
 import { recordChainEvents } from "@/lib/chain";
+import { baseOf } from "@/lib/blinks";
+import { readDelivery } from "@/lib/quicknode-delivery";
+import { postMoment } from "@/lib/x-posts";
 import * as service from "@/lib/service";
 
 export const dynamic = "force-dynamic";
@@ -16,29 +18,10 @@ export async function POST(request: Request) {
     return Response.json({ error: "Set QUICKNODE_WEBHOOK_SECRET and POTTED_PROGRAM_ID to accept stream deliveries" }, { status: 503 });
   }
 
-  // Streams sign the uncompressed JSON, so unzip before checking.
-  const raw = Buffer.from(await request.arrayBuffer());
-  let body: string;
-  try {
-    body = (raw[0] === 0x1f && raw[1] === 0x8b ? gunzipSync(raw) : raw).toString("utf8");
-  } catch {
-    return Response.json({ error: "Unreadable body" }, { status: 400 });
-  }
-  const ok = verifySignature({
-    secret,
-    body,
-    nonce: request.headers.get("x-qn-nonce") ?? "",
-    timestamp: request.headers.get("x-qn-timestamp") ?? "",
-    signature: request.headers.get("x-qn-signature") ?? "",
-  });
-  if (!ok) return Response.json({ error: "Bad signature" }, { status: 401 });
+  const read = await readDelivery(request, secret);
+  if ("response" in read) return read.response;
+  const payload = read.payload;
 
-  let payload: unknown;
-  try {
-    payload = JSON.parse(body);
-  } catch {
-    return Response.json({ error: "Body is not JSON" }, { status: 400 });
-  }
   const arrived = Date.now();
   const events = parseDelivery(payload, programId);
   const stored = recordChainEvents(events);
@@ -60,5 +43,8 @@ export async function POST(request: Request) {
     });
     if (fresh) booked++;
   }
-  return Response.json({ decoded: events.length, stored, shown, booked });
+  // Grok posts on X about milestones and results the chain just showed. Not awaited: the Stream should not wait on Grok or X.
+  const moments = stored > 0 ? service.momentsFrom(events, baseOf(request)) : [];
+  for (const { challengeId, moment } of moments) void postMoment(challengeId, moment);
+  return Response.json({ decoded: events.length, stored, shown, booked, ...(moments.length ? { moments: moments.length } : {}) });
 }

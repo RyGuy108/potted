@@ -110,6 +110,11 @@ export default async function StreamerPage({ params, searchParams }: { params: P
                 <span className="mono">{formatUsd(raised.inPlayMicro)}</span> more if the live challenges are completed
               </>
             )}
+            {raised.confirmedMicro > 0 && (
+              <span className="cause-confirmed" title="Seen arriving at the cause's wallet by a QuickNode Stream">
+                ✓ <span className="mono">{formatUsd(raised.confirmedMicro)}</span> confirmed on Solana
+              </span>
+            )}
           </p>
           <p className="muted small">The cause is named by {streamer.name}. This prototype does not verify charities.</p>
         </section>

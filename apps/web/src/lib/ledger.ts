@@ -14,7 +14,8 @@ export interface Ledger {
   /** Test funds for judge mode. */
   faucet(wallet: string, amountMicro: number): Promise<string>;
   balanceOf(wallet: string): Promise<number>;
-  createChallenge(challenge: Challenge, streamerWallet: string): Promise<{ ref: string; tx: string }>;
+  /** Opens the challenge. `shareWallets` are the wallets for its splits, in order; the Solana ledger fixes them on chain. */
+  createChallenge(challenge: Challenge, streamerWallet: string, shareWallets?: string[]): Promise<{ ref: string; tx: string }>;
   pledge(challenge: Challenge, fanWallet: string, amountMicro: number): Promise<string>;
   /** Closes pledging. Pays the up-front share out as listed, if there is one. */
   lock(challenge: Challenge, upfront: Payout[]): Promise<string>;

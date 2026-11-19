@@ -1,4 +1,5 @@
-import { briefWithGrok, draftWithGrok, recapWithGrok, translateWithGrok } from "./grok";
+import { type ChainMoment, briefWithGrok, checkPost, draftWithGrok, postLength, postWithGrok, recapWithGrok, translateWithGrok } from "./grok";
+export { type ChainMoment, checkPost, postLength } from "./grok";
 import { briefWithRules, draftWithRules } from "./rules";
 import { type ScoutInput, type Scouting, scoutWithGrok, scoutWithRules } from "./scout";
 import type { Brief, Deps, DisputeCase, Draft, Idea, RecapFacts } from "./types";
@@ -89,4 +90,30 @@ export async function translateLine(text: string, language: string, deps: Deps =
   } catch {
     return { text, translated: false };
   }
+}
+
+/** A fixed post for each kind of moment, used with no Grok key or when Grok's draft fails the checks. */
+export function postByRules(m: ChainMoment): string {
+  const of = m.goal ? ` of ${m.goal}` : "";
+  const text = {
+    half: `Half way there: ${m.pot}${of} pledged for ${m.streamer}'s challenge "${m.title}". It pays only if they pull it off. Back it: ${m.link}`,
+    goal: `Goal reached: ${m.pot} in escrow for ${m.streamer}'s challenge "${m.title}". Now they have to pull it off. Watch or back it: ${m.link}`,
+    completed: `${m.streamer} did it: "${m.title}" is complete and the ${m.pot} pot was paid out on Solana. Thank you, ${m.planters} planters. ${m.link}`,
+    missed: `${m.streamer} missed "${m.title}" this time. All ${m.planters} planters are refunded automatically from escrow. ${m.link}`,
+  }[m.kind];
+  // A very long title can push the fixed text over the limit: shorten the title, never the link.
+  if (postLength(text) <= 280) return text;
+  return postByRules({ ...m, title: `${m.title.slice(0, Math.max(10, m.title.length - (postLength(text) - 280) - 1))}…` });
+}
+
+/** Grok writes the post about an on-chain moment; with no key, or a draft that fails the checks, the fixed text is used. */
+export async function draftPost(moment: ChainMoment, deps: Deps = defaultDeps()): Promise<{ text: string; source: "grok" | "rules" }> {
+  if (usesGrok(deps)) {
+    try {
+      return { text: await postWithGrok(moment, deps), source: "grok" };
+    } catch {
+      // fall through to the fixed text
+    }
+  }
+  return { text: checkPost(postByRules(moment), moment), source: "rules" };
 }

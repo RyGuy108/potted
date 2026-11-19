@@ -79,3 +79,56 @@ line goes up anyway, without a time.
 The Stream also books pledges that wallets made on their own, from a
 Blink, if the wallet's confirmation call has not already. Each
 transaction is booked once, however many times it is delivered.
+
+
+## Decoding inside QuickNode, and the charity Stream
+
+Print both filters, generated from the same event layouts the app decodes
+with, and paste each into its Stream:
+
+```
+pnpm --filter @potted/web quicknode filters
+```
+
+1. **Escrow Stream** (destination `/api/webhooks/quicknode`, token in
+   `QUICKNODE_WEBHOOK_SECRET`). The filter decodes the program's events
+   inside QuickNode, so deliveries carry ready-made Potted events (pledges,
+   locks, results, refunds, splits and each `SharePaid`) instead of raw
+   transactions. An event counts only while the escrow program itself was
+   running, as in the app. The app still accepts raw transactions too.
+2. **Charity Stream** (destination `/api/webhooks/quicknode/causes`, its own
+   token in `QUICKNODE_CAUSES_SECRET`). The filter watches the causes'
+   wallets and reports any USDC that arrives, from the escrow program or
+   anyone else. The overlay says "$2 just reached Food Bank, confirmed on
+   Solana" with how fast it got there, and the stream page shows the total
+   confirmed on chain. The wallet list is fixed in the filter: run the
+   command again and update the Stream when a streamer adds a cause.
+
+Both filters are tested by running them on real blocks from a local
+validator (`getBlock`), which has the same shape as the Block dataset.
+
+## Backfill
+
+For the time before the Stream ran, or while it was down:
+
+```
+pnpm --filter @potted/web quicknode backfill        # newest 500 transactions
+pnpm --filter @potted/web quicknode backfill 5000
+```
+
+It reads the program's past transactions through `SOLANA_RPC_URL` (use
+your QuickNode endpoint), decodes them like a delivery and stores each
+event once, so nothing already delivered is duplicated. QuickNode Streams
+can also replay from a past block themselves: set the Stream's start block
+when you create it.
+
+## Grok on X
+
+When the escrow Stream shows a goal pot crossing half its goal, reaching
+it, or a challenge settling, Grok writes a post with the challenge's link
+(which opens as a Blink). Each post is checked: the link exactly once, only
+figures from the facts, no @mentions, at most one hashtag, within X's
+limit. Without a Grok key, or if the draft fails a check, fixed text is
+used. Posts appear on `/activity` as drafts; set `POTTED_X_POSTS=auto` with
+the X keys (docs/keys.md) to post them from Potted's account. A post with a
+link costs about $0.20 on X's pay-per-use API.

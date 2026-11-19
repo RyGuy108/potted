@@ -5,6 +5,7 @@ import { AutoRefresh } from "@/components/Live";
 import { chainEvents, explorerUrl } from "@/lib/chain";
 import { ledger } from "@/lib/ledger";
 import { challengeByLedgerRef } from "@/lib/service";
+import { autoPosting, xPosts } from "@/lib/x-posts";
 
 const short = (address: string) => `${address.slice(0, 4)}…${address.slice(-4)}`;
 
@@ -23,12 +24,20 @@ function describe(event: ChainEvent): string {
       return f.success ? `Completed: ${formatUsd(Number(f.paidOut))} paid to the streamer` : "Not completed: refunds open";
     case "Refunded":
       return `${formatUsd(Number(f.amount))} returned to ${short(String(f.fan))}`;
+    case "SharePaid":
+      return `${formatUsd(Number(f.amount))} share paid from escrow to ${short(String(f.wallet))}`;
+    case "SplitsSet":
+      return `Shares fixed before any pledge: ${String(f.shares)
+        .split(",")
+        .map((p) => `${p.split(":")[1]}% to ${short(p.split(":")[0] ?? "")}`)
+        .join(", ")}`;
   }
 }
 
 /** Every escrow event seen on chain, straight from the QuickNode Stream. */
 export default function Activity() {
   const events = chainEvents();
+  const posts = xPosts();
   const configured = Boolean(process.env.QUICKNODE_WEBHOOK_SECRET && process.env.POTTED_PROGRAM_ID);
   return (
     <>
@@ -71,6 +80,36 @@ export default function Activity() {
             );
           })}
         </div>
+      )}
+
+      {posts.length > 0 && (
+        <section className="x-posts">
+          <h2>Grok on X</h2>
+          <p className="muted small">
+            When the Stream shows a pot reaching half way, its goal, or a result, Grok writes a post with the link to back it.{" "}
+            {autoPosting() ? "Posts go out from Potted's account." : "They are drafts until auto-posting is on (POTTED_X_POSTS=auto)."}
+          </p>
+          <div className="card activity">
+            {posts.map((post) => (
+              <div key={post.key} className="activity-row">
+                <span className={`tag tag-x-${post.status}`}>{post.status === "posted" ? "Posted" : post.status === "failed" ? "Failed" : "Draft"}</span>
+                <span className="activity-text">
+                  {post.text}
+                  <span className="muted small"> · {post.by === "grok" ? "written by Grok" : "fixed text"}{post.error ? ` · ${post.error}` : ""}</span>
+                </span>
+                {post.postId ? (
+                  <a className="mono small" href={`https://x.com/i/web/status/${post.postId}`} target="_blank" rel="noreferrer">
+                    View on X
+                  </a>
+                ) : (
+                  <a className="mono small" href={explorerUrl(post.signature)} target="_blank" rel="noreferrer">
+                    {short(post.signature)}
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
       )}
     </>
   );

@@ -159,6 +159,10 @@ export function SettingsForm({ initial, bounties = true }: { initial: StreamSett
           <span>Link to the cause (optional)</span>
           <input value={settings.causeUrl} onChange={(e) => setSettings({ ...settings, causeUrl: e.target.value })} placeholder="https://" />
         </label>
+        <label className="field">
+          <span>Cause&apos;s Solana wallet (optional)</span>
+          <input value={settings.causeWallet} onChange={(e) => setSettings({ ...settings, causeWallet: e.target.value })} placeholder="Paid straight from escrow on a win" />
+        </label>
       </div>
       <label className="field">
         <span>Blocked words in suggestions (comma-separated)</span>

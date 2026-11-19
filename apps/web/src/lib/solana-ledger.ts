@@ -193,8 +193,10 @@ export class SolanaLedger implements Ledger {
     }
   }
 
-  async createChallenge(challenge: Challenge, streamerWallet: string) {
+  async createChallenge(challenge: Challenge, streamerWallet: string, shareWallets: string[] = []) {
     const { account, vault } = this.accountsFor(challenge, streamerWallet);
+    const splits = challenge.splits ?? [];
+    if (splits.length !== shareWallets.length) throw new Error("Every share needs a wallet");
     const tx = await this.program.methods
       .createChallenge(
         chainId(challenge.id),
@@ -214,6 +216,15 @@ export class SolanaLedger implements Ledger {
         vault,
       })
       .transaction();
+    // Guest and cause shares are fixed in the same transaction, before anyone can pledge.
+    if (splits.length > 0) {
+      tx.add(
+        await this.program.methods
+          .setSplits(splits.map((split, i) => ({ wallet: new PublicKey(shareWallets[i]!), pct: split.pct })))
+          .accountsPartial({ payer: this.server.publicKey, streamer: new PublicKey(streamerWallet), challenge: account, splits: this.splitsAddress(account) })
+          .instruction(),
+      );
+    }
     const sent = await this.sendAs(tx, [streamerWallet]);
     // "<challenge account>:<streamer wallet>", so later calls can rebuild the addresses.
     return { ref: `${account.toBase58()}:${streamerWallet}`, tx: sent };
@@ -290,10 +301,35 @@ export class SolanaLedger implements Ledger {
     const { streamer, account, vault } = this.accountsFor(challenge);
     for (const p of upfront) new PublicKey(p.wallet);
     const streamerToken = await this.ensureTokenAccount(streamer.toBase58());
+    const { splits, shareAccounts, onChain } = await this.shareAccounts(account);
     // The program accepts the verifier as well as the streamer here.
-    const tx = await this.program.methods.lock().accountsPartial({ authority: this.server.publicKey, challenge: account, vault, streamerToken }).rpc();
-    await this.sendShares(streamer, streamerToken, upfront);
+    const tx = await this.program.methods
+      .lock()
+      .accountsPartial({ authority: this.server.publicKey, challenge: account, vault, streamerToken, splits })
+      .remainingAccounts(shareAccounts)
+      .rpc();
+    if (!onChain) await this.sendShares(streamer, streamerToken, upfront);
     return tx;
+  }
+
+  /** Where a challenge's splits live: fixed by the challenge's address. */
+  splitsAddress(account: PublicKey): PublicKey {
+    return PublicKey.findProgramAddressSync([Buffer.from("splits"), account.toBuffer()], this.program.programId)[0];
+  }
+
+  /**
+   * The splits account and a token account for each share, in order, for
+   * the program to pay into. `onChain` is false for a challenge opened
+   * before the program paid shares itself; those are still sent from the
+   * host's wallet afterwards.
+   */
+  private async shareAccounts(account: PublicKey): Promise<{ splits: PublicKey; shareAccounts: { pubkey: PublicKey; isWritable: boolean; isSigner: boolean }[]; onChain: boolean }> {
+    const splits = this.splitsAddress(account);
+    const record = await this.program.account.splits.fetchNullable(splits);
+    if (!record) return { splits, shareAccounts: [], onChain: false };
+    const shareAccounts = [];
+    for (const share of record.shares) shareAccounts.push({ pubkey: await this.ensureTokenAccount(share.wallet.toBase58()), isWritable: true, isSigner: false });
+    return { splits, shareAccounts, onChain: true };
   }
 
   /** A gift: test USDC straight from one custodial wallet to another, signed by the giver's key. */
@@ -318,11 +354,9 @@ export class SolanaLedger implements Ledger {
   }
 
   /**
-   * The program pays the whole pot to the host. Shares for a collab guest
-   * or a cause are then sent from the host's wallet, which the server can
-   * sign for because wallets are custodial in this mode. Splitting inside
-   * the program, so no one has to be trusted with a share, is the
-   * program-splits branch on the roadmap.
+   * The program pays each guest's and cause's share straight from the
+   * vault, by the splits fixed when the challenge opened, and the rest to
+   * the host. No one has to be trusted to pass a share on.
    */
   async settle(challenge: Challenge, success: boolean, evidence: Evidence | undefined, payouts: Payout[]): Promise<string> {
     const { streamer, account, vault } = this.accountsFor(challenge);
@@ -331,11 +365,14 @@ export class SolanaLedger implements Ledger {
     for (const p of payouts) new PublicKey(p.wallet);
     const evidenceRef = (evidence?.ref ?? (success ? "settled" : "failed")).slice(0, 96);
     const streamerToken = await this.ensureTokenAccount(streamer.toBase58());
+    const { splits, shareAccounts, onChain } = await this.shareAccounts(account);
     const tx = await this.program.methods
       .settle(success, evidenceRef, sha256(JSON.stringify(evidence ?? null)))
-      .accountsPartial({ verifier: this.server.publicKey, challenge: account, vault, streamerToken })
+      .accountsPartial({ verifier: this.server.publicKey, challenge: account, vault, streamerToken, splits })
+      .remainingAccounts(shareAccounts)
       .rpc();
-    if (success) await this.sendShares(streamer, streamerToken, payouts);
+    // The program has paid each share itself; only older challenges still need them sent on.
+    if (success && !onChain) await this.sendShares(streamer, streamerToken, payouts);
     return tx;
   }
 

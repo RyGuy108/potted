@@ -39,6 +39,8 @@ interface OverlayCause {
   name: string;
   pct: number;
   raisedMicro: number;
+  /** What the charity Stream has seen reach the cause's wallet on chain. */
+  confirmedMicro?: number;
   inPlayMicro: number;
 }
 
@@ -124,7 +126,7 @@ async function speak(event: OverlayEvent, muted: boolean, onLine: (text: string,
   }
 }
 
-const SPOKEN = new Set(["pledged", "locked", "paid", "failed", "claimed", "refunded", "milestone", "recap", "bounty", "redeemed", "gift"]);
+const SPOKEN = new Set(["charity", "pledged", "locked", "paid", "failed", "claimed", "refunded", "milestone", "recap", "bounty", "redeemed", "gift"]);
 
 export function Overlay({ handle, muted, qrSvg }: { handle: string; muted: boolean; /** QR code to the fan page, as SVG markup made on the server. */ qrSvg: string }) {
   const [challenges, setChallenges] = useState<OverlayChallenge[]>([]);
@@ -174,7 +176,7 @@ export function Overlay({ handle, muted, qrSvg }: { handle: string; muted: boole
           // Timed as it reaches this screen, so a line waiting in the queue does not look slower.
           const arrived = Date.now() + offset.current;
           queue.current.push(
-            ...feed.events.map((e) => (e.type === "pledged" && e.chain?.streamAt ? { ...e, speed: Math.max(0, (arrived - e.chain.confirmedAt) / 1000) } : e)),
+            ...feed.events.map((e) => ((e.type === "pledged" || e.type === "charity") && e.chain?.streamAt ? { ...e, speed: Math.max(0, (arrived - e.chain.confirmedAt) / 1000) } : e)),
           );
           // During a burst, keep every milestone but only the newest pledge,
           // so the toast never falls far behind the pot.
@@ -217,6 +219,7 @@ export function Overlay({ handle, muted, qrSvg }: { handle: string; muted: boole
             <span>For {cause.name}</span>
             <strong className="mono">{formatUsd(cause.raisedMicro)}</strong>
             <span className="muted">raised{cause.inPlayMicro > 0 ? ` · ${formatUsd(cause.inPlayMicro)} more if the live pots are won` : ""}</span>
+            {(cause.confirmedMicro ?? 0) > 0 && <span className="overlay-confirmed">✓ {formatUsd(cause.confirmedMicro!)} confirmed on Solana</span>}
           </div>
         )}
         {settings.qr && challenges.some((c) => c.status === "open") && (

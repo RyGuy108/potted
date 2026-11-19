@@ -6137,3 +6137,197 @@ button.badge-tile:focus-visible {
   color: #ff8f86;
   border-color: rgba(255, 90, 79, 0.35);
 }
+
+/* Charity: what the QuickNode Stream saw reach the cause's wallet */
+.cause-confirmed,
+.overlay-confirmed {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: var(--green, #3ecf8e);
+}
+
+.overlay-confirmed {
+  color: #0f7a4f;
+}
+
+.overlay-charity {
+  border-left-color: #3ecf8e;
+}
+
+/* Garden: badges on Solana */
+.badge-mint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin: -4px 0 14px;
+}
+
+.badge-chain {
+  margin-left: auto;
+  color: var(--green, #3ecf8e);
+  font-size: 0.85rem;
+}
+
+.badge-onchain {
+  color: var(--green, #3ecf8e);
+  font-size: 0.85rem;
+}
+
+/* First-time fan path: /j/<handle> */
+.join {
+  min-height: 100dvh;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 20px;
+  padding: 20px 16px 48px;
+}
+
+.join-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: min(520px, 100%);
+}
+
+.join-logo {
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: var(--ink, #faf7f2);
+  text-decoration: none;
+}
+
+.join-card {
+  display: grid;
+  gap: 12px;
+  width: min(520px, 100%);
+  padding: 24px;
+  border-radius: 22px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, #1d1813, #110e0b);
+}
+
+.join-card h1 {
+  margin: 0;
+  font-size: clamp(1.4rem, 5vw, 1.9rem);
+  line-height: 1.15;
+}
+
+.join-card p {
+  margin: 0;
+}
+
+.join-pot .mono {
+  font-size: 1.6rem;
+  margin-right: 4px;
+}
+
+.join-amounts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.join-amounts button {
+  min-height: 56px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(250, 247, 242, 0.04);
+  color: inherit;
+  font: 700 1.2rem/1 var(--mono, ui-monospace, monospace);
+  cursor: pointer;
+}
+
+.join-amounts button.on {
+  border-color: var(--wood, #e6c9a3);
+  background: rgba(230, 201, 163, 0.12);
+  color: var(--wood, #e6c9a3);
+}
+
+.join-go {
+  min-height: 52px;
+  font-size: 1.05rem;
+}
+
+.join-form {
+  display: grid;
+  gap: 12px;
+}
+
+.join-done {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+  padding-top: 6px;
+}
+
+.join-done h2 {
+  margin: 0;
+}
+
+.join-grow {
+  animation: join-grow 1.4s cubic-bezier(0.34, 1.3, 0.64, 1);
+  transform-origin: bottom center;
+}
+
+.join-next {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+@keyframes join-grow {
+  from {
+    transform: scaleY(0.2);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .join-grow {
+    animation: none;
+  }
+}
+
+/* Activity: Grok's posts on X */
+.x-posts {
+  margin-top: 32px;
+}
+
+.tag-x-posted {
+  color: var(--green, #3ecf8e);
+}
+
+.tag-x-failed {
+  color: #ff8f86;
+}
+
+/* Channel: the !potted chat bot */
+.chat-bot {
+  display: grid;
+  gap: 14px;
+}
+
+.chat-bot-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.chat-bot-list li {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(250, 247, 242, 0.03);
+}

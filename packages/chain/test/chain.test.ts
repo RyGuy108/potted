@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { base58, decodeLogs, discriminator, parseDelivery, verifySignature } from "../src/index";
+import { base58, causeFilterSource, decodeLogs, discriminator, escrowFilterSource, parseDelivery, verifySignature } from "../src/index";
 
 const PROGRAM = "2ppLCjxK534szs3T9o1vw3wW4gD9C6s2Dg5Coe2tqgNV";
 const OTHER = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
@@ -71,5 +71,71 @@ describe("QuickNode deliveries", () => {
     ] }];
     expect(parseDelivery(raw, PROGRAM).map((e) => [e.key, e.slot])).toEqual([["sigB:0", 9]]);
     expect(parseDelivery("nonsense", PROGRAM)).toEqual([]);
+  });
+});
+
+describe("split events", () => {
+  it("decodes a share paid from the vault and the shares fixed at opening", () => {
+    const challenge = Buffer.alloc(32, 1);
+    const wallet = Buffer.alloc(32, 2);
+    const amount = Buffer.alloc(8);
+    amount.writeBigUInt64LE(2_000_000n);
+    const paid = `Program data: ${Buffer.concat([discriminator("SharePaid"), challenge, wallet, amount]).toString("base64")}`;
+    const count = Buffer.alloc(4);
+    count.writeUInt32LE(2);
+    const set = `Program data: ${Buffer.concat([discriminator("SplitsSet"), challenge, count, wallet, Buffer.from([30]), Buffer.alloc(32, 3), Buffer.from([20])]).toString("base64")}`;
+    const events = decodeLogs([`Program ${PROGRAM} invoke [1]`, set, paid, `Program ${PROGRAM} success`], PROGRAM);
+    expect(events.map((e) => e.name)).toEqual(["SplitsSet", "SharePaid"]);
+    expect(events[1]!.fields).toMatchObject({ wallet: base58(wallet), amount: 2_000_000 });
+    expect(String(events[0]!.fields.shares).split(",")).toEqual([`${base58(wallet)}:30`, `${base58(Buffer.alloc(32, 3))}:20`]);
+  });
+});
+
+describe("filters that run inside QuickNode", () => {
+  const run = (source: string, stream: unknown) => new Function(`${source}\nreturn main;`)()(stream);
+  const word = Buffer.from("clip:héist ✓");
+  const wlen = Buffer.alloc(4);
+  wlen.writeUInt32LE(word.length);
+  const zeroLead = Buffer.concat([Buffer.alloc(3, 0), Buffer.alloc(29, 7)]);
+  const block = {
+    slot: 41,
+    blockTime: 1_700_000_000,
+    transactions: [
+      { transaction: { signatures: ["sigOk"] }, meta: { err: null, logMessages: inProgram(PROGRAM, data("Pledged", zeroLead, key(2), u64(5_000_000), u64(12_000_000)), data("Settled", key(1), Buffer.from([1]), u64(12_000_000), wlen, word)) } },
+      { transaction: { signatures: ["sigFake"] }, meta: { err: null, logMessages: inProgram(OTHER, settled) } },
+      { transaction: { signatures: ["sigFailed"] }, meta: { err: { InstructionError: [0, "Custom"] }, logMessages: inProgram(PROGRAM, pledged) } },
+    ],
+  };
+
+  it("decodes the same events inside QuickNode as the app does from raw logs", () => {
+    const filtered = run(escrowFilterSource(PROGRAM), { data: [block] });
+    expect(filtered.data).toHaveLength(1);
+    expect(parseDelivery(filtered, PROGRAM)).toEqual(parseDelivery([block], PROGRAM));
+    const [first, second] = parseDelivery(filtered, PROGRAM);
+    expect(first!.challenge).toBe(base58(zeroLead));
+    expect(second!.fields.evidenceRef).toBe("clip:héist ✓");
+    expect(run(escrowFilterSource(PROGRAM), { data: [{ transactions: [block.transactions[1]] }] })).toBeNull();
+  });
+
+  it("ignores pre-decoded events with names the program never emits", () => {
+    expect(parseDelivery([{ signature: "s", slot: 1, blockTime: 1, events: [{ name: "Drained", fields: { challenge: "x" } }] }], PROGRAM)).toEqual([]);
+  });
+
+  it("finds USDC arriving at a cause's wallet, from any sender", () => {
+    const MINT = "USDCmint1111111111111111111111111111111111";
+    const tx = (owner: string, pre: number, post: number) => ({
+      transaction: { signatures: [`sig-${owner}`] },
+      meta: {
+        err: null,
+        preTokenBalances: [{ accountIndex: 2, mint: MINT, owner, uiTokenAmount: { amount: String(pre) } }],
+        postTokenBalances: [{ accountIndex: 2, mint: MINT, owner, uiTokenAmount: { amount: String(post) } }],
+      },
+    });
+    const fresh = { transaction: { signatures: ["sig-new"] }, meta: { err: null, preTokenBalances: [], postTokenBalances: [{ accountIndex: 4, mint: MINT, owner: "CauseB", uiTokenAmount: { amount: "700000" } }] } };
+    const out = run(causeFilterSource(MINT, ["CauseA", "CauseB"]), { data: [{ slot: 9, blockTime: 5, transactions: [tx("CauseA", 1_000_000, 3_000_000), tx("Someone", 0, 9_000_000), tx("CauseA", 3_000_000, 1_000_000), fresh] }] });
+    expect(out.data).toEqual([
+      { signature: "sig-CauseA", slot: 9, blockTime: 5, wallet: "CauseA", amount: 2_000_000 },
+      { signature: "sig-new", slot: 9, blockTime: 5, wallet: "CauseB", amount: 700_000 },
+    ]);
   });
 });

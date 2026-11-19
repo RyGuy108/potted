@@ -83,7 +83,7 @@ describe.skipIf(!RPC)("Solana ledger against a local validator", () => {
     expect(await service.balanceOf(streamer())).toBe(before);
   }, 120_000);
 
-  it("sends collab and charity shares from the host after the program pays out", async () => {
+  it("pays collab and charity shares straight from escrow, by splits fixed when the challenge opened", async () => {
     const ana = await service.signIn("Ana", "fan");
     const kai = service.getStreamer("kai")!;
     await service.updateSettings(streamer(), { ...service.settingsOf(streamer()), causeOn: true, causeName: "Austin Pets Alive", causePct: 20 });
@@ -97,6 +97,49 @@ describe.skipIf(!RPC)("Solana ledger against a local validator", () => {
     expect((await service.balanceOf(streamer())) - hostBefore).toBe(usd(5));
     expect(await service.balanceOf(kai)).toBe(usd(3));
     expect(await ledger.ledger().balanceOf(service.causeWallet("Austin Pets Alive"))).toBe(usd(2));
+
+    // The program paid each share itself: one SharePaid per share in the settle transaction.
+    const chain = ledger.ledger() as unknown as { connection: Connection; program: { account: { splits: { fetch(a: unknown): Promise<{ shares: { pct: number }[] }> } } }; splitsAddress(a: unknown): unknown };
+    const { PublicKey } = await import("@solana/web3.js");
+    const settled = service.getChallenge(c.id);
+    const record = await chain.program.account.splits.fetch(chain.splitsAddress(new PublicKey(settled.ledgerRef!.split(":")[0]!)));
+    expect(record.shares.map((s) => s.pct)).toEqual([30, 20]);
+    const tx = await chain.connection.getTransaction(settled.txs.settle!, { commitment: "confirmed", maxSupportedTransactionVersion: 0 });
+    const { decodeLogs } = await import("@potted/chain");
+    const paid = decodeLogs(tx!.meta!.logMessages!, process.env.SOLANA_TEST_PROGRAM_ID!).filter((e) => e.name === "SharePaid");
+    expect(paid.map((e) => Number(e.fields.amount))).toEqual([usd(3), usd(2)]);
+    await service.updateSettings(streamer(), { ...service.settingsOf(streamer()), causeOn: false });
+  }, 120_000);
+
+  it("pays a cause's up-front share to the cause's own wallet, and refuses a payout that leaves shares out", async () => {
+    const { PublicKey } = await import("@solana/web3.js");
+    const causeWallet = Keypair.generate().publicKey.toBase58();
+    await service.updateSettings(streamer(), { ...service.settingsOf(streamer()), causeOn: true, causeName: "Food Bank", causePct: 25, causeWallet });
+    const dee = await service.signIn("Dee", "fan");
+    const c = await service.createChallenge(streamer(), { ...clip("Win a race with no crashes at all"), upfrontPct: 40 });
+    expect(c.splits).toEqual([expect.objectContaining({ kind: "cause", wallet: causeWallet, pct: 25 })]);
+    await service.pledge(dee, c.id, 10);
+
+    // Leaving the share's token account out is refused by the program itself.
+    const chain = ledger.ledger() as unknown as {
+      program: { methods: { lock(): { accountsPartial(a: object): { rpc(): Promise<string> } } } };
+      accountsFor(c: unknown): { streamer: InstanceType<typeof PublicKey>; account: InstanceType<typeof PublicKey>; vault: InstanceType<typeof PublicKey> };
+      splitsAddress(a: unknown): InstanceType<typeof PublicKey>;
+      ensureTokenAccount(w: string): Promise<InstanceType<typeof PublicKey>>;
+      server: Keypair;
+    };
+    const { streamer: host, account, vault } = chain.accountsFor(c);
+    const streamerToken = await chain.ensureTokenAccount(host.toBase58());
+    await expect(
+      chain.program.methods.lock().accountsPartial({ authority: chain.server.publicKey, challenge: account, vault, streamerToken, splits: chain.splitsAddress(account) }).rpc(),
+    ).rejects.toThrow(/MissingShareAccount|Pass a token account/);
+
+    const before = await service.balanceOf(streamer());
+    await service.lock(streamer(), c.id);
+    // $4 up front: $1 to the cause's own wallet, $3 to the host.
+    expect(await ledger.ledger().balanceOf(causeWallet)).toBe(usd(1));
+    expect((await service.balanceOf(streamer())) - before).toBe(usd(3));
+    await service.updateSettings(streamer(), { ...service.settingsOf(streamer()), causeOn: false, causeWallet: "" });
   }, 120_000);
 
   it("pays the up-front share on chain at start, and refunds only the rest on a miss", async () => {
@@ -210,4 +253,78 @@ describe.skipIf(!RPC)("Solana ledger against a local validator", () => {
     expect(service.getChallenge(c.id).totalMicro).toBe(usd(3));
     expect(await chain.pledgeIn(signature, await service.createChallenge(streamer(), clip("Another one entirely different")))).toBeUndefined();
   }, 60_000);
+
+  it("backfills the on-chain record from past transactions, and the QuickNode filter decodes real blocks the same way", async () => {
+    const { backfillChain } = await import("../src/lib/backfill");
+    const { chainEvents } = await import("../src/lib/chain");
+    const { escrowFilterSource, parseDelivery } = await import("@potted/chain");
+    const connection = new Connection(RPC!, "confirmed");
+    const programId = process.env.SOLANA_TEST_PROGRAM_ID!;
+    const result = await backfillChain(connection, programId, 300);
+    expect(result.stored).toBeGreaterThan(5);
+    const names = new Set(chainEvents(500).map((e) => e.name));
+    for (const n of ["ChallengeCreated", "Pledged", "Locked", "Settled", "SharePaid", "SplitsSet", "Refunded"]) expect(names).toContain(n);
+    expect((await backfillChain(connection, programId, 300)).stored).toBe(0);
+
+    // Run the filter on real blocks: the slots of a few events just backfilled.
+    const run = new Function(`${escrowFilterSource(programId)}\nreturn main;`)() as (s: unknown) => unknown;
+    const slots = [...new Set(chainEvents(500).filter((e) => e.name === "SharePaid" || e.name === "SplitsSet").map((e) => e.slot))].slice(0, 4);
+    for (const slot of slots) {
+      const block = await connection.getBlock(slot, { commitment: "confirmed", maxSupportedTransactionVersion: 0, transactionDetails: "full", rewards: false });
+      const raw = JSON.parse(JSON.stringify({ ...block, slot }));
+      const filtered = run({ data: [raw] });
+      expect(parseDelivery(filtered, programId)).toEqual(parseDelivery([raw], programId));
+      expect(parseDelivery(filtered, programId).length).toBeGreaterThan(0);
+    }
+
+    // The charity filter, on the real block where the program paid a cause's share.
+    const { causeFilterSource } = await import("@potted/chain");
+    const causeRun = new Function(`${causeFilterSource(process.env.USDC_MINT!, service.allCauseWallets())}\nreturn main;`)() as (s: unknown) => { data: { wallet: string; amount: number }[] } | null;
+    const toCause = chainEvents(500).find((e) => e.name === "SharePaid" && service.allCauseWallets().includes(String(e.fields.wallet)))!;
+    const block = await connection.getBlock(toCause.slot, { commitment: "confirmed", maxSupportedTransactionVersion: 0, transactionDetails: "full", rewards: false });
+    const seen = causeRun({ data: [JSON.parse(JSON.stringify({ ...block, slot: toCause.slot }))] });
+    expect(seen!.data).toContainEqual(expect.objectContaining({ wallet: String(toCause.fields.wallet), amount: Number(toCause.fields.amount) }));
+  }, 120_000);
+
+  it("puts a planter's earned badges in their wallet as soulbound tokens, once each", async () => {
+    const spl = await import("@solana/spl-token");
+    const { PublicKey } = await import("@solana/web3.js");
+    const connection = new Connection(RPC!, "confirmed");
+    const fan = await service.signIn("Badge Fan", "fan");
+    const c = await service.createChallenge(streamer(), clip("Clear the heist on hard difficulty"));
+    await service.pledge(fan, c.id, 2);
+    expect(service.planterStats(fan).badges.filter((b) => b.earned).map((b) => b.id)).toEqual(expect.arrayContaining(["first-bean", "early-bird"]));
+
+    const { minted } = await service.mintBadges(fan, "https://potted.example");
+    expect(minted).toEqual(expect.arrayContaining(["first-bean", "early-bird"]));
+    const record = service.badgeMintsOf(fan)["first-bean"]!;
+    const mint = new PublicKey(record.mint);
+    const info = await spl.getMint(connection, mint, "confirmed", spl.TOKEN_2022_PROGRAM_ID);
+    expect(info.supply).toBe(1n);
+    expect(info.decimals).toBe(0);
+    expect(info.mintAuthority).toBeNull();
+    expect(spl.getExtensionTypes(info.tlvData)).toEqual(expect.arrayContaining([spl.ExtensionType.NonTransferable, spl.ExtensionType.MetadataPointer]));
+    const meta = await spl.getTokenMetadata(connection, mint, "confirmed", spl.TOKEN_2022_PROGRAM_ID);
+    expect(meta).toMatchObject({ name: "Potted · First bean", symbol: "POTTED", uri: "https://potted.example/api/badges/first-bean", additionalMetadata: [["badge", "first-bean"]] });
+    const owner = new PublicKey(fan.wallet);
+    const held = spl.getAssociatedTokenAddressSync(mint, owner, false, spl.TOKEN_2022_PROGRAM_ID);
+    expect((await spl.getAccount(connection, held, "confirmed", spl.TOKEN_2022_PROGRAM_ID)).amount).toBe(1n);
+
+    // A second run mints nothing new.
+    expect((await service.mintBadges(fan, "https://potted.example")).minted).toEqual([]);
+
+    // Soulbound: the token program refuses to move it, even when its owner signs.
+    const keys = JSON.parse(fs.readFileSync(path.join(process.env.POTTED_DATA_DIR!, "wallets.json"), "utf8")) as Record<string, number[]>;
+    const ownerKey = Keypair.fromSecretKey(Uint8Array.from(keys[fan.wallet]!));
+    const chain = ledger.ledger() as unknown as { server: Keypair };
+    const other = Keypair.generate().publicKey;
+    const otherAta = spl.getAssociatedTokenAddressSync(mint, other, false, spl.TOKEN_2022_PROGRAM_ID);
+    const move = new Transaction().add(
+      spl.createAssociatedTokenAccountIdempotentInstruction(chain.server.publicKey, otherAta, other, mint, spl.TOKEN_2022_PROGRAM_ID),
+      spl.createTransferCheckedInstruction(held, mint, otherAta, owner, 1, 0, [], spl.TOKEN_2022_PROGRAM_ID),
+    );
+    const { sendAndConfirmTransaction } = await import("@solana/web3.js");
+    const refused = await sendAndConfirmTransaction(connection, move, [chain.server, ownerKey]).then(() => "", (e: Error & { logs?: string[] }) => `${e.message} ${(e.logs ?? []).join(" ")}`);
+    expect(refused).toMatch(/[Nn]on.?[Tt]ransferable|0x25/);
+  }, 120_000);
 });

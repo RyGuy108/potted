@@ -125,3 +125,39 @@ describe("milestone sound effects", () => {
     ]);
   });
 });
+
+describe("the charity Stream", () => {
+  const CAUSES_SECRET = "causes-secret";
+  const WALLET = "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin";
+  beforeEach(() => {
+    resetForTests();
+    process.env.QUICKNODE_CAUSES_SECRET = CAUSES_SECRET;
+  });
+  const postCauses = async (body: string, secret = CAUSES_SECRET) => {
+    const { POST } = await import("../src/app/api/webhooks/quicknode/causes/route");
+    const sig = createHmac("sha256", secret).update("n" + "t" + body).digest("hex");
+    return POST(new Request("http://localhost/api/webhooks/quicknode/causes", { method: "POST", headers: { "x-qn-nonce": "n", "x-qn-timestamp": "t", "x-qn-signature": sig }, body }));
+  };
+
+  it("books USDC that reached a cause's wallet once, and says so on the overlay of stages giving to it", async () => {
+    const ryan = service.getUser(DEMO_STREAMER_ID)!;
+    await service.updateSettings(ryan, { ...service.settingsOf(ryan), causeOn: true, causeName: "Food Bank", causePct: 10, causeWallet: WALLET });
+    const before = service.latestSeq();
+    const body = JSON.stringify({ data: [{ signature: "sig1", slot: 3, blockTime: 1_700_000_000, wallet: WALLET, amount: 2_000_000 }, { signature: "sig2", slot: 3, blockTime: 1_700_000_000, wallet: "Elsewhere111111111111111111111111111111111", amount: 5 }] });
+    expect(await (await postCauses(body)).json()).toEqual({ stored: 2 });
+    expect(await (await postCauses(body)).json()).toEqual({ stored: 0 });
+    const [line] = service.eventsSince("ryan", before);
+    expect(line).toMatchObject({ type: "charity", message: "$2 just reached Food Bank, confirmed on Solana. $2 so far." });
+    expect(line!.chain!.streamAt).toBeDefined();
+    expect(service.raisedFor(ryan, "Food Bank").confirmedMicro).toBe(2_000_000);
+    expect(service.allCauseWallets()).toContain(WALLET);
+    expect((await postCauses(body, "wrong")).status).toBe(401);
+  });
+
+  it("accepts events the escrow filter already decoded inside QuickNode", async () => {
+    process.env.QUICKNODE_WEBHOOK_SECRET = SECRET;
+    process.env.POTTED_PROGRAM_ID = PROGRAM;
+    const decoded = JSON.stringify({ data: [{ signature: "sigD", slot: 8, blockTime: 1_700_000_000, events: [{ name: "Settled", challenge: "C", fields: { challenge: "C", success: true, paidOut: 9_000_000, evidenceRef: "x" } }] }] });
+    expect(await (await post(decoded)).json()).toMatchObject({ decoded: 1, stored: 1 });
+  });
+});

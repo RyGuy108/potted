@@ -360,11 +360,11 @@ describe("charity streams", () => {
     expect(c.splits).toEqual([{ kind: "cause", name: "Austin Pets Alive", pct: 50, url: "https://example.org/apa" }]);
 
     await service.pledge(ana, c.id, 7);
-    expect(service.raisedFor(streamer(), "Austin Pets Alive")).toEqual({ raisedMicro: 0, inPlayMicro: toMicro(3.5) });
+    expect(service.raisedFor(streamer(), "Austin Pets Alive")).toEqual({ raisedMicro: 0, inPlayMicro: toMicro(3.5), confirmedMicro: 0 });
     await service.lock(streamer(), c.id);
     await service.check(c.id, { force: true, deps: lichess("white") });
     expect(await service.balanceOf(streamer())).toBe(toMicro(3.5));
-    expect(service.raisedFor(streamer(), "Austin Pets Alive")).toEqual({ raisedMicro: toMicro(3.5), inPlayMicro: 0 });
+    expect(service.raisedFor(streamer(), "Austin Pets Alive")).toEqual({ raisedMicro: toMicro(3.5), inPlayMicro: 0, confirmedMicro: 0 });
     expect(service.eventsSince("ryan", 0).at(-1)!.message).toBe("Challenge complete! Ryan earned $3.50. $3.50 goes to Austin Pets Alive.");
     expect(service.recapText(streamer())).toContain("$3.50 raised for Austin Pets Alive.");
   });
@@ -376,7 +376,7 @@ describe("charity streams", () => {
     await service.pledge(ana, c.id, 5);
     await service.cancel(streamer(), c.id);
     expect(await service.balanceOf(ana)).toBe(toMicro(25));
-    expect(service.raisedFor(streamer(), "Austin Pets Alive")).toEqual({ raisedMicro: 0, inPlayMicro: 0 });
+    expect(service.raisedFor(streamer(), "Austin Pets Alive")).toEqual({ raisedMicro: 0, inPlayMicro: 0, confirmedMicro: 0 });
   });
 
   it("splits three ways on a charity collab and refuses shares that leave the host under 10%", async () => {

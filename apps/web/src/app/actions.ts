@@ -185,6 +185,33 @@ export async function endStreamAction(): Promise<ActionResult> {
   return run(async () => service.endStream(await requireUser()));
 }
 
+/** Puts the planter's earned badges into their Solana wallet as soulbound tokens. */
+export async function mintBadgesAction(): Promise<ActionResult> {
+  return run(async () => {
+    const { publicBase } = await import("@/lib/url");
+    await service.mintBadges(await requireUser(), await publicBase());
+  });
+}
+
+/** Turns the !potted chat bot on or off, or disconnects one platform. */
+export async function chatBotAction(change: { on?: boolean; disconnect?: "kick" | "youtube"; test?: boolean }): Promise<{ ok: true; sent?: string[] } | { ok: false; error: string }> {
+  try {
+    const user = await requireUser();
+    if (user.role !== "streamer") throw new Error("Only climbers have a chat bot");
+    const bot = await import("@/lib/chat-bot");
+    if (change.on !== undefined) await service.updateSettings(user, { ...service.settingsOf(user), chatBot: change.on });
+    if (change.disconnect) bot.disconnect(user, change.disconnect);
+    if (change.test) {
+      const reply = bot.replyTo(user, "!potted") ?? "";
+      return { ok: true, sent: await bot.announce(user, reply) };
+    }
+    revalidatePath("/dashboard/channel");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Something went wrong" };
+  }
+}
+
 export async function pledgeAction(challengeId: string, amountUsd: number): Promise<ActionResult> {
   return run(async () => service.pledge(await requireUser(), String(challengeId), Number(amountUsd)));
 }
@@ -286,6 +313,27 @@ export async function emailVerifyAction(email: string, code: string, as?: string
     revalidatePath("/", "layout");
     if (user.onboarded === false) return { ok: true, next: as === "streamer" ? "/welcome?as=streamer" : "/welcome" };
     return { ok: true, next: user.role === "streamer" ? "/dashboard" : user.role === "mod" ? "/reviews" : "/" };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Something went wrong" };
+  }
+}
+
+/**
+ * The first-time fan path (/j/<handle>): check the code, sign in, and for a
+ * new account make it a planter under the name they typed, which is the
+ * name the stream will read out.
+ */
+export async function joinVerifyAction(email: string, code: string, name: string): Promise<{ ok: true; name: string } | { ok: false; error: string }> {
+  try {
+    const address = checkCode(String(email), String(code));
+    let user = await service.signInWith("email", { subject: address, name: address.split("@")[0]!.replace(/[._+-]+/g, " ").trim(), email: address });
+    if (user.onboarded === false) {
+      user = await service.chooseRole(user, "fan");
+      service.renameNewPlanter(user, String(name));
+    }
+    await startSession(user.id);
+    revalidatePath("/", "layout");
+    return { ok: true, name: user.name };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Something went wrong" };
   }

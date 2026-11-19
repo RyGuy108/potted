@@ -31,6 +31,8 @@ export interface StreamSettings {
   ownVoice: { id: string; consentAt: number } | null;
   /** The language the announcer speaks (ISO 639-1). Lines are translated by Grok. */
   language: string;
+  /** The !potted chat bot in this streamer's connected chats. */
+  chatBot: boolean;
   overlayPosition: OverlayPosition;
   /** How many live challenges the overlay shows at once. */
   overlayCards: 1 | 2;
@@ -45,6 +47,8 @@ export interface StreamSettings {
   causeName: string;
   /** Where viewers can read about the cause. Shown as given; not verified. */
   causeUrl: string;
+  /** The cause's own Solana address. Without one, the server holds a wallet for it (fine on devnet only). */
+  causeWallet: string;
   /** Whole percent of each completed pot. */
   causePct: number;
   /** Suggestions containing any of these are rejected. Lower-case. */
@@ -65,6 +69,7 @@ export const DEFAULT_SETTINGS: StreamSettings = {
   voice: "george",
   ownVoice: null,
   language: "en",
+  chatBot: true,
   overlayPosition: "bottom-left",
   overlayCards: 2,
   overlayQr: true,
@@ -74,6 +79,7 @@ export const DEFAULT_SETTINGS: StreamSettings = {
   causeOn: false,
   causeName: "",
   causeUrl: "",
+  causeWallet: "",
   causePct: 50,
   blockedWords: [],
   autopilot: false,
@@ -154,7 +160,19 @@ export interface User {
   awarded?: { badges: string[]; level: number; milestones: string[] };
 }
 
-export type EventType = "created" | "pledged" | "locked" | "claimed" | "disputed" | "paid" | "failed" | "refunded" | "milestone" | "recap" | "bounty" | "redeemed" | "gift";
+export type EventType = "created" | "pledged" | "locked" | "claimed" | "disputed" | "paid" | "failed" | "refunded" | "milestone" | "recap" | "bounty" | "redeemed" | "gift" | "charity";
+
+/** USDC that reached a cause's wallet, as the charity Stream reported it from the chain. */
+export interface CauseReceipt {
+  /** Signature and wallet: one per wallet per transaction. */
+  key: string;
+  signature: string;
+  wallet: string;
+  amountMicro: number;
+  slot: number;
+  /** Block time in ms. */
+  at: number;
+}
 
 /** What the overlay shows and reads aloud. */
 export interface LiveSession {
@@ -200,6 +218,11 @@ export interface Db {
   backings: Backing[];
   /** Escrow events delivered by the QuickNode Stream. */
   chain: ChainEvent[];
+  causeReceipts: CauseReceipt[];
+  /** Garden badges put on Solana, by "<user id>:<badge id>". */
+  badgeMints: Record<string, { mint: string; tx: string; at: number }>;
+  /** Grok's posts on X about on-chain moments (see x-posts.ts). */
+  xPosts?: import("./x-posts").XPost[];
   invites: Invite[];
   /** Signs session cookies when SESSION_SECRET is not set. Made once per data file. */
   secret?: string;
@@ -358,6 +381,8 @@ function seed(): Db {
     causeWallets: {},
     backings: [],
     chain: [],
+    causeReceipts: [],
+    badgeMints: {},
     invites: [],
     events: [],
     balances: {},
@@ -379,6 +404,8 @@ function upgrade(state: Db): Db {
   state.causeWallets ??= {};
   state.backings ??= [];
   state.chain ??= [];
+  state.causeReceipts ??= [];
+  state.badgeMints ??= {};
   state.invites ??= [];
   state.events ??= [];
   state.balances ??= {};
@@ -412,14 +439,8 @@ export async function flush(): Promise<void> {
 export function db(): Db {
   if (!cache.__pottedDb) {
     try {
-      cache.__pottedDb = JSON.parse(fs.readFileSync(dataFile(), "utf8")) as Db;
-      // Files written before suggestions existed.
-      cache.__pottedDb.suggestions ??= [];
-      cache.__pottedDb.bounties ??= [];
-      cache.__pottedDb.causeWallets ??= {};
-      cache.__pottedDb.backings ??= [];
-      cache.__pottedDb.chain ??= [];
-      cache.__pottedDb.invites ??= [];
+      // Files written by older versions lack newer collections; upgrade fills them in.
+      cache.__pottedDb = upgrade(JSON.parse(fs.readFileSync(dataFile(), "utf8")) as Db);
       if (!cache.__pottedDb.users.some((u) => u.id === DEMO_GUEST_ID)) cache.__pottedDb.users.push(demoGuest());
     } catch {
       cache.__pottedDb = seed();

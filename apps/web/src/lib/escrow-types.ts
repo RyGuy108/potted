@@ -227,6 +227,28 @@ export type Escrow = {
           "writable": true
         },
         {
+          "name": "splits",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  112,
+                  108,
+                  105,
+                  116,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "challenge"
+              }
+            ]
+          }
+        },
+        {
           "name": "tokenProgram",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         }
@@ -424,6 +446,79 @@ export type Escrow = {
       "args": []
     },
     {
+      "name": "setSplits",
+      "docs": [
+        "Fixes who else is paid, and what whole percent each gets, before any",
+        "fan pledges. Only the streamer can set them, and only once."
+      ],
+      "discriminator": [
+        175,
+        2,
+        86,
+        49,
+        225,
+        202,
+        232,
+        189
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "streamer",
+          "signer": true,
+          "relations": [
+            "challenge"
+          ]
+        },
+        {
+          "name": "challenge"
+        },
+        {
+          "name": "splits",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  112,
+                  108,
+                  105,
+                  116,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "challenge"
+              }
+            ]
+          }
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "shares",
+          "type": {
+            "vec": {
+              "defined": {
+                "name": "share"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "settle",
       "discriminator": [
         175,
@@ -472,9 +567,31 @@ export type Escrow = {
         {
           "name": "streamerToken",
           "docs": [
-            "The streamer's own token account; the pot can go nowhere else."
+            "The streamer's own token account; the host's part can go nowhere else."
           ],
           "writable": true
+        },
+        {
+          "name": "splits",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  112,
+                  108,
+                  105,
+                  116,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "challenge"
+              }
+            ]
+          }
         },
         {
           "name": "tokenProgram",
@@ -528,11 +645,23 @@ export type Escrow = {
         169,
         131
       ]
+    },
+    {
+      "name": "splits",
+      "discriminator": [
+        108,
+        68,
+        238,
+        198,
+        23,
+        99,
+        85,
+        143
+      ]
     }
   ],
   "events": [
     {
-      "name": "cancelled",
       "discriminator": [
         136,
         23,
@@ -542,10 +671,10 @@ export type Escrow = {
         233,
         234,
         46
-      ]
+      ],
+      "name": "cancelled"
     },
     {
-      "name": "challengeCreated",
       "discriminator": [
         166,
         178,
@@ -555,10 +684,10 @@ export type Escrow = {
         172,
         98,
         243
-      ]
+      ],
+      "name": "challengeCreated"
     },
     {
-      "name": "locked",
       "discriminator": [
         188,
         53,
@@ -568,10 +697,10 @@ export type Escrow = {
         12,
         198,
         84
-      ]
+      ],
+      "name": "locked"
     },
     {
-      "name": "pledged",
       "discriminator": [
         98,
         154,
@@ -581,10 +710,10 @@ export type Escrow = {
         48,
         26,
         16
-      ]
+      ],
+      "name": "pledged"
     },
     {
-      "name": "refunded",
       "discriminator": [
         35,
         103,
@@ -594,10 +723,10 @@ export type Escrow = {
         123,
         221,
         99
-      ]
+      ],
+      "name": "refunded"
     },
     {
-      "name": "settled",
       "discriminator": [
         232,
         210,
@@ -607,7 +736,34 @@ export type Escrow = {
         124,
         145,
         238
-      ]
+      ],
+      "name": "settled"
+    },
+    {
+      "discriminator": [
+        36,
+        246,
+        242,
+        254,
+        175,
+        66,
+        177,
+        78
+      ],
+      "name": "sharePaid"
+    },
+    {
+      "discriminator": [
+        37,
+        82,
+        198,
+        49,
+        118,
+        211,
+        247,
+        121
+      ],
+      "name": "splitsSet"
     }
   ],
   "errors": [
@@ -680,13 +836,32 @@ export type Escrow = {
       "code": 6013,
       "name": "upfrontTooHigh",
       "msg": "At most half the pot can be paid up front"
+    },
+    {
+      "code": 6014,
+      "name": "splitsAfterPledges",
+      "msg": "Splits must be set before anyone pledges"
+    },
+    {
+      "code": 6015,
+      "name": "badSplits",
+      "msg": "Up to 4 shares, each a whole percent from 1 to 99, adding up to 90% at most, none to the streamer"
+    },
+    {
+      "code": 6016,
+      "name": "missingShareAccount",
+      "msg": "Pass a token account for every share"
+    },
+    {
+      "code": 6017,
+      "name": "wrongShareAccount",
+      "msg": "A share's token account belongs to someone else or holds another token"
     }
   ],
   "types": [
     {
       "name": "cancelled",
       "type": {
-        "kind": "struct",
         "fields": [
           {
             "name": "challenge",
@@ -696,7 +871,8 @@ export type Escrow = {
             "name": "totalPledged",
             "type": "u64"
           }
-        ]
+        ],
+        "kind": "struct"
       }
     },
     {
@@ -814,7 +990,6 @@ export type Escrow = {
     {
       "name": "challengeCreated",
       "type": {
-        "kind": "struct",
         "fields": [
           {
             "name": "challenge",
@@ -836,13 +1011,13 @@ export type Escrow = {
             "name": "settleBy",
             "type": "i64"
           }
-        ]
+        ],
+        "kind": "struct"
       }
     },
     {
       "name": "locked",
       "type": {
-        "kind": "struct",
         "fields": [
           {
             "name": "challenge",
@@ -856,7 +1031,8 @@ export type Escrow = {
             "name": "upfrontPaid",
             "type": "u64"
           }
-        ]
+        ],
+        "kind": "struct"
       }
     },
     {
@@ -890,7 +1066,6 @@ export type Escrow = {
     {
       "name": "pledged",
       "type": {
-        "kind": "struct",
         "fields": [
           {
             "name": "challenge",
@@ -908,13 +1083,13 @@ export type Escrow = {
             "name": "totalPledged",
             "type": "u64"
           }
-        ]
+        ],
+        "kind": "struct"
       }
     },
     {
       "name": "refunded",
       "type": {
-        "kind": "struct",
         "fields": [
           {
             "name": "challenge",
@@ -928,13 +1103,13 @@ export type Escrow = {
             "name": "amount",
             "type": "u64"
           }
-        ]
+        ],
+        "kind": "struct"
       }
     },
     {
       "name": "settled",
       "type": {
-        "kind": "struct",
         "fields": [
           {
             "name": "challenge",
@@ -952,7 +1127,101 @@ export type Escrow = {
             "name": "evidenceRef",
             "type": "string"
           }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "name": "share",
+      "docs": [
+        "One share of a successful pot, besides the host's."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "pct",
+            "docs": [
+              "Whole percent, 1 to 99."
+            ],
+            "type": "u8"
+          }
         ]
+      }
+    },
+    {
+      "docs": [
+        "A guest's or a cause's share, paid straight from the vault."
+      ],
+      "name": "sharePaid",
+      "type": {
+        "fields": [
+          {
+            "name": "challenge",
+            "type": "pubkey"
+          },
+          {
+            "name": "wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "name": "splits",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "challenge",
+            "type": "pubkey"
+          },
+          {
+            "name": "shares",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "share"
+                }
+              }
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "splitsSet",
+      "type": {
+        "fields": [
+          {
+            "name": "challenge",
+            "type": "pubkey"
+          },
+          {
+            "name": "shares",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "share"
+                }
+              }
+            }
+          }
+        ],
+        "kind": "struct"
       }
     },
     {

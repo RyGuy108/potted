@@ -248,7 +248,14 @@ type EventExtra = Pick<StreamEvent, "sfx" | "by" | "chain"> & {
 };
 
 function emit(type: EventType, challenge: Challenge, message: string, extra: EventExtra = {}): void {
-  for (const streamer of streamersOf(challenge)) emitTo(streamer.handle ?? "", type, challenge.id, message, extra);
+  for (const streamer of streamersOf(challenge)) {
+    emitTo(streamer.handle ?? "", type, challenge.id, message, extra);
+    // The chat bot posts the big moments in the streamer's connected chats. Not awaited.
+    void import("./chat-bot").then(({ announce, announcementFor }) => {
+      const text = announcementFor(type, message, streamer, extra.sfx);
+      if (text) return announce(streamer, text);
+    }).catch(() => undefined);
+  }
   notifications.onChallengeEvent(type, challenge, message);
 }
 
@@ -379,6 +386,8 @@ export async function updateSettings(actor: User, input: Partial<Record<keyof St
   const causePct = input.causePct === undefined ? current.causePct : Number(input.causePct);
   if (causeName.length > 60) fail("Keep the cause's name under 60 characters");
   if (causeUrl && !/^https:\/\/[^\s]+\.[^\s]+$/.test(causeUrl)) fail("The cause's link must start with https://");
+  const causeWalletAddress = input.causeWallet === undefined ? current.causeWallet : String(input.causeWallet).trim();
+  if (causeWalletAddress && !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(causeWalletAddress)) fail("The cause's wallet must be a Solana address");
   if (causeOn) {
     if (causeName.length < 3) fail("Name the cause before turning the charity stream on");
     const problem = splitsError([{ kind: "cause", name: causeName, pct: causePct }]);
@@ -412,6 +421,7 @@ export async function updateSettings(actor: User, input: Partial<Record<keyof St
     causeOn,
     causeName,
     causeUrl,
+    causeWallet: causeWalletAddress,
     causePct: Number.isInteger(causePct) ? causePct : current.causePct,
     acceptingSuggestions: input.acceptingSuggestions === true,
     minPledgeUsd,
@@ -419,6 +429,7 @@ export async function updateSettings(actor: User, input: Partial<Record<keyof St
     voice,
     ownVoice: current.ownVoice,
     language,
+    chatBot: input.chatBot === undefined ? current.chatBot !== false : Boolean(input.chatBot),
     overlayPosition: position,
     overlayCards: Number(input.overlayCards) === 1 ? 1 : 2,
     // Absent in settings saved before the QR existed; keep the current value then.
@@ -598,7 +609,9 @@ export async function withdrawInvite(actor: User, inviteId: string): Promise<voi
 /** The cause share a streamer's new challenges carry while their charity stream is on. */
 function causeSplit(streamer: User): Split[] {
   const s = settingsOf(streamer);
-  return s.causeOn ? [{ kind: "cause", name: s.causeName, pct: s.causePct, ...(s.causeUrl ? { url: s.causeUrl } : {}) }] : [];
+  return s.causeOn
+    ? [{ kind: "cause", name: s.causeName, pct: s.causePct, ...(s.causeUrl ? { url: s.causeUrl } : {}), ...(s.causeWallet && ledger().kind === "solana" ? { wallet: s.causeWallet } : {}) }]
+    : [];
 }
 
 /** The sim ledger account a cause's share is paid into. */
@@ -621,7 +634,7 @@ export function causeWallet(name: string): string {
  * live challenges. Counted from the challenges themselves, so it cannot
  * drift from what was actually paid.
  */
-export function raisedFor(streamer: User, causeName: string): { raisedMicro: number; inPlayMicro: number } {
+export function raisedFor(streamer: User, causeName: string): { raisedMicro: number; inPlayMicro: number; confirmedMicro: number } {
   let raisedMicro = 0;
   let inPlayMicro = 0;
   for (const c of stageChallenges(streamer.id)) {
@@ -632,7 +645,59 @@ export function raisedFor(streamer: User, causeName: string): { raisedMicro: num
       else if (c.status === "open" || c.status === "locked") inPlayMicro += parts[i]!;
     });
   }
-  return { raisedMicro, inPlayMicro };
+  const wallet = causeWalletFor(streamer);
+  return { raisedMicro, inPlayMicro, confirmedMicro: wallet ? confirmedForCause(wallet) : 0 };
+}
+
+/** The wallet a streamer's cause is paid into on Solana: the cause's own, or the one this server holds for it. */
+export function causeWalletFor(streamer: User): string | undefined {
+  const s = settingsOf(streamer);
+  if (!s.causeOn) return undefined;
+  if (s.causeWallet) return s.causeWallet;
+  if (ledger().kind !== "solana") return undefined;
+  return db().causeWallets[s.causeName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")];
+}
+
+/** Every cause wallet the charity Stream should watch. */
+export function allCauseWallets(): string[] {
+  const wallets = new Set(Object.values(db().causeWallets));
+  for (const streamer of listStreamers()) {
+    const w = settingsOf(streamer).causeWallet;
+    if (w) wallets.add(w);
+  }
+  return [...wallets];
+}
+
+/** USDC the charity Stream has seen arrive at this wallet. */
+export function confirmedForCause(wallet: string): number {
+  return db().causeReceipts.filter((r) => r.wallet === wallet).reduce((sum, r) => sum + r.amountMicro, 0);
+}
+
+/**
+ * Books USDC the charity Stream saw reach a cause's wallet, once each, and
+ * puts a line on the overlay of every stage that gives to that cause.
+ */
+export function recordCauseReceipts(entries: { signature: string; wallet: string; amountMicro: number; slot: number; at: number }[]): number {
+  const state = db();
+  const seen = new Set(state.causeReceipts.map((r) => r.key));
+  let stored = 0;
+  for (const e of entries) {
+    const key = `${e.signature}:${e.wallet}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    state.causeReceipts.push({ key, ...e });
+    stored++;
+    for (const streamer of listStreamers()) {
+      if (causeWalletFor(streamer) !== e.wallet || !streamer.handle) continue;
+      const s = settingsOf(streamer);
+      emitTo(streamer.handle, "charity", "", `${formatUsd(e.amountMicro)} just reached ${s.causeName}, confirmed on Solana. ${formatUsd(confirmedForCause(e.wallet))} so far.`, {
+        chain: { signature: e.signature, confirmedAt: e.at || Date.now(), streamAt: Date.now() },
+      });
+    }
+  }
+  if (state.causeReceipts.length > 2000) state.causeReceipts.splice(0, state.causeReceipts.length - 2000);
+  if (stored) save();
+  return stored;
 }
 
 export async function createChallenge(actor: User, input: NewChallenge, guests: Split[] = []): Promise<Challenge> {
@@ -661,7 +726,7 @@ export async function createChallenge(actor: User, input: NewChallenge, guests: 
     ...(splits.length > 0 ? { splits } : {}),
     txs: {},
   };
-  const created = await ledger().createChallenge(challenge, actor.wallet);
+  const created = await ledger().createChallenge(challenge, actor.wallet, shareWalletsOf(challenge));
   challenge.ledgerRef = created.ref;
   challenge.txs.create = created.tx;
   const campaign = activeCampaign(actor.id);
@@ -967,13 +1032,18 @@ export async function runAgain(actor: User, challengeId: string): Promise<Challe
   });
 }
 
+/** The wallet for each of a challenge's splits, in order. */
+function shareWalletsOf(challenge: Challenge): string[] {
+  return (challenge.splits ?? []).map((split) => (split.kind === "guest" ? getUser(split.userId ?? "")?.wallet : (split.wallet ?? causeWallet(split.name))) ?? fail(`No wallet on file for ${split.name}`));
+}
+
 /** Who receives what from a payout: by default the part of the pot not already paid up front. */
 function payoutsOf(challenge: Challenge, amountMicro = challenge.totalMicro - (challenge.upfrontPaidMicro ?? 0)): { wallet: string; amountMicro: number }[] {
   const host = getUser(challenge.streamerId) ?? fail("Streamer not found");
   const { hostMicro, parts } = splitPot(amountMicro, challenge.splits);
   const payouts = [{ wallet: host.wallet, amountMicro: hostMicro }];
   (challenge.splits ?? []).forEach((split, index) => {
-    const wallet = split.kind === "guest" ? getUser(split.userId ?? "")?.wallet : causeWallet(split.name);
+    const wallet = split.kind === "guest" ? getUser(split.userId ?? "")?.wallet : (split.wallet ?? causeWallet(split.name));
     if (!wallet) fail(`No wallet on file for ${split.name}`);
     payouts.push({ wallet, amountMicro: parts[index]! });
   });
@@ -1202,6 +1272,26 @@ export const LEVELS = [
   { name: "Cloud walker", at: 800 },
 ] as const;
 
+/** Every garden badge, in the order the garden shows them. */
+const BADGE_LIST = [
+  { id: "first-bean", name: "First bean", how: "Back your first challenge" },
+  { id: "early-bird", name: "Early bird", how: "Be the first to back a challenge" },
+  { id: "cloud-pusher", name: "Cloud pusher", how: "Make the pledge that takes a pot to its goal" },
+  { id: "good-harvest", name: "Good harvest", how: "Back 3 challenges that were completed" },
+  { id: "wide-garden", name: "Wide garden", how: "Back challenges in 3 different games" },
+  { id: "good-cause", name: "Good cause", how: "Back a charity stream challenge" },
+  { id: "matchmaker", name: "Matchmaker", how: "Back a collab between two climbers" },
+  { id: "regular", name: "Regular", how: "Pledge three days in a row" },
+  { id: "money-back", name: "Money back", how: "Get a pledge refunded after a missed challenge" },
+  { id: "idea-planter", name: "Idea planter", how: "Have a climber open a challenge you suggested" },
+  { id: "talent-scout", name: "Talent scout", how: "Back 3 different climbers" },
+  { id: "hat-trick", name: "Hat-trick", how: "Be the first to back 3 challenges" },
+  { id: "skyline", name: "Skyline", how: "Take 3 pots to their goal" },
+  { id: "seasoned", name: "Seasoned", how: "Back 10 challenges" },
+  { id: "bumper-crop", name: "Bumper crop", how: "Back 10 challenges that were completed" },
+  { id: "evergreen", name: "Evergreen", how: "Pledge seven days in a row" },
+] as const;
+
 const XP = { backed: 10, grown: 15, firstIn: 5, cloudPush: 10 } as const;
 
 export interface Badge {
@@ -1264,24 +1354,25 @@ export function planterStats(fan: User, now = Date.now()): PlanterStats {
   const index = LEVELS.reduce((best, level, i) => (xp >= level.at ? i : best), 0);
   const next = LEVELS[index + 1];
 
-  const badges: Badge[] = [
-    { id: "first-bean", name: "First bean", how: "Back your first challenge", earned: challenges.length >= 1 },
-    { id: "early-bird", name: "Early bird", how: "Be the first to back a challenge", earned: firstIn >= 1 },
-    { id: "cloud-pusher", name: "Cloud pusher", how: "Make the pledge that takes a pot to its goal", earned: cloudPushes >= 1 },
-    { id: "good-harvest", name: "Good harvest", how: "Back 3 challenges that were completed", earned: grown >= 3 },
-    { id: "wide-garden", name: "Wide garden", how: "Back challenges in 3 different games", earned: games >= 3 },
-    { id: "good-cause", name: "Good cause", how: "Back a charity stream challenge", earned: causes >= 1 },
-    { id: "matchmaker", name: "Matchmaker", how: "Back a collab between two climbers", earned: collabs >= 1 },
-    { id: "regular", name: "Regular", how: "Pledge three days in a row", earned: streakDays >= 3 },
-    { id: "money-back", name: "Money back", how: "Get a pledge refunded after a missed challenge", earned: mine.some((p) => p.refunded) },
-    { id: "idea-planter", name: "Idea planter", how: "Have a climber open a challenge you suggested", earned: db().suggestions.some((s) => s.userId === fan.id && s.status === "used") },
-    { id: "talent-scout", name: "Talent scout", how: "Back 3 different climbers", earned: streamersBacked >= 3 },
-    { id: "hat-trick", name: "Hat-trick", how: "Be the first to back 3 challenges", earned: firstIn >= 3 },
-    { id: "skyline", name: "Skyline", how: "Take 3 pots to their goal", earned: cloudPushes >= 3 },
-    { id: "seasoned", name: "Seasoned", how: "Back 10 challenges", earned: challenges.length >= 10 },
-    { id: "bumper-crop", name: "Bumper crop", how: "Back 10 challenges that were completed", earned: grown >= 10 },
-    { id: "evergreen", name: "Evergreen", how: "Pledge seven days in a row", earned: streakDays >= 7 },
-  ];
+  const earned: Record<string, boolean> = {
+    "first-bean": challenges.length >= 1,
+    "early-bird": firstIn >= 1,
+    "cloud-pusher": cloudPushes >= 1,
+    "good-harvest": grown >= 3,
+    "wide-garden": games >= 3,
+    "good-cause": causes >= 1,
+    "matchmaker": collabs >= 1,
+    "regular": streakDays >= 3,
+    "money-back": mine.some((p) => p.refunded),
+    "idea-planter": db().suggestions.some((s) => s.userId === fan.id && s.status === "used"),
+    "talent-scout": streamersBacked >= 3,
+    "hat-trick": firstIn >= 3,
+    "skyline": cloudPushes >= 3,
+    "seasoned": challenges.length >= 10,
+    "bumper-crop": grown >= 10,
+    "evergreen": streakDays >= 7,
+  };
+  const badges: Badge[] = BADGE_LIST.map((b) => ({ ...b, earned: Boolean(earned[b.id]) }));
 
   return {
     xp,
@@ -1941,4 +2032,85 @@ export function walletPledgeProblem(challenge: Challenge, wallet: string, amount
   const minMicro = toMicro(streamer ? settingsOf(streamer).minPledgeUsd : DEFAULT_SETTINGS.minPledgeUsd);
   if (amountMicro < minMicro) return `The smallest pledge on this stream is ${formatUsd(minMicro)}`;
   return undefined;
+}
+
+// ---------------------------------------------------------------------------
+// Garden badges on Solana
+// ---------------------------------------------------------------------------
+
+/** Each earned badge's token, if it has been put on Solana. */
+export function badgeMintsOf(user: User): Record<string, { mint: string; tx: string; at: number }> {
+  const out: Record<string, { mint: string; tx: string; at: number }> = {};
+  for (const [key, value] of Object.entries(db().badgeMints)) {
+    const [userId, badgeId] = key.split(":");
+    if (userId === user.id && badgeId) out[badgeId] = value;
+  }
+  return out;
+}
+
+/**
+ * Puts a planter's earned badges into their wallet as soulbound tokens, one
+ * per badge, once each. Only on the Solana ledger. `base` is the site's
+ * public address, for each token's metadata link.
+ */
+export async function mintBadges(user: User, base: string): Promise<{ minted: string[] }> {
+  if (user.role !== "fan") fail("Badges are for planters");
+  const chain = ledger();
+  if (chain.kind !== "solana") fail("Badges go on Solana only when the app runs on the Solana ledger");
+  const { mintBadge } = await import("./badge-mint");
+  const solana = chain as unknown as { connection: import("@solana/web3.js").Connection; server: import("@solana/web3.js").Keypair };
+  const minted: string[] = [];
+  for (const badge of planterStats(user).badges.filter((b) => b.earned)) {
+    const key = `${user.id}:${badge.id}`;
+    if (db().badgeMints[key]) continue;
+    const result = await mintBadge(solana.connection, solana.server, user.wallet, { id: badge.id, name: badge.name, uri: `${base}/api/badges/${badge.id}` });
+    db().badgeMints[key] = { ...result, at: Date.now() };
+    save();
+    minted.push(badge.id);
+  }
+  return { minted };
+}
+
+/** A badge by id, for its public metadata. */
+export function badgeInfo(id: string): { id: string; name: string; how: string } | undefined {
+  return BADGE_LIST.find((b) => b.id === id);
+}
+
+/** A planter who just joined from a stream picks the name the announcer reads. Letters, numbers and a few marks only. */
+export function renameNewPlanter(user: User, name: string): void {
+  const clean = name.replace(/[^\p{L}\p{N} ._'-]/gu, "").replace(/\s+/g, " ").trim().slice(0, 24);
+  if (user.role !== "fan" || clean.length < 2) return;
+  user.name = clean;
+  save();
+}
+
+/**
+ * The moments in a Stream delivery worth a post on X: a goal pot crossing
+ * half its goal or reaching it, read from the program's own running total,
+ * and a challenge settling. `base` is the site's public address.
+ */
+export function momentsFrom(events: { name: string; challenge: string; signature: string; fields: Record<string, string | number | boolean> }[], base: string) {
+  const out: { challengeId: string; moment: import("@potted/coordinator").ChainMoment }[] = [];
+  for (const e of events) {
+    const challenge = db().challenges.find((c) => c.ledgerRef && chainAccountOf(c.ledgerRef) === e.challenge);
+    if (!challenge) continue;
+    const streamer = getUser(challenge.streamerId);
+    const common = {
+      streamer: streamer?.name ?? "A streamer",
+      title: challenge.title,
+      goal: challenge.goalMicro > 0 ? formatUsd(challenge.goalMicro) : undefined,
+      planters: fundersOf(challenge.id).length,
+      link: `${base}/c/${challenge.id}`,
+      signature: e.signature,
+    };
+    if (e.name === "Pledged" && challenge.goalMicro > 0) {
+      const after = Number(e.fields.totalPledged);
+      const before = after - Number(e.fields.amount);
+      const kind = before < challenge.goalMicro && after >= challenge.goalMicro ? "goal" : before * 2 < challenge.goalMicro && after * 2 >= challenge.goalMicro ? "half" : undefined;
+      if (kind) out.push({ challengeId: challenge.id, moment: { kind, pot: formatUsd(after), ...common } });
+    } else if (e.name === "Settled") {
+      out.push({ challengeId: challenge.id, moment: { kind: e.fields.success ? "completed" : "missed", pot: formatUsd(Number(e.fields.success ? e.fields.paidOut : challenge.totalMicro)), ...common } });
+    }
+  }
+  return out;
 }

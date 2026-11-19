@@ -10,7 +10,9 @@ import { BadgeGrid } from "@/components/BadgeGrid";
 import { allPointsOf } from "@/lib/points";
 import { LevelCard } from "@/components/LevelCard";
 import { Wallet } from "@/components/Wallet";
-import { bountiesBackedBy, expireBounties, gardenOf, planterActivity, planterStats } from "@/lib/service";
+import { badgeMintsOf, bountiesBackedBy, expireBounties, gardenOf, planterActivity, planterStats } from "@/lib/service";
+import { badgeExplorerUrl } from "@/lib/badge-mint";
+import { ledger } from "@/lib/ledger";
 import { currentUser } from "@/lib/session";
 
 /** Every beanstalk a fan has helped grow, across all streamers. */
@@ -116,7 +118,11 @@ export default async function Garden() {
       <h2>
         Badges <span className="muted small">{earned} of {stats.badges.length}</span>
       </h2>
-      <BadgeGrid badges={stats.badges} />
+      <BadgeGrid
+        badges={stats.badges}
+        canMint={ledger().kind === "solana"}
+        onChain={Object.fromEntries(Object.entries(badgeMintsOf(user)).map(([id, m]) => [id, badgeExplorerUrl(m.mint)]))}
+      />
 
       {myPoints.length > 0 && (
         <>

@@ -3,6 +3,8 @@ import { CopyField } from "@/components/Live";
 import { PointsPanel } from "@/components/PointsPanel";
 import { SettingsForm } from "@/components/SettingsForm";
 import { VoiceCard } from "@/components/VoiceCard";
+import { ChatBotCard } from "@/components/ChatBotCard";
+import { botStatus } from "@/lib/chat-bot";
 import { elevenLabsKey } from "@/lib/elevenlabs";
 import { CampaignPanel, PayoutsPanel } from "@/components/StreamerPanels";
 import { pointsConfig, redemptionsFor } from "@/lib/points";
@@ -36,6 +38,8 @@ export default async function Channel() {
         <div id="settings">
           <SettingsForm initial={settingsOf(user)} bounties={bountiesSupported()} />
         </div>
+
+        <ChatBotCard status={botStatus(user)} />
 
         <VoiceCard own={Boolean(settingsOf(user).ownVoice)} consentAt={settingsOf(user).ownVoice?.consentAt ?? null} ready={Boolean(elevenLabsKey())} />
 

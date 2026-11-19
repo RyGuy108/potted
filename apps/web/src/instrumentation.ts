@@ -12,4 +12,7 @@ export async function register() {
     // Serving from the local file beats not serving at all; say so loudly.
     console.error("[supabase] could not load state, using the local file:", err instanceof Error ? err.message : err);
   }
+  // The !potted chat bot: Twitch's chat connection and the YouTube readers.
+  const { startChatBots } = await import("./lib/chat-bot");
+  startChatBots();
 }

@@ -221,6 +221,28 @@
           "writable": true
         },
         {
+          "name": "splits",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  112,
+                  108,
+                  105,
+                  116,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "challenge"
+              }
+            ]
+          }
+        },
+        {
           "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         }
@@ -418,6 +440,79 @@
       "args": []
     },
     {
+      "name": "set_splits",
+      "docs": [
+        "Fixes who else is paid, and what whole percent each gets, before any",
+        "fan pledges. Only the streamer can set them, and only once."
+      ],
+      "discriminator": [
+        175,
+        2,
+        86,
+        49,
+        225,
+        202,
+        232,
+        189
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "streamer",
+          "signer": true,
+          "relations": [
+            "challenge"
+          ]
+        },
+        {
+          "name": "challenge"
+        },
+        {
+          "name": "splits",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  112,
+                  108,
+                  105,
+                  116,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "challenge"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "shares",
+          "type": {
+            "vec": {
+              "defined": {
+                "name": "Share"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "settle",
       "discriminator": [
         175,
@@ -466,9 +561,31 @@
         {
           "name": "streamer_token",
           "docs": [
-            "The streamer's own token account; the pot can go nowhere else."
+            "The streamer's own token account; the host's part can go nowhere else."
           ],
           "writable": true
+        },
+        {
+          "name": "splits",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  112,
+                  108,
+                  105,
+                  116,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "challenge"
+              }
+            ]
+          }
         },
         {
           "name": "token_program",
@@ -522,11 +639,23 @@
         169,
         131
       ]
+    },
+    {
+      "name": "Splits",
+      "discriminator": [
+        108,
+        68,
+        238,
+        198,
+        23,
+        99,
+        85,
+        143
+      ]
     }
   ],
   "events": [
     {
-      "name": "Cancelled",
       "discriminator": [
         136,
         23,
@@ -536,10 +665,10 @@
         233,
         234,
         46
-      ]
+      ],
+      "name": "Cancelled"
     },
     {
-      "name": "ChallengeCreated",
       "discriminator": [
         166,
         178,
@@ -549,10 +678,10 @@
         172,
         98,
         243
-      ]
+      ],
+      "name": "ChallengeCreated"
     },
     {
-      "name": "Locked",
       "discriminator": [
         188,
         53,
@@ -562,10 +691,10 @@
         12,
         198,
         84
-      ]
+      ],
+      "name": "Locked"
     },
     {
-      "name": "Pledged",
       "discriminator": [
         98,
         154,
@@ -575,10 +704,10 @@
         48,
         26,
         16
-      ]
+      ],
+      "name": "Pledged"
     },
     {
-      "name": "Refunded",
       "discriminator": [
         35,
         103,
@@ -588,10 +717,10 @@
         123,
         221,
         99
-      ]
+      ],
+      "name": "Refunded"
     },
     {
-      "name": "Settled",
       "discriminator": [
         232,
         210,
@@ -601,7 +730,34 @@
         124,
         145,
         238
-      ]
+      ],
+      "name": "Settled"
+    },
+    {
+      "discriminator": [
+        36,
+        246,
+        242,
+        254,
+        175,
+        66,
+        177,
+        78
+      ],
+      "name": "SharePaid"
+    },
+    {
+      "discriminator": [
+        37,
+        82,
+        198,
+        49,
+        118,
+        211,
+        247,
+        121
+      ],
+      "name": "SplitsSet"
     }
   ],
   "errors": [
@@ -674,13 +830,32 @@
       "code": 6013,
       "name": "UpfrontTooHigh",
       "msg": "At most half the pot can be paid up front"
+    },
+    {
+      "code": 6014,
+      "name": "SplitsAfterPledges",
+      "msg": "Splits must be set before anyone pledges"
+    },
+    {
+      "code": 6015,
+      "name": "BadSplits",
+      "msg": "Up to 4 shares, each a whole percent from 1 to 99, adding up to 90% at most, none to the streamer"
+    },
+    {
+      "code": 6016,
+      "name": "MissingShareAccount",
+      "msg": "Pass a token account for every share"
+    },
+    {
+      "code": 6017,
+      "name": "WrongShareAccount",
+      "msg": "A share's token account belongs to someone else or holds another token"
     }
   ],
   "types": [
     {
       "name": "Cancelled",
       "type": {
-        "kind": "struct",
         "fields": [
           {
             "name": "challenge",
@@ -690,7 +865,8 @@
             "name": "total_pledged",
             "type": "u64"
           }
-        ]
+        ],
+        "kind": "struct"
       }
     },
     {
@@ -808,7 +984,6 @@
     {
       "name": "ChallengeCreated",
       "type": {
-        "kind": "struct",
         "fields": [
           {
             "name": "challenge",
@@ -830,13 +1005,13 @@
             "name": "settle_by",
             "type": "i64"
           }
-        ]
+        ],
+        "kind": "struct"
       }
     },
     {
       "name": "Locked",
       "type": {
-        "kind": "struct",
         "fields": [
           {
             "name": "challenge",
@@ -850,7 +1025,8 @@
             "name": "upfront_paid",
             "type": "u64"
           }
-        ]
+        ],
+        "kind": "struct"
       }
     },
     {
@@ -884,7 +1060,6 @@
     {
       "name": "Pledged",
       "type": {
-        "kind": "struct",
         "fields": [
           {
             "name": "challenge",
@@ -902,13 +1077,13 @@
             "name": "total_pledged",
             "type": "u64"
           }
-        ]
+        ],
+        "kind": "struct"
       }
     },
     {
       "name": "Refunded",
       "type": {
-        "kind": "struct",
         "fields": [
           {
             "name": "challenge",
@@ -922,13 +1097,13 @@
             "name": "amount",
             "type": "u64"
           }
-        ]
+        ],
+        "kind": "struct"
       }
     },
     {
       "name": "Settled",
       "type": {
-        "kind": "struct",
         "fields": [
           {
             "name": "challenge",
@@ -946,7 +1121,101 @@
             "name": "evidence_ref",
             "type": "string"
           }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "name": "Share",
+      "docs": [
+        "One share of a successful pot, besides the host's."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "pct",
+            "docs": [
+              "Whole percent, 1 to 99."
+            ],
+            "type": "u8"
+          }
         ]
+      }
+    },
+    {
+      "docs": [
+        "A guest's or a cause's share, paid straight from the vault."
+      ],
+      "name": "SharePaid",
+      "type": {
+        "fields": [
+          {
+            "name": "challenge",
+            "type": "pubkey"
+          },
+          {
+            "name": "wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "name": "Splits",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "challenge",
+            "type": "pubkey"
+          },
+          {
+            "name": "shares",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "Share"
+                }
+              }
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SplitsSet",
+      "type": {
+        "fields": [
+          {
+            "name": "challenge",
+            "type": "pubkey"
+          },
+          {
+            "name": "shares",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "Share"
+                }
+              }
+            }
+          }
+        ],
+        "kind": "struct"
       }
     },
     {

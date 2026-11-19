@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { type EscrowEvent, decodeLogs } from "./events";
+import { EVENT_NAMES, type EscrowEvent, decodeLogs } from "./events";
 
 /**
  * Checks that a webhook really came from our QuickNode Stream: the
@@ -50,6 +50,17 @@ export function parseDelivery(payload: unknown, programId: string): ChainEvent[]
     const here = { slot: Number(tx.slot ?? slot) || 0, blockTime: Number(tx.blockTime ?? blockTime) || 0 };
     const signature = typeof tx.signature === "string" ? tx.signature : Array.isArray(tx.transaction?.signatures) ? tx.transaction.signatures[0] : undefined;
     const logs = Array.isArray(tx.logs) ? tx.logs : Array.isArray(tx.meta?.logMessages) ? tx.meta.logMessages : undefined;
+    // Events already decoded by our filter inside QuickNode (filters.ts). The delivery's
+    // signature vouches for them; names outside the program's set are ignored.
+    if (typeof signature === "string" && !logs && Array.isArray((tx as { events?: unknown }).events)) {
+      ((tx as { events: unknown[] }).events).forEach((raw, index) => {
+        const event = raw as { name?: unknown; fields?: unknown };
+        if (typeof event.name !== "string" || !(EVENT_NAMES as readonly string[]).includes(event.name) || typeof event.fields !== "object" || !event.fields) return;
+        const fields = event.fields as Record<string, string | number | boolean>;
+        events.push({ name: event.name as EscrowEvent["name"], challenge: String(fields.challenge), fields, key: `${signature}:${index}`, signature, slot: here.slot, at: here.blockTime * 1000 });
+      });
+      return;
+    }
     if (typeof signature === "string" && logs) {
       // A failed transaction changed nothing, whatever it logged.
       if (tx.err || tx.meta?.err) return;

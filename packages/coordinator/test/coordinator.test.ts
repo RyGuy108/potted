@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type Deps, disputeBrief, draftRecap, draftTerms, draftWithRules, translateLine } from "../src/index";
+import { type Deps, disputeBrief, draftRecap, draftTerms, draftWithRules, translateLine, draftPost, postByRules, postLength } from "../src/index";
 
 const noKey: Deps = { fetch: () => Promise.reject(new Error("no network in tests")), env: {} };
 
@@ -127,5 +127,29 @@ describe("translating announcer lines", () => {
     expect(await translateLine(line, "Spanish", reply("Maya añadió 5 dólares. El bote está en $28.00."))).toEqual({ text: line, translated: false });
     expect(await translateLine(line, "English", reply("anything"))).toEqual({ text: line, translated: false });
     expect(await translateLine(line, "Spanish", noKey)).toEqual({ text: line, translated: false });
+  });
+});
+
+describe("posts to X about on-chain moments", () => {
+  const moment = { kind: "goal" as const, streamer: "Ryan", title: "Finish the first heist", pot: "$50", goal: "$50", planters: 6, link: "https://potted.app/c/c_1", signature: "sig" };
+
+  it("uses Grok's post when it carries the link once and only known figures", async () => {
+    const text = "Ryan's heist pot just hit $50 on Solana 🎯 Now the hard part. Back it before the attempt: https://potted.app/c/c_1";
+    expect(await draftPost(moment, grok(JSON.stringify({ text })))).toEqual({ text, source: "grok" });
+  });
+
+  it("falls back to fixed text for a made-up figure, a missing link or a mention", async () => {
+    for (const bad of ["Pot at $75! https://potted.app/c/c_1", "Ryan's pot is full, go back it now!", "Huge thanks @ryan https://potted.app/c/c_1 for $50"]) {
+      const out = await draftPost(moment, grok(JSON.stringify({ text: bad })));
+      expect(out.source).toBe("rules");
+      expect(out.text).toContain("https://potted.app/c/c_1");
+    }
+    expect((await draftPost({ ...moment, kind: "missed" }, noKey)).text).toMatch(/refunded automatically/);
+  });
+
+  it("keeps fixed posts within X's limit by shortening a long title, never the link", () => {
+    const text = postByRules({ ...moment, kind: "half", title: "A".repeat(300) });
+    expect(postLength(text)).toBeLessThanOrEqual(280);
+    expect(text.endsWith("https://potted.app/c/c_1")).toBe(true);
   });
 });

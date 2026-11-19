@@ -95,6 +95,8 @@ export interface Split {
   /** Whole percent of the pot, 1 to 99. */
   pct: number;
   url?: string;
+  /** A cause's own Solana address, when the streamer gave one. */
+  wallet?: string;
 }
 
 /**
