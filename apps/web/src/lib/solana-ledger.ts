@@ -17,6 +17,7 @@ import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
 import type { Challenge, Evidence } from "@potted/core";
 import { decodeLogs } from "@potted/chain";
 import baseIdl from "./escrow-idl.json";
+import legacyIdl from "./escrow-idl-legacy.json";
 import type { Escrow } from "./escrow-types";
 import type { Ledger, Payout } from "./ledger";
 import { privySign, privyWalletId } from "./privy";
@@ -67,6 +68,8 @@ export class SolanaLedger implements Ledger {
   readonly server: Keypair;
   readonly mint: PublicKey;
   readonly program: Program<Escrow>;
+  private readonly legacy: Program<Escrow>;
+  private splitsCheck?: { at: number; result: Promise<boolean> };
   private keys = new Map<string, Keypair>();
   private keyFile: string;
 
@@ -78,8 +81,42 @@ export class SolanaLedger implements Ledger {
     const idl = { ...(baseIdl as Idl), address: required("POTTED_PROGRAM_ID") } as unknown as Escrow;
     const provider = new AnchorProvider(this.connection, new Wallet(this.server), { commitment: "confirmed" });
     this.program = new Program(idl, provider);
+    // The same program before splits were added, for a deployment that has not been updated yet.
+    this.legacy = new Program({ ...(legacyIdl as Idl), address: required("POTTED_PROGRAM_ID") } as unknown as Escrow, provider);
     this.keyFile = path.join(process.env.POTTED_DATA_DIR || path.join(process.cwd(), ".data"), "wallets.json");
     this.loadKeys();
+  }
+
+  /**
+   * Whether the deployed escrow program pays splits itself (has
+   * `set_splits`). A program deployed before that change takes the old
+   * accounts on lock and settle, so the app reads the deployed binary and
+   * talks to whichever version is there. Checked again every few minutes, so
+   * redeploying needs no restart.
+   */
+  supportsSplits(): Promise<boolean> {
+    if (!this.splitsCheck || Date.now() - this.splitsCheck.at > 5 * 60_000) {
+      this.splitsCheck = { at: Date.now(), result: this.readProgramForSplits() };
+    }
+    return this.splitsCheck.result;
+  }
+
+  private async readProgramForSplits(): Promise<boolean> {
+    try {
+      const account = await this.connection.getAccountInfo(this.program.programId, "confirmed");
+      if (!account) return true;
+      const UPGRADEABLE = "BPFLoaderUpgradeab1e11111111111111111111111";
+      let binary: Buffer = account.data;
+      if (account.owner.toBase58() === UPGRADEABLE) {
+        // An upgradeable program's account points at the account holding its code.
+        const data = await this.connection.getAccountInfo(new PublicKey(account.data.subarray(4, 36)), "confirmed");
+        if (!data) return true;
+        binary = data.data;
+      }
+      return binary.includes(Buffer.from("Instruction: SetSplits"));
+    } catch {
+      return true;
+    }
   }
 
   // --- Custodial wallets ---------------------------------------------------
@@ -217,7 +254,7 @@ export class SolanaLedger implements Ledger {
       })
       .transaction();
     // Guest and cause shares are fixed in the same transaction, before anyone can pledge.
-    if (splits.length > 0) {
+    if (splits.length > 0 && (await this.supportsSplits())) {
       tx.add(
         await this.program.methods
           .setSplits(splits.map((split, i) => ({ wallet: new PublicKey(shareWallets[i]!), pct: split.pct })))
@@ -301,8 +338,13 @@ export class SolanaLedger implements Ledger {
     const { streamer, account, vault } = this.accountsFor(challenge);
     for (const p of upfront) new PublicKey(p.wallet);
     const streamerToken = await this.ensureTokenAccount(streamer.toBase58());
-    const { splits, shareAccounts, onChain } = await this.shareAccounts(account);
     // The program accepts the verifier as well as the streamer here.
+    if (!(await this.supportsSplits())) {
+      const tx = await this.legacy.methods.lock().accountsPartial({ authority: this.server.publicKey, challenge: account, vault, streamerToken }).rpc();
+      await this.sendShares(streamer, streamerToken, upfront);
+      return tx;
+    }
+    const { splits, shareAccounts, onChain } = await this.shareAccounts(account);
     const tx = await this.program.methods
       .lock()
       .accountsPartial({ authority: this.server.publicKey, challenge: account, vault, streamerToken, splits })
@@ -365,9 +407,18 @@ export class SolanaLedger implements Ledger {
     for (const p of payouts) new PublicKey(p.wallet);
     const evidenceRef = (evidence?.ref ?? (success ? "settled" : "failed")).slice(0, 96);
     const streamerToken = await this.ensureTokenAccount(streamer.toBase58());
+    const evidenceHash = sha256(JSON.stringify(evidence ?? null));
+    if (!(await this.supportsSplits())) {
+      const tx = await this.legacy.methods
+        .settle(success, evidenceRef, evidenceHash)
+        .accountsPartial({ verifier: this.server.publicKey, challenge: account, vault, streamerToken })
+        .rpc();
+      if (success) await this.sendShares(streamer, streamerToken, payouts);
+      return tx;
+    }
     const { splits, shareAccounts, onChain } = await this.shareAccounts(account);
     const tx = await this.program.methods
-      .settle(success, evidenceRef, sha256(JSON.stringify(evidence ?? null)))
+      .settle(success, evidenceRef, evidenceHash)
       .accountsPartial({ verifier: this.server.publicKey, challenge: account, vault, streamerToken, splits })
       .remainingAccounts(shareAccounts)
       .rpc();

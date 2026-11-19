@@ -21,6 +21,7 @@ import {
   openBounties,
   payoutsFor,
   pendingSuggestions,
+  gardenOf,
   planterStats,
 } from "@/lib/service";
 import { currentUser } from "@/lib/session";
@@ -67,6 +68,11 @@ function planterTiles(user: NonNullable<Awaited<ReturnType<typeof currentUser>>>
   const points = allPointsOf(user).reduce((sum, p) => sum + p.balance, 0);
   const next = stats.level.next;
   const progress = next ? (stats.xp - stats.level.floor) / (next.at - stats.level.floor) : 1;
+  // What's still growing: challenges they backed that haven't settled, biggest pots first.
+  const growing = gardenOf(user)
+    .plots.filter((p) => p.challenge.status === "open" || p.challenge.status === "locked")
+    .sort((a, b) => b.challenge.totalMicro - a.challenge.totalMicro);
+  const nextBadge = stats.badges.find((b) => !b.earned);
   return [
     {
       id: "garden",
@@ -77,8 +83,38 @@ function planterTiles(user: NonNullable<Awaited<ReturnType<typeof currentUser>>>
       colSpan: 2,
       rowSpan: 2,
       visual: (
+        <div className="bento-garden-wrap">
+          {growing.length > 0 ? (
+            <div className="bento-growing">
+              <span className="eyebrow">Growing now · {growing.length}</span>
+              {growing.slice(0, 2).map((p) => {
+                const goal = p.challenge.goalMicro;
+                const pct = goal > 0 ? Math.min(100, (p.challenge.totalMicro / goal) * 100) : 100;
+                return (
+                  <span key={p.challenge.id} className="bento-growing-row">
+                    <span className="bento-growing-name">
+                      <b>{p.streamerName}</b> {p.challenge.title.replace(/^[^:]{1,20}:\s*/, "")}
+                    </span>
+                    <span className="mono small">{formatUsd(p.challenge.totalMicro)}</span>
+                    <span className="bento-mini-bar" aria-hidden="true">
+                      <span style={{ width: `${Math.max(4, pct)}%` }} />
+                    </span>
+                  </span>
+                );
+              })}
+            </div>
+          ) : nextBadge ? (
+            <div className="bento-growing">
+              <span className="eyebrow">Next badge</span>
+              <span className="bento-growing-row">
+                <span className="bento-growing-name">
+                  <b>{nextBadge.name}</b> {nextBadge.how}
+                </span>
+              </span>
+            </div>
+          ) : null}
         <div className="bento-garden">
-          <Beanstalk stage={Math.min(4, stats.level.index)} size={132} />
+          <Beanstalk stage={Math.min(4, stats.level.index)} size={growing.length > 0 || nextBadge ? 104 : 132} />
           <div className="bento-garden-xp">
             <span className="mono">{stats.xp.toLocaleString("en-US")} XP</span>
             <span className="bento-bar">
@@ -86,6 +122,7 @@ function planterTiles(user: NonNullable<Awaited<ReturnType<typeof currentUser>>>
             </span>
             <span className="muted small">{next ? `${(next.at - stats.xp).toLocaleString("en-US")} XP to ${next.name}` : "Top level"}</span>
           </div>
+        </div>
         </div>
       ),
     },

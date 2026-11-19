@@ -6331,3 +6331,67 @@ button.badge-tile:focus-visible {
   border-radius: 12px;
   background: rgba(250, 247, 242, 0.03);
 }
+
+/* Account page: what's growing in the garden tile */
+.bento-garden-wrap {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+  height: 100%;
+}
+
+.bento-growing {
+  display: grid;
+  gap: 10px;
+}
+
+.bento-growing .eyebrow {
+  margin: 0;
+}
+
+.bento-growing-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.bento-growing-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted, #a89f94);
+  font-size: 0.9rem;
+}
+
+.bento-growing-name b {
+  color: var(--ink, #faf7f2);
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.bento-mini-bar {
+  grid-column: 1 / -1;
+  display: block;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(250, 247, 242, 0.08);
+  overflow: hidden;
+}
+
+.bento-mini-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--green, #3ecf8e);
+  opacity: 0.8;
+}
+
+.bento-garden-wrap .bento-growing {
+  gap: 8px;
+}
+
+.bento-garden-wrap .bento-garden-xp .mono {
+  font-size: 1.5rem;
+}
