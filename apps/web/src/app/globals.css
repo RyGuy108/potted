@@ -6560,3 +6560,24 @@ button.badge-tile:focus-visible {
 .kick-warn {
   color: #ff8f86;
 }
+
+/* Privacy policy and terms. */
+.legal {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 0 48px;
+  line-height: 1.6;
+}
+
+.legal h2 {
+  margin-top: 28px;
+  font-size: 1.15rem;
+}
+
+.legal ul {
+  padding-left: 20px;
+}
+
+.legal li {
+  margin-bottom: 8px;
+}
