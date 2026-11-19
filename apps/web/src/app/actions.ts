@@ -200,13 +200,61 @@ export async function chatBotAction(change: { on?: boolean; disconnect?: "kick" 
     if (user.role !== "streamer") throw new Error("Only climbers have a chat bot");
     const bot = await import("@/lib/chat-bot");
     if (change.on !== undefined) await service.updateSettings(user, { ...service.settingsOf(user), chatBot: change.on });
-    if (change.disconnect) bot.disconnect(user, change.disconnect);
+    if (change.disconnect) await bot.disconnect(user, change.disconnect);
     if (change.test) {
+      // Kick has its own deliberate test button on its card.
       const reply = bot.replyTo(user, "!potted") ?? "";
-      return { ok: true, sent: await bot.announce(user, reply) };
+      const others = bot.connectedPlatforms(user).filter((p) => p !== "kick");
+      const sent: string[] = [];
+      for (const platform of others) {
+        try {
+          await bot.sendChat(platform, user, bot.fitChat(reply));
+          sent.push(platform);
+        } catch {
+          // Shown as not sent.
+        }
+      }
+      return { ok: true, sent };
     }
     revalidatePath("/dashboard/channel");
     return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Something went wrong" };
+  }
+}
+
+/**
+ * Manages the signed-in climber's own Kick connection. Every action acts
+ * only on the caller's account.
+ */
+export async function kickAction(
+  change:
+    | { kind: "options"; commands?: boolean; announce?: Partial<Record<"started" | "goal" | "result", boolean>> }
+    | { kind: "test"; confirm: "post-publicly" }
+    | { kind: "repair" }
+    | { kind: "disconnect" },
+): Promise<{ ok: true; note?: string } | { ok: false; error: string }> {
+  try {
+    const user = await requireUser();
+    if (user.role !== "streamer") throw new Error("Only climbers connect Kick");
+    const kick = await import("@/lib/kick");
+    let note: string | undefined;
+    if (change.kind === "options") kick.setKickOptions(user, { commands: change.commands, announce: change.announce });
+    else if (change.kind === "test") {
+      if (change.confirm !== "post-publicly") throw new Error("Confirm that the test posts in your public chat");
+      const { replyTo } = await import("@/lib/chat-replies");
+      await kick.sendKickMessage(user, `Potted test message. ${replyTo(user, "!potted") ?? ""}`.trim());
+      note = "Posted in your Kick chat.";
+    } else if (change.kind === "repair") {
+      const link = await kick.repairKickSubscriptions(user);
+      await kick.refreshKickLive(user);
+      note = link?.subsError ? `Kick refused some subscriptions: ${link.subsError}` : "Subscriptions are in place.";
+    } else if (change.kind === "disconnect") {
+      const r = await kick.disconnectKick(user);
+      note = r.revoked && r.unsubscribed ? "Disconnected." : "Disconnected here. Kick could not be reached to remove everything; you can also remove Potted under Connections in your Kick settings.";
+    }
+    revalidatePath("/dashboard/channel");
+    return { ok: true, note };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Something went wrong" };
   }
