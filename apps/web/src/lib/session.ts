@@ -50,6 +50,18 @@ export function readExtToken(token: string | undefined | null, now = Date.now())
   return given.length === expected.length && timingSafeEqual(given, expected) ? userId : undefined;
 }
 
+/**
+ * Swaps a website session for an extension token, so the extension can sign
+ * itself in when the user is already signed in on the site. `cookieValue`
+ * is the session cookie, sent by the browser or read by the extension.
+ */
+export function extTokenFromSession(cookieValue: string | undefined | null): { token: string; user: User } | undefined {
+  const user = getUser(readSessionToken(cookieValue ?? undefined));
+  return user ? { token: extToken(user.id), user } : undefined;
+}
+
+export const SESSION_COOKIE = COOKIE;
+
 export async function currentUser(): Promise<User | undefined> {
   return getUser(readSessionToken((await cookies()).get(COOKIE)?.value));
 }

@@ -1,5 +1,11 @@
 /** Where the Potted server lives unless the user points the extension elsewhere. */
-export const DEFAULT_BASE = "http://localhost:3000";
+export const DEFAULT_BASE = "https://potted-production-25981257.up.railway.app";
+
+/** The default before the site moved to Railway. A saved copy of it is dropped on update. */
+export const OLD_DEFAULT_BASE = "http://localhost:3000";
+
+/** The website's session cookie (see apps/web/src/lib/session.ts). */
+const SESSION_COOKIE = "potted_uid";
 
 export async function getSettings() {
   const { base, token } = await chrome.storage.local.get(["base", "token"]);
@@ -34,5 +40,33 @@ export function streamFromUrl(url, base) {
   }
   if (host === "youtube.com" && parts[0]?.startsWith("@")) return { platform: "youtube", channel: parts[0].slice(1).toLowerCase() };
   if (host === "kick.com" && parts[0]) return { platform: "kick", channel: parts[0].toLowerCase() };
+  return null;
+}
+
+/**
+ * If the user is signed in on the website, returns an extension token for
+ * that account, otherwise null. The browser sends the site's cookie because
+ * the extension has permission for the site; if it doesn't (a stricter
+ * cookie setting), the extension reads the cookie itself and sends it.
+ */
+export async function tokenFromSiteSession(base) {
+  const ask = async (headers) => {
+    try {
+      const response = await fetch(`${base}/api/ext-session`, { credentials: "include", cache: "no-store", headers });
+      if (!response.ok) return null;
+      const { token } = await response.json();
+      return typeof token === "string" ? token : null;
+    } catch {
+      return null;
+    }
+  };
+  const viaBrowser = await ask({});
+  if (viaBrowser) return viaBrowser;
+  try {
+    const cookie = await chrome.cookies?.get({ url: base, name: SESSION_COOKIE });
+    if (cookie?.value) return await ask({ "X-Potted-Session": cookie.value });
+  } catch {
+    // No permission for this server address: the user can still log in by hand.
+  }
   return null;
 }
