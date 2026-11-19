@@ -59,7 +59,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       )}
       <main>{children}</main>
       <footer className="site-footer muted small">
-        Potted · UBC 2026 hackathon prototype · devnet only · <Link href="/activity">On-chain record</Link>
+        Potted · UBC 2026 hackathon prototype · devnet only · <Link href="/activity">On-chain record</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link>
       </footer>
     </>
   );
