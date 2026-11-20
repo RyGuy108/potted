@@ -4,8 +4,10 @@ import { type User, db } from "./store";
 /**
  * Leaderboards. Planters rank by garden XP (the same points that set their
  * level, earned by backing, completions, being first in and topping off
- * pots, never by pledge size alone). Climbers rank by what they have been
- * paid. Demo accounts with no activity are left off.
+ * pots, never by pledge size alone). Climbers rank by how many distinct
+ * planters have backed them. Money a climber has earned or raised is kept
+ * off this board on purpose, for privacy. Demo accounts with no activity are
+ * left off.
  */
 
 export interface PlanterRow {
@@ -23,11 +25,10 @@ export interface PlanterRow {
 export interface ClimberRow {
   user: User;
   rank: number;
-  earnedMicro: number;
-  raisedMicro: number;
   challenges: number;
   completed: number;
   completionRate: number | null;
+  /** Distinct planters who have pledged to any of their challenges. */
   planters: number;
 }
 
@@ -72,8 +73,6 @@ export function climberBoard(): ClimberRow[] {
       return {
         user,
         rank: 0,
-        earnedMicro: list.reduce((sum, c) => sum + service.earnedBy(c, user.id), 0),
-        raisedMicro: list.filter((c) => c.status !== "failed").reduce((sum, c) => sum + c.totalMicro, 0),
         challenges: list.length,
         completed,
         completionRate: settled.length ? completed / settled.length : null,
@@ -81,7 +80,7 @@ export function climberBoard(): ClimberRow[] {
       };
     })
     .filter((r): r is ClimberRow => r !== null)
-    .sort((a, b) => b.earnedMicro - a.earnedMicro || b.raisedMicro - a.raisedMicro);
+    .sort((a, b) => b.planters - a.planters || b.completed - a.completed || b.challenges - a.challenges);
   rows.forEach((r, i) => (r.rank = i + 1));
   return rows;
 }

@@ -132,8 +132,9 @@ describe("authorization", () => {
     ]);
     expect(service.settingsOf(ryan()).kickChannel).toBe("ryankick");
     expect(fetcher.chats()).toEqual([]);
-    // Tokens are stored sealed, never in plain text.
-    const stored = JSON.stringify(db());
+    // Tokens are stored sealed, never in plain text. The sealed blob is random
+    // base64 and can contain "at1"/"rt1" by chance, so check everything else.
+    const stored = JSON.stringify(db()).replace(link.tokens!, "<sealed>");
     expect(stored).not.toContain("at1");
     expect(stored).not.toContain("rt1");
     expect(link.tokens).toMatch(/^pbox1:/);

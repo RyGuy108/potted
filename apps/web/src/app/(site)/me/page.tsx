@@ -317,7 +317,7 @@ function climberTiles(user: NonNullable<Awaited<ReturnType<typeof currentUser>>>
       id: "rank",
       label: "Leaderboard",
       title: row ? `#${row.rank} of ${climberBoard().length} climbers` : "Unranked",
-      description: "Ranked by what you've been paid",
+      description: "Ranked by how many planters have backed you",
       href: "/leaderboard?board=climbers",
       visual: <Big>{row ? `#${row.rank}` : "—"}</Big>,
     },
