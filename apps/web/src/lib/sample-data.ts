@@ -37,6 +37,17 @@ export const SAMPLE_SIGN_INS: { id: string; label: string; role: Role; note: str
   { id: "u_s_hazel", label: "Hazel", role: "mod", note: "Keeper with past rulings" },
 ];
 
+/**
+ * Sample accounts that can be signed into with email on any server, for
+ * recording a demo: the address plus the code in POTTED_DEMO_CODE (see
+ * demo-login.ts). The ".potted" domain does not exist, so no mail is sent.
+ */
+export const DEMO_LOGINS: { email: string; id: string; role: Role; label: string; note: string }[] = [
+  { email: "planter@demo.potted", id: "u_s_maya", role: "fan", label: "Maya", note: "Planter with six weeks of pledges, badges and points" },
+  { email: "climber@demo.potted", id: "u_s_moss", role: "streamer", label: "Moss", note: "Chess climber with a live pot and past receipts" },
+  { email: "keeper@demo.potted", id: "u_s_hazel", role: "mod", label: "Hazel", note: "Keeper with past rulings and a disputed clip to review" },
+];
+
 interface StreamerSpec {
   id: string;
   name: string;
@@ -269,6 +280,10 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
     users.push({ id: planterId(name), name, role: "fan", wallet: `sim:${planterId(name)}`, createdAt: joined(name === "Maya" ? 52 : r.int(10, 50)) });
   }
   for (const k of KEEPERS) users.push({ id: k.id, name: k.name, role: "mod", wallet: `sim:${k.id}`, createdAt: joined(r.int(45, 60)) });
+  for (const login of DEMO_LOGINS) {
+    const u = users.find((x) => x.id === login.id);
+    if (u) Object.assign(u, { email: login.email, emailVerified: true, identities: [{ provider: "email", subject: login.email }] });
+  }
 
   const everyone = [...existing, ...users];
   const nameOf = (uid: string) => everyone.find((u) => u.id === uid)?.name ?? "A climber";
@@ -277,7 +292,9 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
   const testClimbers = TEST_CLIMBERS.filter((t) => has(t.id));
   const testPlanters = TEST_PLANTERS.filter(has);
   const testKeepers = TEST_KEEPERS.filter((k) => has(k.id));
-  const specs = [...HOSTS, ...SAMPLE_STREAMERS, ...testClimbers];
+  // Ryan and Kai exist only where demo accounts are on; on the live server the sample runs without them.
+  const hosts = HOSTS.filter((h) => has(h.id));
+  const specs = [...hosts, ...SAMPLE_STREAMERS, ...testClimbers];
   const fans = [...PLANTERS.map(planterId), ...testPlanters];
   // Each climber has regulars who show up most streams.
   const regulars = new Map(specs.map((s) => [s.id, Array.from({ length: 6 }, () => r.pick(fans.filter((f) => f !== "u_s_maya")))]));
@@ -514,7 +531,7 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
       ? testClimbers[1]
       : spec.id === "u_t_climber2"
         ? testClimbers[0]
-        : spec.id === DEMO_STREAMER_ID ? HOSTS[1] : spec.id === DEMO_GUEST_ID ? HOSTS[0] : spec.id === "u_s_juniper" ? SAMPLE_STREAMERS[4] : spec.id === "u_s_wren" ? SAMPLE_STREAMERS[0] : undefined;
+        : spec.id === DEMO_STREAMER_ID ? hosts.find((h) => h.id === DEMO_GUEST_ID) : spec.id === DEMO_GUEST_ID ? hosts.find((h) => h.id === DEMO_STREAMER_ID) : spec.id === "u_s_juniper" ? SAMPLE_STREAMERS[4] : spec.id === "u_s_wren" ? SAMPLE_STREAMERS[0] : undefined;
   for (const spec of specs) {
     const days = new Set<number>();
     while (days.size < spec.sessions) days.add(r.int(1, 42));
@@ -604,7 +621,7 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
   };
   // Ryan keeps the starter rewards, so his queue has requests to answer on stage too.
   const ryanConfig: PointsConfig = { on: true, perUsd: 100, when: "pledged", rewards: STARTER_REWARDS.map((w, i) => ({ ...w, id: `starter-${i}` })) };
-  for (const [streamerId, config] of [...Object.entries(points), [DEMO_STREAMER_ID, ryanConfig] as const]) {
+  for (const [streamerId, config] of [...Object.entries(points), ...(has(DEMO_STREAMER_ID) ? [[DEMO_STREAMER_ID, ryanConfig] as const] : [])]) {
     for (const fan of fans) {
       let left = earnedBy(fan, streamerId, config);
       // Most planters save up; some spend once or twice.
@@ -646,7 +663,9 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
   for (const fav of [DEMO_STREAMER_ID, "u_s_juniper", "u_s_sol"]) follows.push({ fanId: "u_s_maya", streamerId: fav, at: now - r.int(5, 40) * DAY });
   for (const tester of testPlanters) for (const fav of [...testClimbers.map((t) => t.id), DEMO_STREAMER_ID, "u_s_juniper"]) follows.push({ fanId: tester, streamerId: fav, at: now - r.int(3, 30) * DAY });
 
-  return { users, challenges, pledges, suggestions, invites, events, points, redemptions, follows, balances };
+  const known = new Set(everyone.map((u) => u.id));
+  const kept = follows.filter((f) => known.has(f.fanId) && known.has(f.streamerId));
+  return { users, challenges, pledges, suggestions, invites, events, points, redemptions, follows: kept, balances };
 }
 
 /** Takes every sample record back out, leaving everything else as it was. */

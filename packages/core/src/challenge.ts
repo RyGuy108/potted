@@ -79,6 +79,8 @@ export interface Challenge {
   requestPaidMicro?: number;
   /** The streamer's campaign this challenge belongs to, if one was running when it opened. */
   campaignId?: string;
+  /** Set when Grok drafted the terms (from a fan's idea or a scout pitch) and the climber opened them. */
+  draftedBy?: "grok";
   /** Address of the on-chain challenge account, or a sim id. */
   ledgerRef?: string;
   /** Transaction ids by step, for receipts. */

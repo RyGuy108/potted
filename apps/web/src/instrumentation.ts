@@ -28,6 +28,9 @@ export async function register() {
   // One server per data folder: claim it, and back it up hourly.
   const { startOps } = await import("./lib/ops");
   startOps();
+  // The demo seed: clearly marked sample accounts and live pots (POTTED_DEMO_SEED, see demo-seed.ts).
+  const { startDemoSeed } = await import("./lib/demo-seed");
+  startDemoSeed();
   // The background job: deadlines, result checks, request expiry.
   const { startScheduler } = await import("./lib/scheduler");
   startScheduler();

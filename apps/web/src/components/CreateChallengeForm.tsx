@@ -123,7 +123,7 @@ export function CreateChallengeForm({
               ? await acceptBountyAction(suggestion.id, terms)
               : partner
                 ? await inviteAction(partner, Number(partnerPct), terms)
-                : await createChallengeAction(terms, suggestion?.id);
+                : await createChallengeAction({ ...terms, ...(draft?.source === "grok" ? { draftedBy: "grok" as const } : {}) }, suggestion?.id);
           if (!result.ok) return setError(result.error);
           if (partner) {
             setSent(`Invite sent to ${partners.find((p) => p.handle === partner)?.name}. The challenge opens when they accept.`);

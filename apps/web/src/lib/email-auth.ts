@@ -1,4 +1,5 @@
 import { createHash, randomInt, timingSafeEqual } from "node:crypto";
+import { checkDemoCode, demoCodeReady, isDemoLogin } from "./demo-login";
 import { db, save } from "./store";
 
 /**
@@ -68,6 +69,12 @@ export function showsCodes(env: Record<string, string | undefined> = process.env
 /** Makes and sends a code. Returns the code only when it is shown on screen instead of mailed. */
 export async function sendCode(rawEmail: string, deps: EmailDeps = defaults()): Promise<{ shown?: string }> {
   const email = normalizeEmail(rawEmail);
+  // Seeded demo accounts: no mail goes out; the code is the server's demo code.
+  if (isDemoLogin(email)) {
+    if (!db().users.some((u) => u.email === email)) throw new Error("The demo accounts are not loaded on this server.");
+    demoCodeReady(deps.env);
+    return {};
+  }
   const now = deps.now ?? Date.now();
   const codes = (db().emailCodes ??= {});
   const last = codes[email];
@@ -96,6 +103,11 @@ export async function sendCode(rawEmail: string, deps: EmailDeps = defaults()): 
 /** Checks a code. Each code works once, for ten minutes, with five tries. Returns the normalized email. */
 export function checkCode(rawEmail: string, rawCode: string, now = Date.now()): string {
   const email = normalizeEmail(rawEmail);
+  if (isDemoLogin(email)) {
+    if (!db().users.some((u) => u.email === email)) throw new Error("The demo accounts are not loaded on this server.");
+    checkDemoCode(email, rawCode, now);
+    return email;
+  }
   const codes = db().emailCodes ?? {};
   const entry = codes[email];
   if (!entry || entry.expires < now) throw new Error("That code has expired. Ask for a new one.");

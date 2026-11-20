@@ -3,7 +3,6 @@ import { formatUsd } from "@potted/core";
 import Link from "next/link";
 import { gameOf } from "@/lib/format";
 import type { StreamListing } from "@/lib/service";
-import { compact, mockActivityOn, mockViewers } from "@/lib/mock-activity";
 import { GameArt } from "./GameArt";
 import { type CarouselStream, LiveCarousel } from "./LiveCarousel";
 
@@ -22,7 +21,6 @@ export function StreamCard({ listing, reason, rank }: { listing: StreamListing; 
         <GameArt id={headline.gameId} name={game.name} />
         <span className="live-badge">LIVE</span>
         {rank && <span className="rank-badge">#{rank}</span>}
-        {mockActivityOn() && <span className="viewer-count">{compact(mockViewers(streamer.handle ?? streamer.id))} watching</span>}
         <span className="thumb-count">
           {formatUsd(listing.potMicro)} in the pot · {listing.planters} {listing.planters === 1 ? "planter" : "planters"}
         </span>

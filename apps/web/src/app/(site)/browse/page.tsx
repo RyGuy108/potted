@@ -1,5 +1,4 @@
 import { GAMES, formatUsd } from "@potted/core";
-import { compact, mockActivityOn, mockGame, mockTotals } from "@/lib/mock-activity";
 import Link from "next/link";
 import { CategoryArt } from "@/components/CategoryArt";
 import { AutoRefresh } from "@/components/Live";
@@ -17,11 +16,11 @@ export default async function Browse({ searchParams }: { searchParams: Promise<{
   const hot = trending(live);
   const counts = liveCountsByGame();
   // Games with live streams first, then the rest in their usual order.
-  const mock = mockActivityOn();
-  const audience = (id: string) => (mock ? mockGame(id) : { streams: 0, watching: 0 });
-  const games = [...GAMES].sort((a, b) => (counts[b.id] ?? 0) + audience(b.id).streams - ((counts[a.id] ?? 0) + audience(a.id).streams));
-  const totals = mock ? mockTotals(GAMES.map((g) => g.id)) : null;
+  const games = [...GAMES].sort((a, b) => (counts[b.id] ?? 0) - (counts[a.id] ?? 0));
+  // Every number here is counted from the live challenges themselves.
   const potMicro = live.reduce((sum, l) => sum + l.potMicro, 0);
+  const planters = live.reduce((sum, l) => sum + l.planters, 0);
+  const challenges = live.reduce((sum, l) => sum + l.liveCount, 0);
   return (
     <>
       <AutoRefresh everyMs={5000} />
@@ -34,17 +33,20 @@ export default async function Browse({ searchParams }: { searchParams: Promise<{
         </a>
       </div>
       {surprise === "none" && <p className="muted">Nobody is live right now, so there's nothing to pick from. Try again soon.</p>}
-      {totals && (
+      {live.length > 0 && (
         <p className="browse-stats">
           <span>
             <span className="live-dot" aria-hidden="true" />
-            <strong>{compact(totals.watching + live.length)}</strong> watching now
+            <strong>{live.length}</strong> {live.length === 1 ? "stream" : "streams"} live
           </span>
           <span>
-            <strong>{totals.streams + live.length}</strong> streams live
+            <strong>{challenges}</strong> live {challenges === 1 ? "challenge" : "challenges"}
           </span>
           <span>
-            <strong>{formatUsd(potMicro)}</strong> in live Potted pots
+            <strong>{planters}</strong> {planters === 1 ? "planter" : "planters"} backing
+          </span>
+          <span>
+            <strong>{formatUsd(potMicro)}</strong> in live pots
           </span>
         </p>
       )}
@@ -83,11 +85,7 @@ export default async function Browse({ searchParams }: { searchParams: Promise<{
             <CategoryArt id={game.id} name={game.name} />
             <strong>{game.name}</strong>
             <span className="muted small">
-              {mock
-                ? `${(counts[game.id] ?? 0) + audience(game.id).streams} live · ${compact(audience(game.id).watching)} watching`
-                : counts[game.id]
-                  ? `${counts[game.id]} live`
-                  : "No one live"}
+              {counts[game.id] ? `${counts[game.id]} live` : "No one live"}
             </span>
           </Link>
         ))}

@@ -1,7 +1,6 @@
 import { formatUsd } from "@potted/core";
 import { ArtLayers } from "@/components/GameArt";
 import { gameOf } from "@/lib/format";
-import { compact, mockActivityOn, mockViewers } from "@/lib/mock-activity";
 import { liveStreams } from "@/lib/service";
 import { svgString } from "@/lib/svg-string";
 
@@ -20,7 +19,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ handle:
   const H = 400;
   const font = "Geist, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif";
   const pot = `${formatUsd(listing.potMicro)} in the pot · ${listing.planters} ${listing.planters === 1 ? "planter" : "planters"}`;
-  const watching = mockActivityOn() ? `${compact(mockViewers(streamer.handle ?? streamer.id))} watching` : "";
   const status = headline.status === "locked" ? "ATTEMPT IN PROGRESS" : "OPEN FOR PLEDGES";
   const svg = svgString(
     <svg xmlns="http://www.w3.org/2000/svg" width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
@@ -38,14 +36,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ handle:
       <text x="57" y="45" textAnchor="middle" fontFamily={font} fontSize="18" fontWeight="700" fill="#fff">
         LIVE
       </text>
-      {watching && (
-        <>
-          <rect x={W - 22 - (watching.length * 10 + 24)} y="22" width={watching.length * 10 + 24} height="34" rx="6" fill="#0c0a08" fillOpacity="0.85" />
-          <text x={W - 22 - 12} y="45" textAnchor="end" fontFamily={font} fontSize="17" fill="#faf7f2">
-            {watching}
-          </text>
-        </>
-      )}
       <circle cx="50" cy={H - 72} r="22" fill="#2a1f15" stroke="#b4875a" strokeWidth="2" />
       <text x="50" y={H - 65} textAnchor="middle" fontFamily={font} fontSize="20" fontWeight="700" fill="#e6c9a3">
         {streamer.name.charAt(0).toUpperCase()}
