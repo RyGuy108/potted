@@ -269,6 +269,8 @@ export interface Db {
   privyWallets?: Record<string, string>;
   /** Set while the demo sample is loaded: live challenges it opened, so it can be removed again. */
   sample?: { challengeIds: string[]; addedAt: number };
+  /** Test USDC the devnet faucet added to each account when a pledge came up short, in micro-dollars. */
+  topUps?: Record<string, number>;
   /** One-time clean slates already run on this state (see purge.ts). */
   purges?: string[];
 }

@@ -43,7 +43,7 @@ export async function disputeBrief(c: DisputeCase, deps: Deps = defaultDeps()): 
   }
 }
 
-/** A short, safe reason for a failed Grok call: never the key or the raw body. */
+/** A short, safe reason for a failed Grok call: xAI's own message when it gave one (keys masked, trimmed), never the key. */
 export function reasonOf(err: unknown): string {
   const message = err instanceof Error ? err.message : String(err);
   if (/abort|timeout/i.test(message)) return "Grok did not answer in time";

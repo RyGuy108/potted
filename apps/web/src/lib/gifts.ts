@@ -28,6 +28,7 @@ export async function give(actor: User, handle: string, amountUsd: number, note 
   if (text.length > 140) fail("Keep the message under 140 characters");
   if (text && settings.blockedWords.some((word) => text.toLowerCase().includes(word))) fail("That message uses a word this streamer has blocked");
   if ((await service.balanceOf(actor)) < amountMicro) fail("Not enough test USDC for that gift");
+  await service.ensureFunds(actor, amountMicro);
   const tx = await ledger().transfer(actor.wallet, streamer.wallet, amountMicro);
   const gift: Gift = { id: newId("g"), fanId: actor.id, streamerId: streamer.id, amountMicro, note: text, at: Date.now(), tx };
   (db().gifts ??= []).push(gift);

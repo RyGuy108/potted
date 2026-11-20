@@ -5,23 +5,56 @@ import type { Brief, Deps, DisputeCase, Draft, Idea, RecapFacts } from "./types"
 /** Grok reasons before it answers; short limits made every call fall back to rules. */
 const TIMEOUT_MS = 30_000;
 
+/**
+ * Turns a failed xAI response into an error that says why: the status and
+ * xAI's own message (for example "Incorrect API key provided" or "Model not
+ * found"), trimmed, with anything that looks like a key masked. Also logged
+ * on the server so the full reason is in the deploy logs.
+ */
+export async function grokError(res: Response): Promise<Error> {
+  let detail = "";
+  try {
+    const text = await res.text();
+    try {
+      const body = JSON.parse(text) as { error?: unknown; code?: unknown; message?: unknown };
+      const e = body.error;
+      detail = typeof e === "string" ? e : typeof e === "object" && e && "message" in e ? String((e as { message: unknown }).message) : String(body.message ?? text);
+    } catch {
+      detail = text;
+    }
+  } catch {
+    // no body
+  }
+  detail = detail.replace(/xai-[A-Za-z0-9]{6,}/g, "xai-***").replace(/\s+/g, " ").trim().slice(0, 200);
+  console.error(`[grok] xAI answered ${res.status}${detail ? `: ${detail}` : ""}`);
+  return new Error(`Grok answered ${res.status}${detail ? `: ${detail}` : ""}`);
+}
+
 /** One chat call to xAI's OpenAI-compatible endpoint, returning the reply parsed as JSON. */
 async function askJson(deps: Deps, system: string, user: string, opts: { timeoutMs?: number; model?: string } = {}): Promise<Record<string, unknown>> {
   const base = (deps.env.XAI_API_BASE || "https://api.x.ai/v1").replace(/\/+$/, "");
-  const res = await deps.fetch(`${base}/chat/completions`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${deps.env.XAI_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: opts.model || deps.env.XAI_MODEL || "grok-4.7",
-      temperature: 0.2,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-    }),
-    signal: AbortSignal.timeout(opts.timeoutMs ?? TIMEOUT_MS),
-  });
-  if (!res.ok) throw new Error(`Grok answered ${res.status}`);
+  const call = (temperature: boolean) =>
+    deps.fetch(`${base}/chat/completions`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${deps.env.XAI_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: opts.model || deps.env.XAI_MODEL || "grok-4.7",
+        ...(temperature ? { temperature: 0.2 } : {}),
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+      }),
+      signal: AbortSignal.timeout(opts.timeoutMs ?? TIMEOUT_MS),
+    });
+  let res = await call(true);
+  // Some reasoning models refuse sampling settings; ask once more without them.
+  if (res.status === 400) {
+    const first = await grokError(res);
+    if (!/temperature|argument|parameter/i.test(first.message)) throw first;
+    res = await call(false);
+  }
+  if (!res.ok) throw await grokError(res);
   const body = (await res.json()) as { choices?: { message?: { content?: string } }[] };
   const content = body.choices?.[0]?.message?.content ?? "";
   // Models sometimes wrap JSON in a code fence or a sentence; take the object itself.

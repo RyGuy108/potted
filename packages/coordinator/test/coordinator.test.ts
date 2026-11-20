@@ -153,3 +153,17 @@ describe("posts to X about on-chain moments", () => {
     expect(text.endsWith("https://potted.app/c/c_1")).toBe(true);
   });
 });
+
+describe("a failed Grok call", () => {
+  it("says xAI's own reason, with the key masked", async () => {
+    const deps: Deps = {
+      fetch: (async () =>
+        new Response(JSON.stringify({ code: "Client specified an invalid argument", error: "Incorrect API key provided: xai-abcdef123456. You can obtain an API key from https://console.x.ai." }), { status: 400 })) as typeof fetch,
+      env: { XAI_API_KEY: "xai-abcdef123456" },
+    };
+    const draft = await draftTerms({ gameId: "chess", text: "play against a GM" }, deps);
+    expect(draft.source).toBe("rules");
+    expect(draft.fallback).toContain("Grok answered 400: Incorrect API key provided");
+    expect(draft.fallback).not.toContain("abcdef123456");
+  });
+});
