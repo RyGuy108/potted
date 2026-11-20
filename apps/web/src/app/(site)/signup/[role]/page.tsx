@@ -15,8 +15,8 @@ export default async function SignUpAs({ params }: { params: Promise<{ role: str
   const page = SIGNUP.find((r) => r.path === role);
   if (!page) notFound();
   if (await currentUser()) redirect("/");
-  // Keepers sign up by name; planters and climbers get the name-only demo only while demo accounts are on.
-  const demo = page.role === "mod" || demoAccountsOn();
+  // The name-only sign-up is for the demo only. Real keepers sign up like everyone else, then enter an invite code.
+  const demo = demoAccountsOn();
   return (
     <div className="login-page">
       <section className="card signin-panel">
@@ -35,16 +35,13 @@ export default async function SignUpAs({ params }: { params: Promise<{ role: str
           </p>
         </div>
         <div className="signin-ways">
-          {page.role !== "mod" && (
-            <>
-              <EmailSignIn as={page.role} verb="Sign up" />
-              <ProviderButtons as={page.role} verb="Sign up" />
-              {demo && (
-                <div className="divider">
-                  <span>or try the demo with test money</span>
-                </div>
-              )}
-            </>
+          {page.role === "mod" && <p className="muted small">Keepers settle disputed clips, so you need an invite code from the Potted team. You'll enter it after signing in.</p>}
+          <EmailSignIn as={page.role} verb="Sign up" />
+          <ProviderButtons as={page.role} verb="Sign up" />
+          {demo && (
+            <div className="divider">
+              <span>or try the demo with test money</span>
+            </div>
           )}
           {demo && <DemoSignUp role={page.role} redirectTo={HOME[page.role]} />}
         </div>

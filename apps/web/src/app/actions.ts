@@ -35,8 +35,8 @@ async function requireUser() {
 
 export async function signInAction(name: string, role: Role): Promise<ActionResult> {
   return run(async () => {
-    // Name-only accounts: keepers always, planters only while demo accounts are on.
-    if (role !== "mod" && !demoAccountsOn()) throw new Error("Sign up with email, Google, Twitch or Discord");
+    // Name-only accounts are for the demo only; real keepers sign up with email or a provider and an invite code.
+    if (!demoAccountsOn()) throw new Error("Sign up with email, Google, Twitch or Discord");
     const user = await service.signIn(String(name), role === "mod" ? "mod" : "fan");
     await startSession(user.id);
   });
@@ -109,8 +109,8 @@ export async function declineBountyAction(bountyId: string): Promise<ActionResul
   return run(async () => service.declineBounty(await requireUser(), String(bountyId)));
 }
 
-export async function chooseRoleAction(role: "fan" | "streamer", handle: string): Promise<ActionResult> {
-  return run(async () => service.chooseRole(await requireUser(), role === "streamer" ? "streamer" : "fan", String(handle)));
+export async function chooseRoleAction(role: "fan" | "streamer" | "mod", handle: string, keeperCode = ""): Promise<ActionResult> {
+  return run(async () => service.chooseRole(await requireUser(), role === "streamer" ? "streamer" : role === "mod" ? "mod" : "fan", String(handle), String(keeperCode)));
 }
 
 export async function signOutAction(): Promise<ActionResult> {
@@ -373,7 +373,7 @@ export async function emailVerifyAction(email: string, code: string, as?: string
     await startSession(user.id);
     if (user.onboarded === false && as === "fan") await service.chooseRole(user, "fan");
     revalidatePath("/", "layout");
-    if (user.onboarded === false) return { ok: true, next: as === "streamer" ? "/welcome?as=streamer" : "/welcome" };
+    if (user.onboarded === false) return { ok: true, next: as === "streamer" ? "/welcome?as=streamer" : as === "mod" ? "/welcome?as=mod" : "/welcome" };
     return { ok: true, next: user.role === "streamer" ? "/dashboard" : user.role === "mod" ? "/reviews" : "/" };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Something went wrong" };

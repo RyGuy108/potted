@@ -26,7 +26,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ prov
     const user = await signInWith(provider, profile);
     await startSession(user.id);
     if (user.onboarded === false && intent === "fan") await chooseRole(user, "fan");
-    if (user.onboarded === false) return NextResponse.redirect(`${base}/welcome${intent === "streamer" ? "?as=streamer" : ""}`);
+    if (user.onboarded === false) return NextResponse.redirect(`${base}/welcome${intent === "streamer" || intent === "mod" ? `?as=${intent}` : ""}`);
     return NextResponse.redirect(`${base}/`);
   } catch {
     return NextResponse.redirect(`${base}/login?error=failed`);

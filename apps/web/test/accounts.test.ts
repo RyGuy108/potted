@@ -69,6 +69,21 @@ describe("provider sign-in", () => {
     const noah = await service.signInWith("twitch", { subject: "t-2", name: "Noah" });
     await expect(service.chooseRole(noah, "streamer", "kira_live")).rejects.toThrow("taken");
   });
+
+  it("lets a new account become a keeper only with the invite code", async () => {
+    const ada = await service.signInWith("google", { subject: "g-keeper", name: "Ada" });
+    delete process.env.POTTED_KEEPER_CODE;
+    await expect(service.chooseRole(ada, "mod", "", "anything")).rejects.toThrow("invite only");
+    process.env.POTTED_KEEPER_CODE = "garden-keys";
+    try {
+      await expect(service.chooseRole(ada, "mod", "", "wrong")).rejects.toThrow("not right");
+      expect(ada.onboarded).toBe(false);
+      await service.chooseRole(ada, "mod", "", " garden-keys ");
+      expect(ada).toMatchObject({ role: "mod", onboarded: true });
+    } finally {
+      delete process.env.POTTED_KEEPER_CODE;
+    }
+  });
 });
 
 describe("sessions", () => {

@@ -16,7 +16,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ prov
   const state = randomBytes(16).toString("hex");
   // Which sign-up page they came from, so a new account skips the role question.
   const as = new URL(request.url).searchParams.get("as");
-  const intent = as === "fan" || as === "streamer" ? as : "";
+  const intent = as === "fan" || as === "streamer" || as === "mod" ? as : "";
   (await cookies()).set("potted_oauth", `${provider}:${state}:${intent}`, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 600 });
   return NextResponse.redirect(authorizeUrl(provider, `${base}/api/auth/${provider}/callback`, state));
 }

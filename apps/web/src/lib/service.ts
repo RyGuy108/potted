@@ -22,6 +22,7 @@ import {
   refundReason,
   toMicro,
 } from "@potted/core";
+import { keeperCodeConfigured, keeperCodeOk } from "./keeper-code";
 import { type Deps as CoordinatorDeps, type PledgeFacts, type RecapFacts, commentOnPledge, defaultDeps as coordinatorDeps, draftRecap } from "@potted/coordinator";
 import { type Deps, defaultDeps, snapshot, verify } from "@potted/verifier";
 import * as notifications from "./notifications";
@@ -1329,8 +1330,13 @@ function claimableHandle(handle: string): string {
   return clean;
 }
 
-export async function chooseRole(actor: User, role: "fan" | "streamer", handle = ""): Promise<User> {
+export async function chooseRole(actor: User, role: "fan" | "streamer" | "mod", handle = "", keeperCode = ""): Promise<User> {
   if (actor.onboarded !== false) fail("This account has already chosen");
+  if (role === "mod") {
+    if (!keeperCodeConfigured()) fail("Keeper sign-up is invite only and not open on this server");
+    if (!keeperCodeOk(keeperCode)) fail("That keeper invite code is not right");
+    actor.role = "mod";
+  }
   if (role === "streamer") {
     actor.handle = claimableHandle(handle);
     actor.role = "streamer";
