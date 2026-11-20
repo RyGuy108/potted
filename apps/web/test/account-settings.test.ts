@@ -244,7 +244,7 @@ describe("account settings", () => {
       "Connect Twitch",
     );
   });
-  it("handles missing schedules, excludes canceled entries and reports partial API failures", async () => {
+  it("handles missing schedules and partial failures while importing active time ranges", async () => {
     const base = {
       env: { TWITCH_CLIENT_ID: "id", TWITCH_CLIENT_SECRET: "secret" },
       now: () => 1000,
@@ -288,11 +288,19 @@ describe("account settings", () => {
                     start_time: "2030-01-01T12:00:00Z",
                     canceled_until: "2030-01-02T12:00:00Z",
                   },
+                  {
+                    id: "y",
+                    title: "Scheduled stream",
+                    start_time: "2030-01-03T12:00:00Z",
+                    end_time: "2030-01-03T14:00:00Z",
+                  },
                 ],
               },
             })
           : fetcher(input, init)) as typeof fetch,
     });
-    expect(result2.schedule).toEqual([]);
+    expect(result2.schedule).toMatchObject([
+      { id: "twitch-y", startsAt: "2030-01-03T12:00:00Z", endsAt: "2030-01-03T14:00:00Z" },
+    ]);
   });
 });

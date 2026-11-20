@@ -30,8 +30,10 @@ export function StreamHeader({
   const live = Boolean(twitch?.live || session);
   return (
     <header className="stream-header">
-      <div className={`avatar-ring${live ? " is-live" : ""}`}>
-        <Avatar name={name} handle={handle} src={avatarUrl ?? twitch?.profileImageUrl} />
+      <div className="stream-identity">
+        <div className={`avatar-ring${live ? " is-live" : ""}`}>
+          <Avatar name={name} handle={handle} src={avatarUrl ?? twitch?.profileImageUrl} />
+        </div>
         {live && <span className="live-pill">LIVE</span>}
       </div>
       <div>

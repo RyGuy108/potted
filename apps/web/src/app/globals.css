@@ -2610,13 +2610,6 @@ a.card.role {
   font-weight: 700;
 }
 
-.avatar-ring .live-pill {
-  position: absolute;
-  left: 50%;
-  bottom: -8px;
-  transform: translateX(-50%);
-}
-
 .live-pill {
   padding: 1px 7px;
   border-radius: 5px;
@@ -6771,8 +6764,113 @@ button.badge-tile:focus-visible {
 .broadcast-form { border:1px solid var(--line); padding:20px; border-radius:12px; margin-top:24px; }
 .broadcast-form h3 { margin-top:0; }.settings-save { position:sticky; bottom:16px; display:flex; justify-content:space-between; align-items:center; gap:20px; padding:16px 20px; background:#151515; border:1px solid var(--line-strong); border-radius:12px; box-shadow:0 8px 30px #0008; z-index:10; }
 .settings-warning { color:var(--gold); }.settings-notice { border-left:2px solid var(--green); padding:12px 20px; background:var(--glass); }
-.account-profile-details { margin:28px 0; }.account-profile-details .profile-bio { white-space:pre-wrap; max-width:720px; overflow-wrap:anywhere; }.account-broadcasts { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin:30px 0; }.account-broadcasts section { border:1px solid var(--line); border-radius:12px; padding:24px; }.account-broadcasts ul { list-style:none; padding:0; }.account-broadcasts li { padding:14px 0; border-top:1px solid var(--line); }.account-broadcasts li a { display:block; margin-bottom:6px; overflow-wrap:anywhere; }.account-profile-heading { display:flex; gap:24px; align-items:center; }.account-profile-heading .avatar { border-radius:50%; object-fit:cover; }.profile-bio { white-space:pre-wrap; }
-@media(max-width:800px) { .account-settings { grid-template-columns:1fr; gap:20px; }.settings-nav { position:static; }.settings-nav h1 { margin-top:16px; }.settings-nav nav { display:flex; overflow:auto; margin:20px 0 0; }.settings-nav nav a { white-space:nowrap; }.settings-nav-foot { display:none; }.settings-section-heading { align-items:flex-start; }.account-broadcasts { grid-template-columns:1fr; } }
+.account-profile-details { margin:28px 0; }.account-profile-details .profile-bio { white-space:pre-wrap; max-width:720px; overflow-wrap:anywhere; }.account-broadcasts ul { list-style:none; padding:0; }.account-broadcasts li { padding:14px 0; border-top:1px solid var(--line); }.account-broadcasts li a { display:block; margin-bottom:6px; overflow-wrap:anywhere; }.account-profile-heading { display:flex; gap:24px; align-items:center; }.account-profile-heading .avatar { border-radius:50%; object-fit:cover; }.profile-bio { white-space:pre-wrap; }
+@media(max-width:800px) { .account-settings { grid-template-columns:1fr; gap:20px; }.settings-nav { position:static; }.settings-nav h1 { margin-top:16px; }.settings-nav nav { display:flex; overflow:auto; margin:20px 0 0; }.settings-nav nav a { white-space:nowrap; }.settings-nav-foot { display:none; }.settings-section-heading { align-items:flex-start; } }
 @media(max-width:520px) { .settings-fields { grid-template-columns:1fr; }.connection-row { flex-wrap:wrap; }.connection-detail { min-width:160px; }.connection-row > .btn { margin-left:58px; }.profile-preview { padding:20px; gap:16px; }.profile-preview-leaf { display:none; }.profile-preview h3 { font-size:22px; }.settings-section-heading { flex-direction:column; align-items:flex-start; }.settings-save { padding:12px; gap:12px; }.settings-save > span { font-size:12px; }.settings-sync { flex-wrap:wrap; } }
 .settings-nav { min-width:0; }
 @media(max-width:800px) { .account-settings { grid-template-columns:minmax(0,1fr); } }
+
+.stream-identity {
+  display: grid;
+  justify-items: center;
+  align-self: center;
+  flex: none;
+  gap: 6px;
+}
+
+.profile-about-heading {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+}
+
+.account-profile-details .profile-bio { margin-top: 0; }
+
+.account-broadcasts {
+  display: grid;
+  gap: 24px;
+  margin: 30px 0;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr));
+}
+
+.account-broadcasts > section {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  block-size: 33rem;
+  padding: clamp(12px, 2.5vw, 24px);
+  gap: 8px;
+}
+
+.account-broadcasts > section > h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+.account-broadcasts p { margin: 0; }
+.account-broadcasts > section > .broadcast-snapshot { margin-top: auto; }
+.account-broadcasts .broadcast-history { margin: 4px 0 0; }
+.broadcast-history,
+.stream-calendar-agenda ul { min-height: 0; overflow: auto; scrollbar-gutter: stable; }
+
+.stream-calendar,
+.stream-calendar-agenda {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+.stream-calendar-month {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.stream-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: auto repeat(6, 36px);
+  gap: 4px;
+}
+.stream-calendar-weekday {
+  color: var(--muted);
+  text-align: center;
+  font-size: .72rem;
+}
+.stream-calendar button {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+.stream-calendar-month button { min-width: 36px; min-height: 36px; font-size: 1.25rem; }
+.stream-calendar button:hover { border-color: var(--line-strong); background: var(--glass); }
+.stream-calendar button.has-stream {
+  background: var(--green-soft);
+  color: var(--green);
+  border-color: var(--green);
+  font-weight: 700;
+}
+.stream-calendar button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--ink);
+}
+.stream-calendar button[aria-current="date"] { text-decoration: underline; text-underline-offset: 3px; }
+.stream-calendar button:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
+.stream-calendar-agenda {
+  border-top: 1px solid var(--line);
+  margin-top: 10px;
+  padding-top: 8px;
+}
+.stream-calendar-agenda h3 { margin: 0 0 6px; font-size: .9rem; }
+.stream-calendar-agenda ul { margin: 0; }
+.stream-calendar-agenda li { padding: 7px 0; }
+.stream-calendar-agenda li a { margin: 2px 0 0; }
+
+@media (max-width: 860px) {
+  .settings-section { scroll-margin-top: 180px; }
+}

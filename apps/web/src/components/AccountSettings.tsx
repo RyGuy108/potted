@@ -45,6 +45,7 @@ export function AccountSettings({
   const [previewBio, setPreviewBio] = useState(p.bio ?? "");
   const [section, setSection] = useState("profile");
   const form = useRef<HTMLFormElement>(null);
+  const content = useRef<HTMLDivElement>(null);
   const [syncFields, setSyncFields] = useState({
     name: !p.manual?.name,
     bio: !p.manual?.bio,
@@ -58,6 +59,37 @@ export function AccountSettings({
     });
   }, [p.manual?.name, p.manual?.bio, p.manual?.avatar]);
   const streamer = role === "streamer";
+  useEffect(() => {
+    const sections = Array.from(content.current?.querySelectorAll<HTMLElement>(".settings-section") ?? []);
+    if (!sections.length) return;
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      let active = sections[0]!.id;
+      for (const section of sections) {
+        const anchorOffset = parseFloat(getComputedStyle(section).scrollMarginTop);
+        if (section.getBoundingClientRect().top <= anchorOffset + 8) active = section.id;
+      }
+      if (window.scrollY > 0 && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
+        active = sections[sections.length - 1]!.id;
+      }
+      setSection(active);
+    };
+    const scheduleUpdate = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    const observer = new ResizeObserver(scheduleUpdate);
+    sections.forEach(section => observer.observe(section));
+    window.addEventListener("scroll", scheduleUpdate, { passive: true });
+    window.addEventListener("resize", scheduleUpdate);
+    scheduleUpdate();
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener("scroll", scheduleUpdate);
+      window.removeEventListener("resize", scheduleUpdate);
+    };
+  }, [streamer]);
   function run(work: () => Promise<SettingsResult>, reset?: () => void) {
     setResult(null);
     start(async () => {
@@ -95,7 +127,6 @@ export function AccountSettings({
             <a
               key={key}
               href={`#${key}`}
-              onClick={() => setSection(key!)}
               aria-current={section === key ? "location" : undefined}
             >
               <span className="mono">{number}</span>
@@ -113,7 +144,7 @@ export function AccountSettings({
           </span>
         </div>
       </aside>
-      <div className="settings-content">
+      <div className="settings-content" ref={content}>
         {message && (
           <p className="settings-notice" role="status">
             {message}
@@ -238,7 +269,7 @@ export function AccountSettings({
               </label>
             </div>
             <label>
-              Bio
+              {streamer ? "About me:" : "Bio"}
               <textarea
                 name="bio"
                 rows={4}
