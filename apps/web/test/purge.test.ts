@@ -48,3 +48,41 @@ describe("purge", () => {
     expect(db().users.length).toBeGreaterThan(0);
   });
 });
+
+describe("single account removal", () => {
+  it("removes PsychedTerror and its challenge once, keeps sample climbers, and frees the Twitch channel", async () => {
+    const { runAccountRemovals } = await import("../src/lib/purge");
+    const service = await import("../src/lib/service");
+    resetForTests();
+    const state = db();
+    state.purges = [];
+    state.users.push(
+      { id: "u_pt", name: "PsychedTerror", role: "streamer", handle: "psychedterror", wallet: "sim:u_pt", createdAt: 1, identities: [{ provider: "twitch", subject: "t1" }], settings: { twitchChannel: "psychedterror" } },
+      { id: "u_s_moss", name: "Moss", role: "streamer", handle: "mossbyte", wallet: "sim:u_s_moss", createdAt: 1 },
+    );
+    state.challenges.push({ id: "ch_pt", streamerId: "u_pt" } as never);
+    state.notices = [{ id: "n1", userId: "u_pt", at: 1, kind: "challenge", title: "", body: "", href: "/c/ch_pt", read: false }];
+
+    const [result] = runAccountRemovals({ env: {} });
+    expect(result!.removedUsers.map((u) => u.id)).toEqual(["u_pt"]);
+    expect(result!.removedChallenges).toBe(1);
+    expect(fs.existsSync(result!.backup!)).toBe(true);
+    expect(service.getUser("u_pt")).toBeUndefined();
+    expect(service.getUser("u_s_moss")).toBeDefined();
+    expect(db().challenges.some((c) => c.id === "ch_pt")).toBe(false);
+    expect(db().notices).toEqual([]);
+    expect(runAccountRemovals({ env: {} })).toEqual([]);
+  });
+
+  it("leaves the account alone when other people's money is on its challenges", async () => {
+    const { runAccountRemovals } = await import("../src/lib/purge");
+    resetForTests();
+    const state = db();
+    state.purges = [];
+    state.users.push({ id: "u_pt", name: "PsychedTerror", role: "streamer", handle: "psychedterror", wallet: "sim:u_pt", createdAt: 1 });
+    state.challenges.push({ id: "ch_pt", streamerId: "u_pt" } as never);
+    state.pledges.push({ id: "p1", challengeId: "ch_pt", userId: "u_fan" } as never);
+    expect(runAccountRemovals({ env: {} })).toEqual([]);
+    expect(db().users.some((u) => u.id === "u_pt")).toBe(true);
+  });
+});

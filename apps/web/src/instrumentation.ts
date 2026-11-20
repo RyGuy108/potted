@@ -15,9 +15,9 @@ export async function register() {
   // One-time clean slates on the live server (backed up first).
   const { onRailwayProduction } = await import("./lib/demo-mode");
   if (onRailwayProduction() || process.env.POTTED_PURGE === "force") {
-    const { runPurges } = await import("./lib/purge");
+    const { runAccountRemovals, runPurges } = await import("./lib/purge");
     try {
-      for (const r of runPurges()) {
+      for (const r of [...runPurges(), ...runAccountRemovals()]) {
         console.log(`[purge] ${r.id}: removed ${r.removedUsers.length} accounts, ${r.removedChallenges} challenges, ${r.removedPledges} pledges; backup at ${r.backup}`);
         for (const u of r.removedUsers) console.log(`[purge]   ${u.id} ${u.name}${u.providers.length ? ` (${u.providers.join(", ")})` : ""}`);
       }
