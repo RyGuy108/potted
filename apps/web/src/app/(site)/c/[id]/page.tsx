@@ -12,6 +12,8 @@ import { Beanstalk } from "@/components/Beanstalk";
 import { PledgeForm } from "@/components/PledgeForm";
 import { Wallet } from "@/components/Wallet";
 import { SignInPanel } from "@/components/SignInPanel";
+import { TechTag } from "@/components/TechTag";
+import { db } from "@/lib/store";
 import { clock, gameOf, tierLabel } from "@/lib/format";
 import { explorerTxUrl, isSimTx } from "@/lib/ledger";
 import * as service from "@/lib/service";
@@ -148,6 +150,12 @@ function Receipt({ challenge, hostName }: { challenge: Challenge; hostName: stri
           {isSimTx(challenge.txs.settle) && <span className="tag tag-quiet">simulated ledger</span>}
         </dd>
       </dl>
+      {challenge.txs.settle && !isSimTx(challenge.txs.settle) && (
+        <p className="receipt-tech">
+          <TechTag tech="solana">Settled by the escrow program on Solana</TechTag>
+          {db().chain.some((e) => e.signature === challenge.txs.settle) && <TechTag tech="quicknode">Seen on chain by QuickNode Streams</TechTag>}
+        </p>
+      )}
     </section>
   );
 }
@@ -170,6 +178,10 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
   const disputed = (claim?.disputedBy.length ?? 0) > 0;
   const ruling = user?.role === "mod" && disputed && !claim?.ruling;
   const brief = ruling ? await briefFor(challenge, funders.length) : undefined;
+  // Each funder's latest on-chain pledge, and which pledges the QuickNode Stream delivered.
+  const proofOf = new Map<string, string>();
+  for (const p of db().pledges) if (p.challengeId === challenge.id && p.tx && !isSimTx(p.tx)) proofOf.set(p.userId, p.tx);
+  const streamed = new Set(db().chain.map((e) => e.signature));
 
   return (
     <>
@@ -200,6 +212,16 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
             <span className="tag">{gameOf(challenge).name}</span>
             <span className="tag tag-quiet">{tierLabel(challenge)}</span>
             <StatusPill challenge={challenge} />
+            {challenge.draftedBy === "grok" && (
+              <TechTag tech="grok" title="Grok turned the idea into exact terms the checker can verify. The climber reviewed and opened them.">
+                Terms drafted by Grok
+              </TechTag>
+            )}
+            {challenge.txs.create && !isSimTx(challenge.txs.create) && (
+              <a href={explorerTxUrl(challenge.txs.create)} target="_blank" rel="noreferrer" title="The escrow account for this pot, opened on Solana">
+                <TechTag tech="solana">Escrow on Solana</TechTag>
+              </a>
+            )}
           </div>
           <h1>{challenge.title}</h1>
           <SplitLine challenge={challenge} />
@@ -317,15 +339,32 @@ export default async function ChallengePage({ params }: { params: Promise<{ id: 
             <p className="empty">Nobody has pledged yet. The first pledge plants the bean.</p>
           ) : (
             <ul className="funders">
-              {funders.map((p) => (
-                <li key={p.userId}>
-                  <span>{p.fanName}</span>
-                  <span className="mono">
-                    {formatUsd(p.amountMicro)}
-                    {p.refunded && <span className="tag tag-quiet">refunded</span>}
-                  </span>
-                </li>
-              ))}
+              {funders.map((p) => {
+                const tx = proofOf.get(p.userId);
+                return (
+                  <li key={p.userId}>
+                    <span>
+                      {p.fanName}
+                      {tx && (
+                        <span className="funder-proof">
+                          <a className="mono" href={explorerTxUrl(tx)} target="_blank" rel="noreferrer" title="This pledge's transaction on Solana Explorer">
+                            {tx.slice(0, 6)}…
+                          </a>
+                          {streamed.has(tx) && (
+                            <TechTag tech="quicknode" title="The QuickNode Stream delivered this pledge from the chain">
+                              via QuickNode
+                            </TechTag>
+                          )}
+                        </span>
+                      )}
+                    </span>
+                    <span className="mono">
+                      {formatUsd(p.amountMicro)}
+                      {p.refunded && <span className="tag tag-quiet">refunded</span>}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>

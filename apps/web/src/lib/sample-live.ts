@@ -153,15 +153,17 @@ export async function addSampleLive({ minutes, log = () => {} }: LiveOptions): P
   await service.dispute(user(p("samwise")), disputed.id);
   log(`opened, started and disputed "${disputed.title}" (waiting for a keeper)`);
 
-  // An invite for Ryan to answer on stage.
-  await service.invite(user("u_s_juniper"), "ryan", 30, {
-    gameId: "gta6",
-    condition: clip("GTA VI", "Win a street race in Vice City without hitting a wall"),
-    goalUsd: 40,
-    pledgeCapUsd: 20,
-    minutes,
-  });
-  log("Juniper invited Ryan to a collab");
+  // An invite for Ryan to answer on stage, where the demo climber exists.
+  if (service.getUser(DEMO_STREAMER_ID)) {
+    await service.invite(user("u_s_juniper"), "ryan", 30, {
+      gameId: "gta6",
+      condition: clip("GTA VI", "Win a street race in Vice City without hitting a wall"),
+      goalUsd: 40,
+      pledgeCapUsd: 20,
+      minutes,
+    });
+    log("Juniper invited Ryan to a collab");
+  }
   save();
 }
 

@@ -213,14 +213,18 @@ export function Overlay({ handle, muted, qrSvg }: { handle: string; muted: boole
       {toast && (
         <div key={toast.seq} className={`overlay-toast overlay-${toast.type}${toast.sfx ? ` overlay-sfx-${toast.sfx}` : ""}`}>
           {toast.message}
-          {(toast.speed !== undefined || toast.by === "grok") && (
+          {(toast.speed !== undefined || toast.by === "grok" || toast.voiced) && (
             <span className="overlay-credit">
               {toast.speed !== undefined && (
                 <span className="overlay-speed" data-testid="pledge-speed">
                   ⚡ {toast.speed.toFixed(1)}s from confirmation · via QuickNode Streams
                 </span>
               )}
-              {toast.by === "grok" && <span>Written by Grok{toast.voiced ? " · voiced by ElevenLabs" : ""}</span>}
+              {toast.by === "grok" ? (
+                <span>Written by Grok{toast.voiced ? " · voiced by ElevenLabs" : ""}</span>
+              ) : (
+                toast.voiced && <span>Voiced by ElevenLabs</span>
+              )}
             </span>
           )}
         </div>

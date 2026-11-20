@@ -5,6 +5,9 @@ import { Beanstalk } from "@/components/Beanstalk";
 import { Wordmark } from "@/components/Wordmark";
 import { HowItWorks } from "@/components/HowItWorks";
 import { WaysToTakePart, type Way } from "@/components/WaysToTakePart";
+import { type Tech, TechTag } from "@/components/TechTag";
+import { formatUsd, growthOf } from "@potted/core";
+import { liveStreams, pledgesFor } from "@/lib/service";
 import { currentUser } from "@/lib/session";
 
 
@@ -67,6 +70,14 @@ const MONEY: [string, string][] = [
   ["Paid or refunded", "To the streamer if they did it, back to you if not"],
 ];
 
+/** What each piece of the stack does, named where it happens in the app. */
+const BUILT_ON: [Tech, string, string][] = [
+  ["solana", "Solana", "An escrow program holds every pot in USDC. Only a verified result pays the climber; a miss or a passed deadline refunds every planter."],
+  ["quicknode", "QuickNode Streams", "Streams the escrow program's transactions to Potted, so pledge alerts and the public activity log come from the chain, not our database."],
+  ["grok", "Grok", "Turns a fan's loose idea into exact terms the checker can verify, scouts X for what to run next, and briefs keepers on disputed clips. It never moves money."],
+  ["elevenlabs", "ElevenLabs", "Reads pledges, milestones and results out on stream in the climber's chosen voice and language, with sound effects for each stage of the beanstalk."],
+];
+
 /** Sample rows for the hero preview. Labelled as an example on the page. */
 const SAMPLE_PLEDGES = [
   ["Maya", "+$5.00"],
@@ -77,6 +88,8 @@ const SAMPLE_PLEDGES = [
 /** The explanation of Potted, shown to visitors who are not signed in and on /about. */
 export async function Marketing() {
   const user = await currentUser();
+  // The hero shows the fullest pot that is live right now; the worked example only when nothing is.
+  const top = liveStreams().sort((a, b) => b.headline.totalMicro - a.headline.totalMicro)[0];
   return (
     <div className="marketing">
       <Wordmark />
@@ -87,8 +100,8 @@ export async function Marketing() {
           <p className="lede">Fans ask for the challenge they want to see and back it. The streamer takes it on or passes, and a pass sends the money back.</p>
           <div className="row hero-actions">
             {user ? (
-              <Link href="/s/ryan" className="btn btn-primary btn-lg">
-                Open the demo stream <Icon name="arrow" size={16} />
+              <Link href={top?.streamer.handle ? `/s/${top.streamer.handle}` : "/browse"} className="btn btn-primary btn-lg">
+                {top ? "Open a live stream" : "Browse streams"} <Icon name="arrow" size={16} />
               </Link>
             ) : (
               <>
@@ -108,55 +121,57 @@ export async function Marketing() {
           </ul>
         </div>
 
-        <div className="preview card chat-preview" aria-label="Example: a request from chat">
-          <div className="preview-head">
-            <span className="label">Example from chat</span>
-            <span className="pill pill-open">Live</span>
-          </div>
-          <ol className="chat-flow">
-            <li className="chat-msg">
-              <span className="chat-avatar" aria-hidden="true">
-                M
-              </span>
-              <div>
-                <p>
-                  <strong>maya</strong> beat the next boss without taking a hit
-                </p>
-                <span className="chat-tag">Request · $12 from 4 fans</span>
-              </div>
-            </li>
-            <li className="chat-msg streamer">
-              <span className="chat-avatar" aria-hidden="true">
-                R
-              </span>
-              <div>
-                <p>
-                  <strong>Ryan</strong> took it on: no-hit run, 30 minutes
-                </p>
-                <span className="chat-tag green">$12 is his once he starts</span>
-              </div>
-            </li>
-          </ol>
-          <div className="preview-main">
-            <Beanstalk stage={3} size={72} />
-            <div>
-              <p className="preview-title">Backed if he pulls it off</p>
-              <p className="preview-amount mono">$28.00</p>
-              <p className="muted small">of $40.00 · 9 backers · refunded if he misses</p>
+        {top ? <LivePreview listing={top} /> : (
+          <div className="preview card chat-preview" aria-label="Example: a request from chat">
+            <div className="preview-head">
+              <span className="label">Example from chat</span>
+              <span className="pill pill-open">Live</span>
             </div>
-          </div>
-          <div className="bar">
-            <span style={{ width: "70%" }} />
-          </div>
-          <ul className="ledger">
-            {SAMPLE_PLEDGES.map(([name, amount]) => (
-              <li key={name}>
-                <span>{name}</span>
-                <span className="mono up">{amount}</span>
+            <ol className="chat-flow">
+              <li className="chat-msg">
+                <span className="chat-avatar" aria-hidden="true">
+                  M
+                </span>
+                <div>
+                  <p>
+                    <strong>maya</strong> beat the next boss without taking a hit
+                  </p>
+                  <span className="chat-tag">Request · $12 from 4 fans</span>
+                </div>
               </li>
-            ))}
-          </ul>
-        </div>
+              <li className="chat-msg streamer">
+                <span className="chat-avatar" aria-hidden="true">
+                  R
+                </span>
+                <div>
+                  <p>
+                    <strong>Ryan</strong> took it on: no-hit run, 30 minutes
+                  </p>
+                  <span className="chat-tag green">$12 is his once he starts</span>
+                </div>
+              </li>
+            </ol>
+            <div className="preview-main">
+              <Beanstalk stage={3} size={72} />
+              <div>
+                <p className="preview-title">Backed if he pulls it off</p>
+                <p className="preview-amount mono">$28.00</p>
+                <p className="muted small">of $40.00 · 9 backers · refunded if he misses</p>
+              </div>
+            </div>
+            <div className="bar">
+              <span style={{ width: "70%" }} />
+            </div>
+            <ul className="ledger">
+              {SAMPLE_PLEDGES.map(([name, amount]) => (
+                <li key={name}>
+                  <span>{name}</span>
+                  <span className="mono up">{amount}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </section>
 
       <section id="how">
@@ -205,6 +220,22 @@ export async function Marketing() {
         <p className="muted money-note">Every move is a public Solana transaction, so anyone can check where a pledge went.</p>
       </section>
 
+      <section id="built-on">
+        <p className="eyebrow">Built on</p>
+        <h2 className="section-title">Each part does one job, and says so on screen</h2>
+        <ul className="built-on">
+          {BUILT_ON.map(([tech, name, text]) => (
+            <li key={tech}>
+              <TechTag tech={tech}>{name}</TechTag>
+              <span className="muted small">{text}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="muted small money-note">
+          See the chain's own record on <Link href="/activity">Activity</Link>.
+        </p>
+      </section>
+
       <section>
         <p className="eyebrow">Games and streams</p>
         <h2 className="section-title">Any kind of stream</h2>
@@ -226,5 +257,47 @@ export async function Marketing() {
         </section>
       )}
     </div>
+  );
+}
+
+/** The hero's preview when a pot is live: the real challenge, its pot, and its latest pledges. */
+function LivePreview({ listing }: { listing: ReturnType<typeof liveStreams>[number] }) {
+  const c = listing.headline;
+  const growth = growthOf(c.totalMicro, c.goalMicro);
+  const recent = pledgesFor(c.id)
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, 3);
+  return (
+    <Link href={`/c/${c.id}`} className="preview card chat-preview live-preview" aria-label={`Live now: ${c.title}`}>
+      <div className="preview-head">
+        <span className="label">Live now on Potted</span>
+        <span className="pill pill-open">{c.status === "locked" ? "Attempt on" : "Live"}</span>
+      </div>
+      <p className="preview-streamer muted small">
+        {listing.streamer.name} · {listing.planters} {listing.planters === 1 ? "planter" : "planters"}
+        {listing.liveCount > 1 ? ` · ${listing.liveCount} challenges live` : ""}
+      </p>
+      <div className="preview-main">
+        <Beanstalk stage={growth.index} size={72} />
+        <div>
+          <p className="preview-title">{c.title}</p>
+          <p className="preview-amount mono">{formatUsd(c.totalMicro)}</p>
+          <p className="muted small">{c.goalMicro > 0 ? `of ${formatUsd(c.goalMicro)} · refunded if they miss` : "open pot · refunded if they miss"}</p>
+        </div>
+      </div>
+      <div className="bar">
+        <span style={{ width: `${Math.round(growth.ratio * 100)}%` }} />
+      </div>
+      {recent.length > 0 && (
+        <ul className="ledger">
+          {recent.map((p) => (
+            <li key={p.id}>
+              <span>{p.fanName}</span>
+              <span className="mono up">+{formatUsd(p.amountMicro)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Link>
   );
 }

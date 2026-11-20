@@ -6899,3 +6899,79 @@ button.badge-tile:focus-visible {
 @media (max-width: 600px) {
   .settings-fields { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Which technology did what: see TechTag.tsx. */
+.tech-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--glass-strong);
+  color: var(--ink);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.tech-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+.tech-grok .tech-dot { background: #f2f2f2; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15); }
+.tech-quicknode .tech-dot { background: #4fd1c5; }
+.tech-elevenlabs .tech-dot { background: #ff8a3d; }
+.tech-solana .tech-dot { background: linear-gradient(135deg, #9945ff, #14f195); }
+.tech-quicknode { border-color: rgba(79, 209, 197, 0.4); }
+.tech-solana { border-color: rgba(153, 69, 255, 0.45); }
+.funder-proof {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  margin-left: 8px;
+}
+.funder-proof a {
+  font-size: 0.72rem;
+}
+.built-on {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+.built-on li .tech-tag {
+  align-self: flex-start;
+}
+.built-on li {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--glass);
+}
+.built-on ul,
+ul.built-on {
+  padding: 0;
+  margin: 18px 0 0;
+}
+.receipt-tech {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 10px;
+}
+a.live-preview {
+  color: inherit;
+  text-decoration: none;
+}
+.preview-streamer {
+  margin: 0 0 10px;
+}

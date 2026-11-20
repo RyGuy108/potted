@@ -194,7 +194,7 @@ export default async function Garden() {
       <h2>Your plots</h2>
       {garden.plots.length === 0 ? (
         <p className="empty">
-          Back a challenge on the <Link href="/s/ryan">demo stream</Link> and it shows up here.
+          Back a challenge on any <Link href="/browse">live stream</Link> and it shows up here.
         </p>
       ) : (
         <GroupedByGame

@@ -24,7 +24,7 @@ import {
   toMicro,
 } from "@potted/core";
 import { keeperCodeConfigured, keeperCodeOk } from "./keeper-code";
-import { type Deps as CoordinatorDeps, type PledgeFacts, type RecapFacts, commentOnPledge, defaultDeps as coordinatorDeps, draftRecap } from "@potted/coordinator";
+import { type Deps as CoordinatorDeps, type PledgeFacts, type RecapFacts, commentOnPledge, defaultDeps as coordinatorDeps, draftRecap, usesGrok } from "@potted/coordinator";
 import { type Deps, defaultDeps, snapshot, verify } from "@potted/verifier";
 import * as notifications from "./notifications";
 import { isSimTx, ledger } from "./ledger";
@@ -521,6 +521,8 @@ export interface NewChallenge {
   upfrontPct?: number;
   /** An open pot: no goal and no per-fan limit; anyone can keep adding until it settles. Goal and limit are ignored. */
   open?: boolean;
+  /** The form was filled from a Grok draft. Kept only when Grok is actually set up on this server. */
+  draftedBy?: "grok";
 }
 
 /** Checks a new challenge's terms and returns the parsed pieces. */
@@ -731,6 +733,7 @@ export async function createChallenge(actor: User, input: NewChallenge, guests: 
     settleBy: deadline + disputeMs + SETTLE_GRACE_MS,
     ...(Number(input.upfrontPct ?? 0) > 0 ? { upfrontPct: Number(input.upfrontPct) } : {}),
     ...(splits.length > 0 ? { splits } : {}),
+    ...(input.draftedBy === "grok" && usesGrok() ? { draftedBy: "grok" as const } : {}),
     txs: {},
   };
   const created = await ledger().createChallenge(challenge, actor.wallet, shareWalletsOf(challenge));

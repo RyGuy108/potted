@@ -147,6 +147,7 @@ export async function openPitch(actor: User, index: number, by: "climber" | "aut
     pledgeCapUsd: pitch.capUsd,
     minutes: pitch.minutes,
     upfrontPct: pitch.upfrontPct,
+    ...(run.source === "grok" ? { draftedBy: "grok" as const } : {}),
   });
   run.opened[index] = challenge.id;
   if (by === "autopilot") {

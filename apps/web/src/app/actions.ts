@@ -130,6 +130,7 @@ export async function createChallengeAction(
       pledgeCapUsd: Number(input.pledgeCapUsd),
       minutes: Number(input.minutes),
       upfrontPct: Number(input.upfrontPct ?? 0),
+      ...(input.draftedBy === "grok" ? { draftedBy: "grok" as const } : {}),
       open: input.open === true,
     });
     if (fromSuggestionId) await service.resolveSuggestion(user, String(fromSuggestionId), "used");
