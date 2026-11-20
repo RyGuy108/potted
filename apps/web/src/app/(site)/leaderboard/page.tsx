@@ -8,8 +8,9 @@ import { currentUser } from "@/lib/session";
 
 const pct = (n: number | null) => (n === null ? "—" : `${Math.round(n * 100)}%`);
 const xp = (n: number) => `${n.toLocaleString("en-US")} XP`;
+const planterCount = (n: number) => `${n.toLocaleString("en-US")} ${n === 1 ? "planter" : "planters"}`;
 
-/** Planters ranked by garden XP, climbers by what they've been paid. */
+/** Planters ranked by garden XP, climbers by how many planters have backed them. No climber earnings are shown. */
 export default async function Leaderboard({ searchParams }: { searchParams: Promise<{ board?: string }> }) {
   const user = await currentUser();
   const asked = (await searchParams).board;
@@ -37,7 +38,7 @@ export default async function Leaderboard({ searchParams }: { searchParams: Prom
           <p className="muted small lb-how">
             {board === "planters"
               ? "Planters climb by taking part: XP for every challenge backed, more when it's completed, and extra for being first in or the pledge that fills a pot. Pledge size alone doesn't buy rank."
-              : "Climbers rank by what they've been paid from completed pots, up-front shares, collab shares and gifts."}
+              : "Climbers rank by how many different planters have backed their challenges. Earnings stay private."}
           </p>
         </aside>
 
@@ -48,7 +49,7 @@ export default async function Leaderboard({ searchParams }: { searchParams: Prom
             entries={
               board === "planters"
                 ? planters.slice(0, 3).map((r) => ({ id: r.user.id, name: r.user.name, sub: r.level.name, value: xp(r.xp), lines: [`${pct(r.hitRate)} completed`, `${formatUsd(r.plantedMicro)} planted`], me: r.user.id === user?.id }))
-                : climbers.slice(0, 3).map((r) => ({ id: r.user.id, name: r.user.name, href: `/s/${r.user.handle}`, sub: `@${r.user.handle}`, value: formatUsd(r.earnedMicro), lines: [`${pct(r.completionRate)} completed`, `${r.planters} planters`], me: r.user.id === user?.id }))
+                : climbers.slice(0, 3).map((r) => ({ id: r.user.id, name: r.user.name, href: `/s/${r.user.handle}`, sub: `@${r.user.handle}`, value: planterCount(r.planters), lines: [`${pct(r.completionRate)} completed`, `${r.completed} of ${r.challenges} challenges`], me: r.user.id === user?.id }))
             }
           />
         )}
@@ -70,8 +71,8 @@ export default async function Leaderboard({ searchParams }: { searchParams: Prom
                 <th>Rank</th>
                 <th>Climber</th>
                 <th className="num">Completed</th>
+                <th className="num">Challenges</th>
                 <th className="num">Planters</th>
-                <th className="num">Earned</th>
               </tr>
             )}
           </thead>
@@ -111,8 +112,8 @@ export default async function Leaderboard({ searchParams }: { searchParams: Prom
                       </span>
                     </td>
                     <td className="num">{pct(r.completionRate)}</td>
-                    <td className="num">{r.planters}</td>
-                    <td className="num mono strong">{formatUsd(r.earnedMicro)}</td>
+                    <td className="num">{r.challenges}</td>
+                    <td className="num mono strong">{r.planters.toLocaleString("en-US")}</td>
                   </tr>
                 ))}
           </tbody>
@@ -145,9 +146,9 @@ function YourRank({ board, planter, climber, signedIn, role }: { board: "planter
         <p className="muted small">
           Your rank: <strong className="ink">#{climber.rank}</strong>
         </p>
-        <p className="lb-me-xp mono">{formatUsd(climber.earnedMicro)}</p>
+        <p className="lb-me-xp mono">{planterCount(climber.planters)}</p>
         <p className="muted small">
-          {climber.completed} of {climber.challenges} challenges completed · {climber.planters} planters
+          {climber.completed} of {climber.challenges} challenges completed
         </p>
       </div>
     );
