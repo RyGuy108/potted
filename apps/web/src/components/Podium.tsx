@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 export interface PodiumEntry {
   id: string;
   name: string;
+  avatarUrl?: string;
   /** Where the name links, if anywhere. */
   href?: string;
   /** Under the name, like a level or a game. */
@@ -18,10 +19,10 @@ export interface PodiumEntry {
 const PLACE = ["first", "second", "third"] as const;
 
 /** A planter or climber's initial in a ringed circle, coloured by rank. */
-export function RankAvatar({ name, rank, size = 64 }: { name: string; rank?: number; size?: number }) {
+export function RankAvatar({ name, src, rank, size = 64 }: { name: string; src?: string; rank?: number; size?: number }) {
   return (
     <span className={`rank-avatar${rank && rank <= 3 ? ` ring-${PLACE[rank - 1]}` : ""}`} style={{ width: size, height: size, fontSize: size * 0.4 }} aria-hidden="true">
-      {name.charAt(0).toUpperCase()}
+      {src ? <img src={src} alt="" width={size} height={size} style={{borderRadius:"50%",objectFit:"cover"}} /> : name.charAt(0).toUpperCase()}
     </span>
   );
 }
@@ -37,7 +38,7 @@ export function Podium({ entries }: { entries: PodiumEntry[] }) {
         const name = e.href ? <Link href={e.href}>{e.name}</Link> : e.name;
         return (
           <li key={e.id} className={`podium-spot place-${PLACE[rank - 1]}${e.me ? " me" : ""}`} value={rank}>
-            <RankAvatar name={e.name} rank={rank} size={rank === 1 ? 104 : 84} />
+            <RankAvatar src={e.avatarUrl} name={e.name} rank={rank} size={rank === 1 ? 104 : 84} />
             <strong className="podium-name">{name}</strong>
             {e.sub && <span className="podium-sub">{e.sub}</span>}
             <div className="podium-stand">
@@ -71,7 +72,7 @@ export function WinnerStrip({ entries, tags }: { entries: (PodiumEntry & { rank:
       {entries.map((e) => (
         <li key={e.id} className={`winner-card${e.rank === 1 ? " gold" : e.rank === 2 ? " green" : ""}${e.me ? " me" : ""}`} value={e.rank}>
           <span className="winner-avatar">
-            <RankAvatar name={e.name} rank={e.rank} size={76} />
+            <RankAvatar src={e.avatarUrl} name={e.name} rank={e.rank} size={76} />
           </span>
           <strong className="winner-name">{e.href ? <Link href={e.href}>{e.name}</Link> : e.name}</strong>
           <span className="winner-tag">{e.rank <= 2 ? tags[e.rank - 1] : `#${e.rank}`}</span>

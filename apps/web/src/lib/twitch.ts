@@ -141,3 +141,35 @@ export function twitchCategoryUrl(gameId: string | undefined, gameName?: string)
   const slug = (gameId && CATEGORY_FOR[gameId]) || (gameName ? categorySlug(gameName) : "");
   return slug ? `https://www.twitch.tv/directory/category/${slug}` : "https://www.twitch.tv/";
 }
+
+/** Authenticated identity is supplied by our OAuth flow, never a user-entered handle. */
+export async function twitchAccountSnapshot(subject: string, deps: Deps = defaults()) {
+  if (!/^\d+$/.test(subject)) throw new Error("Reconnect Twitch to verify your channel.");
+  if (!twitchConfigured(deps.env)) throw new Error("Twitch connection is not configured.");
+  const users = await helix<{ id: string; login: string; display_name: string; description: string; profile_image_url: string }>(`users?id=${subject}`, deps);
+  const user = users.find(u => u.id === subject);
+  if (!user) throw new Error("Your Twitch profile is unavailable. Try reconnecting.");
+  async function read(path: string, emptyOn404 = false): Promise<any> {
+    const res = await deps.fetch(`https://api.twitch.tv/helix/${path}`, {
+      headers: { "Client-Id": deps.env.TWITCH_CLIENT_ID!, Authorization: `Bearer ${await token(deps)}` }, signal: AbortSignal.timeout(5000),
+    });
+    if (emptyOn404 && res.status === 404) return { data: { segments: [] } };
+    if (!res.ok) throw new Error("Twitch could not refresh this section.");
+    return res.json();
+  }
+  const [schedule, history] = await Promise.allSettled([
+    read(`schedule?broadcaster_id=${subject}&first=10`, true),
+    read(`videos?user_id=${subject}&type=archive&first=10`),
+  ]);
+  type Entry = import("./account-types").StreamEntry;
+  const scheduleRows: Entry[] | undefined = schedule.status === "fulfilled" ? (schedule.value.data?.segments ?? [])
+    .filter((s: any) => !s.canceled_until && Number.isFinite(Date.parse(s.start_time)))
+    .map((s: any) => ({ id: `twitch-${s.id}`, title: String(s.title || "Twitch stream").slice(0,120), startsAt: s.start_time, url: `https://www.twitch.tv/${user.login}`, source: "twitch" })) : undefined;
+  const historyRows: Entry[] | undefined = history.status === "fulfilled" ? (history.value.data ?? [])
+    .filter((v: any) => /^\d+$/.test(v.id) && Number.isFinite(Date.parse(v.created_at)))
+    .map((v: any) => ({ id: `twitch-${v.id}`, title: String(v.title || "Past broadcast").slice(0,120), startsAt: v.created_at, url: `https://www.twitch.tv/videos/${v.id}`, source: "twitch" })) : undefined;
+  return { user, schedule: scheduleRows, history: historyRows, warnings: [
+    ...(schedule.status === "rejected" ? ["Schedule refresh failed; showing the last saved schedule."] : []),
+    ...(history.status === "rejected" ? ["Past broadcasts refresh failed; showing the last saved broadcasts."] : []),
+  ] };
+}

@@ -18,6 +18,9 @@ const KEEP = 60;
 export function notify(userId: string, kind: NoticeKind, title: string, body: string, href: string): void {
   if (!userId) return;
   const state = db();
+  const prefs = state.users.find(u => u.id === userId)?.profile?.notifications;
+  if (kind === "award" && prefs?.awards === false) return;
+  if (["challenge", "follow", "idea", "invite"].includes(kind) && prefs?.community === false) return;
   const list = (state.notices ??= []);
   list.push({ id: newId("n"), userId, at: Date.now(), kind, title, body, href, read: false });
   const mine = list.filter((n) => n.userId === userId);

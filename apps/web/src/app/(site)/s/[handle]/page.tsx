@@ -1,3 +1,4 @@
+import { AccountProfile } from "@/components/AccountProfile";
 import type { Challenge } from "@potted/core";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -76,6 +77,7 @@ export default async function StreamerPage({ params, searchParams }: { params: P
       <div className="stream-top">
         <div>
           <StreamHeader
+            avatarUrl={streamer.profile?.avatarUrl}
             name={streamer.name}
             handle={streamer.handle!}
             twitch={twitch}
@@ -105,6 +107,7 @@ export default async function StreamerPage({ params, searchParams }: { params: P
         )}
       </div>
 
+      <AccountProfile user={streamer} />
       {cause.causeOn && (
         <section className="card cause-banner">
           <p className="eyebrow">Charity stream</p>
