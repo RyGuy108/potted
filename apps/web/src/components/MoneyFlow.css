@@ -1,0 +1,258 @@
+/* Where the money goes, as a small map. Wide screens read left to right and fork
+   at the end; phones read top to bottom and fork into two side-by-side outcomes. */
+.flow {
+  --flow-line: var(--wood);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1fr) 64px minmax(0, 1fr) 76px minmax(0, 1.1fr);
+  align-items: center;
+  margin-top: 40px;
+}
+
+.flow-stop-wrap {
+  display: contents;
+}
+
+.flow-stop {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  align-self: stretch;
+  min-height: 208px;
+  padding: 18px 18px 20px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--glass);
+}
+
+.flow-stop-key {
+  border-color: var(--wood-line);
+  background: linear-gradient(180deg, var(--wood-soft), transparent), var(--glass);
+}
+
+.flow-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-bottom: 6px;
+  border-radius: 10px;
+  border: 1px solid var(--wood-line);
+  background: var(--wood-soft);
+  color: var(--wood-light);
+}
+
+.flow-no {
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  color: var(--wood-light);
+}
+
+.flow-stop strong {
+  font-size: 1.05rem;
+}
+
+/* The arrows */
+.flow-link,
+.flow-branch {
+  display: grid;
+  place-items: center;
+  color: var(--flow-line);
+}
+
+.flow-v {
+  display: none;
+}
+
+.flow-path,
+.flow-head {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.flow-path {
+  stroke-dasharray: 3 5;
+  animation: flow-dash 1.6s linear infinite;
+}
+
+.flow-path-alt,
+.flow-head-alt {
+  stroke: var(--faint);
+}
+
+.flow-fork {
+  fill: currentColor;
+}
+
+@keyframes flow-dash {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+/* The fork's two ends */
+.flow-end {
+  position: relative;
+}
+
+.flow-end-label {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  color: var(--wood-light);
+  white-space: nowrap;
+}
+
+.flow-outcomes {
+  display: grid;
+  grid-template-rows: 96px 96px;
+  gap: 16px;
+}
+
+.flow-outcome {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--glass);
+}
+
+.flow-outcome .flow-icon {
+  flex: none;
+  margin: 0;
+  width: 30px;
+  height: 30px;
+}
+
+.flow-outcome > span:last-child {
+  display: grid;
+  gap: 2px;
+}
+
+.flow-paid {
+  border-color: rgba(62, 207, 142, 0.35);
+  background: linear-gradient(90deg, var(--green-soft), transparent 70%), var(--glass);
+}
+
+.flow-paid .flow-icon {
+  border-color: rgba(62, 207, 142, 0.4);
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.flow-refund .flow-icon {
+  border-color: var(--line-strong);
+  background: var(--glass-strong);
+  color: var(--ink);
+}
+
+/* Narrow laptops: a little less room for the arrows. */
+@media (max-width: 1100px) {
+  .flow {
+    grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr) 44px minmax(0, 1fr) 60px minmax(0, 1.1fr);
+  }
+
+  .flow-link .flow-h {
+    width: 44px;
+  }
+
+  .flow-branch .flow-h {
+    width: 60px;
+  }
+
+  .flow-stop {
+    padding: 16px 14px 18px;
+  }
+}
+
+/* Tablets and phones: top to bottom. */
+@media (max-width: 900px) {
+  .flow {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    margin-top: 28px;
+  }
+
+  .flow-stop {
+    min-height: 0;
+    align-self: auto;
+    grid-template-columns: auto 1fr;
+    column-gap: 14px;
+    row-gap: 2px;
+  }
+
+  .flow-stop .flow-icon {
+    grid-row: span 3;
+    margin: 0;
+  }
+
+  .flow-h {
+    display: none;
+  }
+
+  .flow-v {
+    display: block;
+  }
+
+  .flow-branch .flow-v {
+    width: 100%;
+    height: 48px;
+  }
+
+  .flow-end {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .flow-end-label {
+    position: static;
+    order: 2;
+    margin-top: 10px;
+    text-align: center;
+    white-space: normal;
+  }
+
+  .flow-outcomes {
+    grid-template-rows: none;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .flow-outcome {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  /* An arrowhead where each branch of the fork arrives. */
+  .flow-outcome::before {
+    content: "";
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    width: 8px;
+    height: 8px;
+    border-right: 1.6px solid var(--flow-line);
+    border-bottom: 1.6px solid var(--flow-line);
+    background: transparent;
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
+
+  .flow-refund::before {
+    border-color: var(--faint);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-path {
+    animation: none;
+  }
+}
