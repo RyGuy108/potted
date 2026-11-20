@@ -2,7 +2,7 @@
 
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { markNoticesReadAction, noticesAction } from "@/app/actions";
 
 type Item = Awaited<ReturnType<typeof noticesAction>>["items"][number];
@@ -46,6 +46,7 @@ export function NotificationBell({ initialUnread }: { initialUnread: number }) {
   useEffect(() => setMounted(true), []);
   const newest = useRef<string | null>(null);
   const box = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async (announce: boolean) => {
     const data = await noticesAction();
@@ -83,6 +84,16 @@ export function NotificationBell({ initialUnread }: { initialUnread: number }) {
     };
   }, [open]);
 
+  // On a phone the bell is not at the screen's right edge, so a panel pinned
+  // to the bell would hang off the left side. Slide it back on screen.
+  useLayoutEffect(() => {
+    const el = panel.current;
+    if (!open || !el) return;
+    el.style.right = "";
+    const overflow = 12 - el.getBoundingClientRect().left;
+    if (overflow > 0) el.style.right = `${-overflow}px`;
+  }, [open]);
+
   const toggle = async () => {
     const next = !open;
     setOpen(next);
@@ -108,7 +119,7 @@ export function NotificationBell({ initialUnread }: { initialUnread: number }) {
       </button>
 
       {open && (
-        <div className="bell-panel" role="dialog" aria-label="Notifications">
+        <div className="bell-panel" ref={panel} role="dialog" aria-label="Notifications">
           <div className="bell-head">
             <strong>Notifications</strong>
           </div>
