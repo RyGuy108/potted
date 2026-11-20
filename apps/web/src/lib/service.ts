@@ -762,10 +762,42 @@ export async function pledge(actor: User, challengeId: string, amountUsd: number
   const minMicro = toMicro(streamer ? settingsOf(streamer).minPledgeUsd : DEFAULT_SETTINGS.minPledgeUsd);
   if (amountMicro < minMicro) fail(`The smallest pledge on this stream is ${formatUsd(minMicro)}`);
 
+  await ensureFunds(actor, amountMicro);
   const tx = await ledger().pledge(challenge, actor.wallet, amountMicro);
   const record = applyPledge(challenge, actor, amountMicro, tx, { confirmedAt: Date.now(), hold: streamsCarryPledges() });
   save();
   return record;
+}
+
+/** The most test USDC the faucet adds to one account on demand, over its lifetime. */
+const TOP_UP_CAP_MICRO = toMicro(500);
+
+/**
+ * Before money leaves a wallet on Solana: a wallet short of test USDC on
+ * devnet is topped up by the faucet (up to $500 per account), and anything
+ * else short gets a plain message instead of the program's error logs.
+ */
+export async function ensureFunds(actor: User, amountMicro: number): Promise<void> {
+  const L = ledger();
+  if (L.kind !== "solana") return;
+  const have = await L.balanceOf(actor.wallet);
+  if (have >= amountMicro) return;
+  const short = amountMicro - have;
+  const topUps = (db().topUps ??= {});
+  const used = topUps[actor.id] ?? 0;
+  if (process.env.SOLANA_CLUSTER !== "mainnet-beta" && used + short <= TOP_UP_CAP_MICRO) {
+    // Round up to a whole dollar so the wallet is not left at a few cents.
+    const add = Math.min(TOP_UP_CAP_MICRO - used, Math.ceil(short / 1_000_000) * 1_000_000);
+    try {
+      await L.faucet(actor.wallet, add);
+      topUps[actor.id] = used + add;
+      save();
+      return;
+    } catch (error) {
+      console.error(`[faucet] top-up for ${actor.id} failed:`, error instanceof Error ? error.message : error);
+    }
+  }
+  fail(`Your wallet has ${formatUsd(have)} of test USDC, and this needs ${formatUsd(amountMicro)}. Try a smaller amount.`);
 }
 
 /**
@@ -1850,6 +1882,7 @@ async function back(actor: User, bounty: Bounty, amountUsd: number): Promise<Bac
     .backings.filter((b) => b.bountyId === bounty.id && b.userId === actor.id)
     .reduce((sum, b) => sum + b.amountMicro, 0);
   if (already + amountMicro > MAX_BACKING_MICRO) fail(`One planter can put up to ${formatUsd(MAX_BACKING_MICRO)} on a bounty`);
+  await ensureFunds(actor, amountMicro);
   const tx = await ledger().holdBacking(bounty.id, actor.wallet, amountMicro);
   const backing: Backing = { id: newId("k"), bountyId: bounty.id, userId: actor.id, amountMicro, createdAt: Date.now(), tx };
   db().backings.push(backing);

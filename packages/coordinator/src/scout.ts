@@ -1,3 +1,4 @@
+import { grokError } from "./grok";
 import { GAMES } from "@potted/core";
 import { tidy } from "./rules";
 import type { Deps } from "./types";
@@ -100,7 +101,7 @@ async function askScout(deps: Deps, input: ScoutInput): Promise<{ reply: Record<
     }),
     signal: AbortSignal.timeout(SCOUT_TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`Grok answered ${res.status}`);
+  if (!res.ok) throw await grokError(res);
   const body = (await res.json()) as {
     output_text?: string;
     output?: { type?: string; content?: { type?: string; text?: string; annotations?: { url?: string }[] }[] }[];
