@@ -18,7 +18,7 @@ import { clock, gameOf, tierLabel } from "@/lib/format";
 import { explorerTxUrl, isSimTx } from "@/lib/ledger";
 import * as service from "@/lib/service";
 import { currentUser } from "@/lib/session";
-import { actionUrl, dialUrl, solanaLedger } from "@/lib/blinks";
+import { actionUrl, solanaLedger } from "@/lib/blinks";
 import { publicBase } from "@/lib/url";
 
 function rulesFor(challenge: Challenge): string[] {
@@ -390,9 +390,9 @@ async function BlinkShare({ challenge }: { challenge: Challenge }) {
         <a className="btn btn-primary" href={post} target="_blank" rel="noreferrer">
           Post on X
         </a>
-        <a className="btn btn-ghost" href={dialUrl(base, challenge.id)} target="_blank" rel="noreferrer">
+        <Link className="btn btn-ghost" href={`/c/${challenge.id}/blink`}>
           Open the Blink
-        </a>
+        </Link>
       </div>
       <CopyField label="Action link" value={actionUrl(base, challenge.id)} />
     </div>

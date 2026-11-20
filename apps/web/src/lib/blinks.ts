@@ -55,10 +55,18 @@ export function actionUrl(base: string, challengeId: string): string {
   return `${base}/api/actions/pledge/${encodeURIComponent(challengeId)}`;
 }
 
-/** Opens the Action in Dialect's viewer, which works without the X extension. */
-export function dialUrl(base: string, challengeId: string): string {
-  const cluster = process.env.SOLANA_CLUSTER || "devnet";
-  return `https://dial.to/?action=${encodeURIComponent(`solana-action:${actionUrl(base, challengeId)}`)}&cluster=${cluster}`;
+/**
+ * A Solana Pay link for one pledge amount. The Action endpoint answers the
+ * Solana Pay transaction-request calls too (GET label and icon, POST the
+ * wallet's account for a transaction), so Phantom or Solflare can scan it.
+ */
+export function solanaPayUrl(base: string, challengeId: string, amountUsd: number): string {
+  return `solana:${encodeURIComponent(`${actionUrl(base, challengeId)}?amount=${amountUsd}`)}`;
+}
+
+/** The pledge amounts the card offers for this challenge. */
+export function blinkAmounts(minUsd: number): number[] {
+  return AMOUNTS.filter((a) => a >= minUsd);
 }
 
 export function solanaLedger(): SolanaLedger | undefined {
@@ -87,7 +95,7 @@ export function actionCard(challenge: Challenge, base: string) {
     ...(reason ? { disabled: true, error: { message: reason } } : {}),
     links: {
       actions: [
-        ...AMOUNTS.filter((a) => a >= minUsd).map((a) => ({ type: "transaction", label: `Pledge $${a}`, href: href(String(a)) })),
+        ...blinkAmounts(minUsd).map((a) => ({ type: "transaction", label: `Pledge $${a}`, href: href(String(a)) })),
         {
           type: "transaction",
           label: "Pledge",

@@ -7053,3 +7053,46 @@ a.live-preview {
 .preview-streamer {
   margin: 0 0 10px;
 }
+.blink-card {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+.blink-art img {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  display: block;
+}
+.blink-amounts {
+  gap: 8px;
+  margin: 14px 0;
+}
+.blink-pay {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 18px;
+  align-items: start;
+  margin: 8px 0 16px;
+}
+.blink-qr {
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px;
+}
+.blink-qr svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+@media (max-width: 720px) {
+  .blink-card,
+  .blink-pay {
+    grid-template-columns: 1fr;
+  }
+  .blink-art img,
+  .blink-qr {
+    max-width: 220px;
+  }
+}

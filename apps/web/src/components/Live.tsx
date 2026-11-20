@@ -46,7 +46,8 @@ export function CopyField({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
   const [origin, setOrigin] = useState("");
   useEffect(() => setOrigin(window.location.origin), []);
-  const full = `${origin}${value}`;
+  // Paths get this site's address in front; a value that is already a full URL is shown as it is.
+  const full = /^https?:\/\//i.test(value) ? value : `${origin}${value}`;
   return (
     <div className="copy">
       <span className="label">{label}</span>
