@@ -33,13 +33,18 @@ export async function grokError(res: Response): Promise<Error> {
 /** One chat call to xAI's OpenAI-compatible endpoint, returning the reply parsed as JSON. */
 async function askJson(deps: Deps, system: string, user: string, opts: { timeoutMs?: number; model?: string } = {}): Promise<Record<string, unknown>> {
   const base = (deps.env.XAI_API_BASE || "https://api.x.ai/v1").replace(/\/+$/, "");
-  const call = (temperature: boolean) =>
+  // These are short structured answers, so Grok thinks briefly ("low") unless
+  // XAI_REASONING_EFFORT says otherwise; at its default ("high") a draft takes much longer.
+  // OpenRouter takes the setting as reasoning.effort, xAI as reasoning_effort.
+  const effort = deps.env.XAI_REASONING_EFFORT || "low";
+  const reasoning = effort === "off" ? {} : /openrouter\.ai/.test(base) ? { reasoning: { effort } } : { reasoning_effort: effort };
+  const call = (extras: boolean) =>
     deps.fetch(`${base}/chat/completions`, {
       method: "POST",
       headers: { Authorization: `Bearer ${deps.env.XAI_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: opts.model || deps.env.XAI_MODEL || "grok-4.7",
-        ...(temperature ? { temperature: 0.2 } : {}),
+        ...(extras ? { temperature: 0.2, ...reasoning } : {}),
         messages: [
           { role: "system", content: system },
           { role: "user", content: user },
@@ -51,7 +56,7 @@ async function askJson(deps: Deps, system: string, user: string, opts: { timeout
   // Some reasoning models refuse sampling settings; ask once more without them.
   if (res.status === 400) {
     const first = await grokError(res);
-    if (!/temperature|argument|parameter/i.test(first.message)) throw first;
+    if (!/temperature|reasoning|argument|parameter/i.test(first.message)) throw first;
     res = await call(false);
   }
   if (!res.ok) throw await grokError(res);
