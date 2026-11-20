@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { EmailSignIn } from "./EmailSignIn";
 import { Avatar } from "./Avatar";
 import type { AccountProfile, StreamEntry } from "@/lib/account-types";
 import {
@@ -28,6 +29,7 @@ type Props = {
     linked: boolean;
   }[];
   message?: string;
+  emailLinked: boolean;
 };
 export function AccountSettings({
   id,
@@ -37,6 +39,7 @@ export function AccountSettings({
   profile: p,
   connections,
   message,
+  emailLinked,
 }: Props) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -145,11 +148,6 @@ export function AccountSettings({
         </div>
       </aside>
       <div className="settings-content" ref={content}>
-        {message && (
-          <p className="settings-notice" role="status">
-            {message}
-          </p>
-        )}
         <section id="profile" className="settings-section">
           <div className="settings-section-heading">
             <div>
@@ -301,8 +299,8 @@ export function AccountSettings({
               <Check
                 name="publicProfile"
                 checked={p.publicProfile === true}
-                title="Publish my planter / keeper profile"
-                detail="Share your photo, bio, interests and website. Your email and wallet are not included."
+                title="Publish my profile"
+                detail={role === "fan" ? "Share your photo, bio, interests, website, garden level and earned achievement badges." : "Share your photo, bio, interests and website."}
               />
             )}
             {p.source && (
@@ -326,7 +324,7 @@ export function AccountSettings({
                     ["syncName", "name", "Import name"],
                     ["syncBio", "bio", "Import bio"],
                     ["syncAvatar", "avatar", "Import photo"],
-                  ].map(([field, key, label]) => (
+                  ].filter(([, key]) => key !== "bio" || p.source === "twitch").map(([field, key, label]) => (
                     <label key={field} className="check">
                       <input
                         type="checkbox"
@@ -350,13 +348,17 @@ export function AccountSettings({
         <section id="connections" className="settings-section">
           <div className="settings-section-heading">
             <div>
-              <p className="eyebrow">Bring your community</p>
               <h2>Connected accounts</h2>
               <p className="muted">
-                Link an account to import your profile and sign in here.
+                {streamer ? "Connect a platform to sign in to Potted and import profile details." : "Add ways to sign in to your existing Potted account and import profile details. Your role stays the same."}
               </p>
             </div>
           </div>
+        {message && (
+          <p className="settings-notice" role="status">
+            {message}
+          </p>
+        )}
           <div className="connection-list">
             {connections.map((c) => (
               <div key={c.id} className="connection-row">
@@ -375,9 +377,9 @@ export function AccountSettings({
                   </strong>
                   <p className="muted small">
                     {c.id === "twitch"
-                      ? "Photo, bio, upcoming schedule and available past broadcasts."
+                      ? streamer ? "Photo, bio, upcoming schedule and available past broadcasts." : "Display name, photo and bio."
                       : c.id === "google"
-                        ? "Name and photo. YouTube channels connect separately."
+                        ? streamer ? "Name and photo. YouTube channels connect separately." : "Name and photo."
                         : "Display name and photo."}
                   </p>
                 </div>
@@ -399,7 +401,7 @@ export function AccountSettings({
                     onClick={() => {
                       if (
                         window.confirm(
-                          `Disconnect ${c.label}? Keep another sign-in method connected. Imported ${c.id === "twitch" ? "profile, schedule and history" : "profile"} data will be removed; custom edits stay.`,
+                          `Disconnect ${c.label}? Keep another sign-in method connected. Imported ${c.id === "twitch" && streamer ? "profile, schedule and history" : "profile"} data will be removed; custom edits stay.`,
                         )
                       )
                         run(() => disconnectAccount(c.id));
@@ -411,10 +413,19 @@ export function AccountSettings({
               </div>
             ))}
           </div>
-          {!p.twitch && connections.some(c => c.id === "twitch" && c.linked) && (
+          <div className="settings-email">
+            <h3>Email sign-in</h3>
+            {emailLinked ? <p className="muted small">Email sign-in is connected.</p> : (
+              <>
+                <p className="muted small">Verify your email to sign in with a code on this account.</p>
+                <EmailSignIn link verb="Connect" />
+              </>
+            )}
+          </div>
+          {streamer && !p.twitch && connections.some(c => c.id === "twitch" && c.linked) && (
             <div className="settings-sync"><p className="muted small">Your Twitch account is connected. Refresh to load its schedule and past broadcasts.</p><button type="button" className="btn btn-ghost" disabled={pending} onClick={() => run(refreshTwitch)}>Refresh Twitch</button></div>
           )}
-          {p.twitch && (
+          {streamer && p.twitch && (
             <div className="settings-sync">
               <div>
                 <strong>twitch.tv/{p.twitch.login}</strong>

@@ -59,10 +59,10 @@ function mailRequest(env: Record<string, string | undefined>, email: string, sub
   }];
 }
 
-/** Whether codes may be shown on screen: only with no mail service, and never in production unless asked for. */
+/** Whether codes may be shown on screen: only in local development without a mail service. */
 export function showsCodes(env: Record<string, string | undefined> = process.env): boolean {
   if (emailConfigured(env)) return false;
-  return env.NODE_ENV !== "production" || env.POTTED_SHOW_EMAIL_CODES === "true";
+  return env.NODE_ENV !== "production";
 }
 
 /** Makes and sends a code. Returns the code only when it is shown on screen instead of mailed. */

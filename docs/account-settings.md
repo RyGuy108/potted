@@ -6,14 +6,14 @@
 
 - Display name (24 characters), bio (500), interests (160), HTTPS website, time zone and photo.
 - JPG, PNG and WebP uploads up to 2 MB are decoded with a 20-megapixel limit, cropped to 256×256, re-encoded to JPEG without original metadata, and stored with the user. No arbitrary server-side URL fetch or active SVG uploads.
-- Streamer profiles appear on `/s/<handle>`. Optional planter/keeper profiles appear on `/u/<id>`, initially private. Publishing does not reveal email, wallet or provider credentials. Existing public challenge activity is unaffected.
+- Streamer profiles appear on `/s/<handle>`. Optional planter/keeper profiles appear on `/u/<id>`, initially private. Published planter profiles include garden level and earned achievement badges, excluding the refund badge. Publishing does not reveal email, wallet, provider credentials, balances or individual activity. Existing public challenge activity is unaffected.
 - Manual edits override future imports. The per-field import checkboxes deliberately restore provider-managed fields at the next refresh or sign-in. Connecting another provider changes the selected import source without overwriting custom fields.
 - Community and award notification preferences are enforced at notice creation. Financial, refund, reward and proof-review notices remain enabled. Existing notices are retained.
 - Broadcasts may be added/removed manually (20 per list), separately from imported Twitch rows. Display toggles hide each list on the public page. Dates entered by the browser use the device time zone; saved dates use UTC and display in the profile's chosen time zone.
 
 ## Connections
 
-Twitch is the first complete profile/schedule/history source. OAuth establishes the stable Twitch user ID. Existing Twitch application credentials then read public users, schedule and archive-video APIs; public channel text never proves account ownership. Refresh happens on Twitch sign-in, connection and the explicit Refresh Twitch action. This is a timestamped snapshot, not continuous background synchronization. The first 10 upcoming schedule entries and 10 available archived broadcasts are imported. A missing schedule is empty; partial API failures keep previous data and show warnings.
+Twitch is the first complete profile/schedule/history source. OAuth establishes the stable Twitch user ID. Existing Twitch application credentials then read public users, schedule and archive-video APIs; public channel text never proves account ownership. Climbers refresh on Twitch sign-in, connection and the explicit Refresh Twitch action. Planters can link Twitch for sign-in and profile details without importing broadcasts or changing roles. This is a timestamped snapshot, not continuous background synchronization. The first 10 upcoming schedule entries and 10 available archived broadcasts are imported. A missing schedule is empty; partial API failures keep previous data and show warnings.
 
 Google and Discord import names and available photos on sign-in or linking. Google sign-in does not authorize a YouTube channel. Kick and YouTube channel/chat connections remain on Channel settings; this change does not add their schedule/history import.
 

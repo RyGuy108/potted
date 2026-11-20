@@ -91,7 +91,7 @@ service connected, the code is shown on screen. To mail it:
 | Sign-in codes to anyone, no domain needed | `BREVO_API_KEY`, `EMAIL_FROM` | brevo.com (free, 300 emails a day) → Senders, Domains & Dedicated IPs → Senders → add and verify the address you send from (a Gmail address works). Then SMTP & API → API Keys → Generate. Set `EMAIL_FROM` to that address, e.g. `Potted <you@gmail.com>`. Used first when set. |
 | Sign-in codes by email (Resend) | `RESEND_API_KEY`, optionally `EMAIL_FROM` | resend.com → API Keys → Create. Without a verified domain Resend only delivers to your own address; `EMAIL_FROM` defaults to `Potted <onboarding@resend.dev>`. |
 
-A production server never shows codes unless `POTTED_SHOW_EMAIL_CODES=true`.
+Production always requires a configured mail service and delivers codes to the mailbox.
 
 ## Supabase (off-chain data)
 

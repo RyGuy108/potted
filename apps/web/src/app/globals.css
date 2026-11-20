@@ -6874,3 +6874,28 @@ button.badge-tile:focus-visible {
 @media (max-width: 860px) {
   .settings-section { scroll-margin-top: 180px; }
 }
+
+.account-tile-icon {
+  width: 40px;
+  height: 40px;
+  color: var(--wood-light);
+}
+
+.settings-section label:not(.check):not(.settings-check) {
+  align-content: start;
+}
+
+.settings-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.settings-fields > label { min-width: 0; }
+.settings-section :is(input:not([type=checkbox], [type=file]), select) {
+  min-height: 44px;
+  line-height: 1.3;
+}
+.settings-email { border-top: 1px solid var(--line); padding: 8px 0 16px; }
+.settings-email .email-signin { max-width: 360px; }
+.public-garden > .card { align-items: center; gap: 16px; }
+.public-garden > h3 { margin: 24px 0 12px; }
+
+@media (max-width: 600px) {
+  .settings-fields { grid-template-columns: minmax(0, 1fr); }
+}

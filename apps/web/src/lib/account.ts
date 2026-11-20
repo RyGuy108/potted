@@ -1,3 +1,4 @@
+import { normalizeEmail } from "./email-auth";
 import type { Profile } from "./oauth";
 import { db, save, type User } from "./store";
 import type { AccountProfile, StreamEntry } from "./account-types";
@@ -72,6 +73,7 @@ export function linkIdentity(
     );
   if (!owner)
     (user.identities ??= []).push({ provider, subject: profile.subject });
+  user.disconnectedProviders = user.disconnectedProviders?.filter(id => id !== provider);
   // Linking explicitly selects this provider; custom fields remain protected.
   (user.profile ??= {}).source = provider;
   importProfile(user, provider, profile);
@@ -105,7 +107,7 @@ export function updateAccount(user: User, data: FormData): void {
   // Returning to imported values is deliberate, per field.
   if (old.source) {
     manual.name = name !== user.name || data.get("syncName") !== "on";
-    manual.bio = bio !== (old.bio ?? "") || data.get("syncBio") !== "on";
+    if (old.source === "twitch") manual.bio = bio !== (old.bio ?? "") || data.get("syncBio") !== "on";
     manual.avatar = data.get("syncAvatar") !== "on";
   }
   user.name = name;
@@ -202,6 +204,7 @@ export function unlinkIdentity(user: User, provider: string): void {
       "Connect another sign-in method before disconnecting your last one.",
     );
   user.identities = identities.filter((i) => i.provider !== provider);
+  user.disconnectedProviders = [...new Set([...(user.disconnectedProviders ?? []), provider])];
   const p = user.profile;
   if (p?.source === provider) {
     if (!p.manual?.avatar) delete p.avatarUrl;
@@ -214,5 +217,47 @@ export function unlinkIdentity(user: User, provider: string): void {
       user.settings.twitchChannel = "";
     delete p.twitch;
   }
+  save();
+}
+
+export class EmailLinkRequired extends Error {
+  constructor() {
+    super("Use your original sign-in method, then connect the other method in Settings.");
+  }
+}
+
+export function accountEmail(value?: string): string | undefined {
+  if (!value) return undefined;
+  try { return normalizeEmail(value); } catch { return undefined; }
+}
+
+export function verifiedAccountEmail(user: User): string | undefined {
+  const address = accountEmail(user.email);
+  if (!address) return undefined;
+  // Older Twitch accounts received the address from Helix, which only returns verified email.
+  if (user.emailVerified || user.identities?.[0]?.provider === "twitch" ||
+      user.identities?.some(i => i.provider === "email" && accountEmail(i.subject) === address)) {
+    return address;
+  }
+}
+
+export function accountsWithEmail(email: string): User[] {
+  return db().users.filter(user => accountEmail(user.email) === email ||
+    user.identities?.some(i => i.provider === "email" && accountEmail(i.subject) === email));
+}
+
+/** Used after the signed-in account proves ownership with an emailed code. */
+export function addEmailIdentity(user: User, email: string): void {
+  if (accountsWithEmail(email).some(other => other.id !== user.id) ||
+      user.identities?.some(i => i.provider === "email" && accountEmail(i.subject) !== email) ||
+      (verifiedAccountEmail(user) && verifiedAccountEmail(user) !== email)) {
+    throw new EmailLinkRequired();
+  }
+  if (!user.identities?.some(i => i.provider === "email")) {
+    (user.identities ??= []).push({ provider: "email", subject: email });
+  }
+  user.email = email;
+  user.emailVerified = true;
+  user.disconnectedProviders = user.disconnectedProviders?.filter(id => id !== "email");
   save();
 }
