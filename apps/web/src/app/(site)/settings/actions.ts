@@ -1,8 +1,10 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { checkCode } from "@/lib/email-auth";
 import { profilePhoto } from "@/lib/profile-photo";
 import { currentUser } from "@/lib/session";
 import {
+  addEmailIdentity,
   updateAccount,
   addStreamEntry,
   removeStreamEntry,
@@ -32,7 +34,10 @@ export async function saveSettings(data: FormData) {
   return act((user) => updateAccount(user, data));
 }
 export async function refreshTwitch() {
-  return act((user) => syncTwitchAccount(user));
+  return act((user) => {
+    if (user.role !== "streamer") throw new Error("Stream refresh is available to climbers.");
+    return syncTwitchAccount(user);
+  });
 }
 export async function addBroadcast(data: FormData) {
   return act((user) => addStreamEntry(user, data));
@@ -60,4 +65,8 @@ export async function uploadPhoto(data: FormData) {
 
 export async function disconnectAccount(provider: string) {
   return act((user) => unlinkIdentity(user, provider));
+}
+
+export async function connectEmail(email: string, code: string) {
+  return act(user => addEmailIdentity(user, checkCode(email, code)));
 }

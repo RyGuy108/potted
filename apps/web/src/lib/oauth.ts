@@ -15,6 +15,8 @@ export interface Profile {
   subject: string;
   name: string;
   email?: string;
+  /** The provider can vouch for mailbox ownership for account matching. */
+  emailVerified?: boolean;
   avatarUrl?: string;
   bio?: string;
   login?: string;
@@ -42,7 +44,7 @@ export const PROVIDERS = {
     token: "https://oauth2.googleapis.com/token",
     userinfo: "https://openidconnect.googleapis.com/v1/userinfo",
     scope: "openid email profile",
-    profile: (b) => (text(b?.sub) ? { subject: b.sub, name: text(b.given_name) ?? text(b.name) ?? "Planter", email: text(b.email), ...(text(b.picture) ? { avatarUrl: b.picture } : {}) } : undefined),
+    profile: (b) => (text(b?.sub) ? { subject: b.sub, name: text(b.given_name) ?? text(b.name) ?? "Planter", email: text(b.email), ...(b.email_verified === true && (/@gmail\.com$/i.test(b.email ?? "") || text(b.hd)) ? { emailVerified: true } : {}), ...(text(b.picture) ? { avatarUrl: b.picture } : {}) } : undefined),
   },
   twitch: {
     label: "Twitch",
@@ -54,7 +56,7 @@ export const PROVIDERS = {
     clientIdHeader: "Client-Id",
     profile: (b) => {
       const u = b?.data?.[0];
-      return text(u?.id) ? { subject: u.id, name: text(u.display_name) ?? text(u.login) ?? "Planter", email: text(u.email), ...(text(u.profile_image_url) ? { avatarUrl: u.profile_image_url } : {}), ...(typeof u.description === "string" ? { bio: u.description } : {}), ...(text(u.login) ? { login: u.login } : {}) } : undefined;
+      return text(u?.id) ? { subject: u.id, name: text(u.display_name) ?? text(u.login) ?? "Planter", email: text(u.email), ...(text(u.email) ? { emailVerified: true } : {}), ...(text(u.profile_image_url) ? { avatarUrl: u.profile_image_url } : {}), ...(typeof u.description === "string" ? { bio: u.description } : {}), ...(text(u.login) ? { login: u.login } : {}) } : undefined;
     },
   },
   discord: {

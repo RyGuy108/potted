@@ -1,4 +1,4 @@
-import { importProfile } from "./account";
+import { accountEmail, accountsWithEmail, EmailLinkRequired, importProfile, verifiedAccountEmail } from "./account";
 import {
   type Challenge,
   type Evidence,
@@ -1300,18 +1300,58 @@ async function walletFor(userId: string): Promise<string> {
  * planter account that still has to choose its role.
  */
 export async function signInWith(provider: string, profile: import("./oauth").Profile): Promise<User> {
-  const existing = db().users.find((u) => u.identities?.some((i) => i.provider === provider && i.subject === profile.subject));
-  if (existing) { importProfile(existing, provider, profile); save(); return existing; }
+  const email = accountEmail(profile.email);
+  const verified = Boolean(email && (provider === "email" || profile.emailVerified === true));
+  const findAccount = (): User | undefined => {
+    const existing = db().users.find(u =>
+      u.identities?.some(i => i.provider === provider && i.subject === profile.subject),
+    );
+    const matches = email ? accountsWithEmail(email) : [];
+    if (existing) {
+      // A returning provider identity takes precedence, even for old duplicate accounts.
+      if (verified && (!existing.email || accountEmail(existing.email) === email) &&
+          matches.every(u => u.id === existing.id)) {
+        existing.email = email;
+        existing.emailVerified = true;
+      }
+      importProfile(existing, provider, profile);
+      save();
+      return existing;
+    }
+    if (matches.length) {
+      const [match] = matches;
+      if (!verified || matches.length !== 1 || !match || verifiedAccountEmail(match) !== email ||
+          match.identities?.some(i => i.provider === provider) || match.disconnectedProviders?.includes(provider)) {
+        throw new EmailLinkRequired();
+      }
+      (match.identities ??= []).push({ provider, subject: profile.subject });
+      match.email = email;
+      match.emailVerified = true;
+      importProfile(match, provider, profile);
+      save();
+      return match;
+    }
+    // Ask first-time Google users with third-party mailboxes to prove access
+    // through email sign-in and then connect Google from Settings.
+    if (provider === "google" && email && !verified) throw new EmailLinkRequired();
+  };
+
+  const existing = findAccount();
+  if (existing) return existing;
   const id = newId("u");
+  const wallet = await walletFor(id);
+  // Wallet creation can await a remote call. Recheck before recording a new account.
+  const concurrent = findAccount();
+  if (concurrent) return concurrent;
   const name = profile.name.trim().slice(0, 24) || "Planter";
   const user: User = {
     id,
     name,
     role: "fan",
-    wallet: await walletFor(id),
+    wallet,
     createdAt: Date.now(),
     identities: [{ provider, subject: profile.subject }],
-    ...(profile.email ? { email: profile.email } : {}),
+    ...(verified ? { email, emailVerified: true } : {}),
     onboarded: false,
   };
   importProfile(user, provider, profile);

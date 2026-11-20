@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { fetchProfile, isProvider } from "@/lib/oauth";
 import { chooseRole, signInWith } from "@/lib/service";
-import { linkIdentity } from "@/lib/account";
+import { EmailLinkRequired, linkIdentity } from "@/lib/account";
 import { syncTwitchAccount } from "@/lib/account-sync";
 import { currentUser, startSession } from "@/lib/session";
 import { publicBase } from "@/lib/url";
@@ -21,6 +21,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ prov
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   if (!isProvider(provider) || !code || !state || savedProvider !== provider || savedState !== state) {
+    if (intent === "link") return NextResponse.redirect(`${base}/settings?error=${url.searchParams.get("error") === "access_denied" ? "connection-cancelled" : "connection"}#connections`);
     return NextResponse.redirect(`${base}/login?error=${url.searchParams.get("error") === "access_denied" ? "cancelled" : "failed"}`);
   }
   try {
@@ -30,16 +31,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ prov
     if (actor) {
       linkIdentity(actor, provider, profile);
       let incomplete = false;
-      if (provider === "twitch") await syncTwitchAccount(actor).catch(() => { incomplete = true; });
-      return NextResponse.redirect(`${base}/settings?connected=${provider}${incomplete ? "&sync=pending" : ""}`);
+      if (provider === "twitch" && actor.role === "streamer") await syncTwitchAccount(actor).catch(() => { incomplete = true; });
+      return NextResponse.redirect(`${base}/settings?connected=${provider}${incomplete ? "&sync=pending" : ""}#connections`);
     }
     const user = await signInWith(provider, profile);
-    if (provider === "twitch") await syncTwitchAccount(user).catch(() => undefined);
-    await startSession(user.id);
     if (user.onboarded === false && intent === "fan") await chooseRole(user, "fan");
+    if (provider === "twitch" && (user.role === "streamer" || user.onboarded === false)) await syncTwitchAccount(user).catch(() => undefined);
+    await startSession(user.id);
     if (user.onboarded === false) return NextResponse.redirect(`${base}/welcome${intent === "streamer" || intent === "mod" ? `?as=${intent}` : ""}`);
     return NextResponse.redirect(`${base}/`);
-  } catch {
+  } catch (error) {
+    if (error instanceof EmailLinkRequired) return NextResponse.redirect(`${base}/login?error=link-email`);
     return NextResponse.redirect(intent === "link" ? `${base}/settings?error=connection` : `${base}/login?error=failed`);
   }
 }

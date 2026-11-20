@@ -31,7 +31,8 @@ When hosting, also set `POTTED_PUBLIC_URL` to the site's address and
    the `state` matches the cookie.
 3. The server swaps the code for the person's profile (id, name, email),
    then discards the provider's token. No password is ever seen.
-4. A first-time visitor chooses planter or climber on `/welcome`. Climbers
+4. A new email, Google or Twitch sign-in reuses an existing account when it has a single verified mailbox match. Gmail and Google Workspace must report a verified email. Google accounts with a third-party mailbox can sign in with an emailed code first, then connect Google from Settings. Legacy accounts with uncertain or duplicate email matches require the original sign-in method. Verify email in Settings to add it to that account. Existing duplicate accounts are never merged automatically.
+5. A first-time visitor chooses planter or climber on `/welcome`. Climbers
    pick the address of their stream.
 
 Sessions are a cookie holding the user id and an HMAC signature, so a
