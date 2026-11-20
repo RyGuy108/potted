@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { emailCodeAction, emailVerifyAction } from "@/app/actions";
 
 /** Sign in or sign up with an email address and a six-digit code. `as` is the sign-up page's account type. */
-export function EmailSignIn({ as, verb = "Continue" }: { as?: "fan" | "streamer"; verb?: string }) {
+export function EmailSignIn({ as, verb = "Continue" }: { as?: "fan" | "streamer" | "mod"; verb?: string }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
