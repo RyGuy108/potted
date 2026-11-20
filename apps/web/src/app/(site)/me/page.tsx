@@ -47,7 +47,11 @@ export default async function Me() {
         </div>
         <div className="row wrap"><Link href="/settings" className="btn btn-ghost">Edit profile & settings</Link><Wallet user={user} /></div>
       </div>
-      <AccountBento items={[{ id: "settings", label: "Your account", title: "Profile & settings", description: "Photo, bio, connected accounts and preferences", href: "/settings", colSpan: 2 }, ...items]} />
+      <AccountBento items={[
+        { id: "settings", label: "Your account", title: "Profile & settings", description: "Photo, bio, connected accounts and preferences", href: "/settings", colSpan: user.role === "streamer" ? 1 : 2 },
+        ...(user.role === "streamer" ? [{ id: "channel", label: "Channel", title: "Links, rewards and settings", description: "Overlay, channel points and stream settings", href: "/dashboard/channel" }] : []),
+        ...items,
+      ]} />
     </>
   );
 }
@@ -332,14 +336,6 @@ function climberTiles(user: NonNullable<Awaited<ReturnType<typeof currentUser>>>
       description: "Receipts from the escrow program",
       href: "/activity",
       visual: <Big>{challenges.filter((c) => c.settledAt).length}</Big>,
-    },
-    {
-      id: "channel",
-      label: "Channel",
-      title: "Links, rewards and settings",
-      description: "Overlay link, channel points, stream settings",
-      href: "/dashboard/channel",
-      colSpan: 2,
     },
   ];
 }

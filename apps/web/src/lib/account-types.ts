@@ -2,6 +2,7 @@ export interface StreamEntry {
   id: string;
   title: string;
   startsAt: string;
+  endsAt?: string;
   url: string;
   source: "manual" | "twitch";
 }

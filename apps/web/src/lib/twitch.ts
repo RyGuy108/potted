@@ -164,7 +164,14 @@ export async function twitchAccountSnapshot(subject: string, deps: Deps = defaul
   type Entry = import("./account-types").StreamEntry;
   const scheduleRows: Entry[] | undefined = schedule.status === "fulfilled" ? (schedule.value.data?.segments ?? [])
     .filter((s: any) => !s.canceled_until && Number.isFinite(Date.parse(s.start_time)))
-    .map((s: any) => ({ id: `twitch-${s.id}`, title: String(s.title || "Twitch stream").slice(0,120), startsAt: s.start_time, url: `https://www.twitch.tv/${user.login}`, source: "twitch" })) : undefined;
+    .map((s: any) => ({
+      id: `twitch-${s.id}`,
+      title: String(s.title || "Twitch stream").slice(0, 120),
+      startsAt: s.start_time,
+      ...(Date.parse(s.end_time) > Date.parse(s.start_time) ? { endsAt: s.end_time } : {}),
+      url: `https://www.twitch.tv/${user.login}`,
+      source: "twitch",
+    })) : undefined;
   const historyRows: Entry[] | undefined = history.status === "fulfilled" ? (history.value.data ?? [])
     .filter((v: any) => /^\d+$/.test(v.id) && Number.isFinite(Date.parse(v.created_at)))
     .map((v: any) => ({ id: `twitch-${v.id}`, title: String(v.title || "Past broadcast").slice(0,120), startsAt: v.created_at, url: `https://www.twitch.tv/videos/${v.id}`, source: "twitch" })) : undefined;
