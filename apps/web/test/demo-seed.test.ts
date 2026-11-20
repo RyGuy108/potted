@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { checkCode, sendCode } from "../src/lib/email-auth";
-import { demoSeedMode, ensureDemoSeed, needsFreshLive } from "../src/lib/demo-seed";
+import { DEMO_RESETS, demoSeedMode, ensureDemoSeed, needsFreshLive, rebuildSample } from "../src/lib/demo-seed";
 import { DEMO_LOGINS, isSampleId } from "../src/lib/sample-data";
 import * as service from "../src/lib/service";
 import { db, resetForTests } from "../src/lib/store";
@@ -12,6 +12,39 @@ afterEach(() => {
 });
 
 describe("demo seed", () => {
+  it("rebuilds the sample once per reset, keeping the demo climber's own setup", async () => {
+    process.env.POTTED_DEMO_SEED = "on";
+    await ensureDemoSeed(() => {});
+    const state = db();
+    expect(state.demoResets).toEqual([...DEMO_RESETS]);
+    const moss = service.getUser("u_s_moss")!;
+    expect(moss.profile?.history?.length).toBeGreaterThan(10);
+    expect(service.climberStats(moss).total).toBeGreaterThan(15);
+    expect((state.gifts ?? []).some((g) => g.streamerId === "u_s_moss")).toBe(true);
+    // Ryan connects his Twitch to Moss and tests a pledge.
+    Object.assign(moss, { settings: { ...moss.settings, twitchChannel: "psychedterror" }, wallet: "keep-wallet", profile: { ...moss.profile, bio: "mine" } });
+    const maya = service.getUser("u_s_maya")!;
+    const live = state.challenges.find((c) => state.sample!.challengeIds.includes(c.id) && c.status === "open")!;
+    await service.pledge(maya, live.id, 1);
+    const pledges = state.pledges.length;
+    rebuildSample(state);
+    const after = service.getUser("u_s_moss")!;
+    expect(after.settings?.twitchChannel).toBe("psychedterror");
+    expect(after.handle).toBe("mossbyte");
+    expect(after.wallet).toBe("keep-wallet");
+    expect(after.profile?.bio).toBe("mine");
+    expect(after.profile?.history?.length).toBeGreaterThan(10);
+    expect(db().users.filter((u) => u.id === "u_s_moss")).toHaveLength(1);
+    expect(db().pledges.length).toBeLessThan(pledges);
+
+    // A server that loaded the sample before resets existed runs the reset once on its next check.
+    delete db().demoResets;
+    await ensureDemoSeed(() => {});
+    expect(db().demoResets).toEqual([...DEMO_RESETS]);
+    expect(service.getUser("u_s_moss")?.settings?.twitchChannel).toBe("psychedterror");
+    expect(db().challenges.some((c) => db().sample!.challengeIds.includes(c.id) && c.status === "open")).toBe(true);
+  });
+
   it("is on by default only on Railway production", () => {
     expect(demoSeedMode({})).toBe("off");
     expect(demoSeedMode({ RAILWAY_ENVIRONMENT_NAME: "production" })).toBe("on");

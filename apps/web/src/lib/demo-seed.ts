@@ -1,8 +1,9 @@
 import { onRailwayProduction } from "./demo-mode";
 import { ledger } from "./ledger";
 import { addSampleHistory, isSampleId, removeSample } from "./sample-data";
-import { addSampleLive } from "./sample-live";
-import { type Db, db, save } from "./store";
+import { writeBackup } from "./purge";
+import { addSampleLive, fundSampleWallets } from "./sample-live";
+import { type Db, type PointsConfig, type User, db, save } from "./store";
 
 /**
  * The demo seed on a running server: the sample from sample-data.ts (about
@@ -36,6 +37,55 @@ export function needsFreshLive(state: Db, now = Date.now()): boolean {
   return !state.challenges.some((c) => ids.has(c.id) && c.status === "open" && c.deadline > now);
 }
 
+/**
+ * One-time fresh starts of the demo sample on a running server. Each id runs
+ * once (recorded in `demoResets`): it backs the state up, takes the sample
+ * out (with everything done to it since, like test pledges), and builds it
+ * again with fresh history and live pots. The demo climber's account is
+ * kept as it is (name, handle, sign-ins, connected channels, settings and
+ * channel points), so links to its stream page and overlay keep working.
+ * Every sample account keeps its wallet.
+ */
+export const DEMO_RESETS = ["2026-11-20-fresh-demo"] as const;
+
+/** The sample account whose own setup survives a reset: the climber demo login. */
+export const KEPT_ACCOUNT = "u_s_moss";
+
+export function pendingResets(state: Db): string[] {
+  return DEMO_RESETS.filter((id) => !(state.demoResets ?? []).includes(id));
+}
+
+/** Rebuilds the sample, keeping the demo climber's account and every sample wallet. Returns the new history's balances to fund. */
+export function rebuildSample(state: Db, now = Date.now()): { balances: Record<string, number>; history: ReturnType<typeof addSampleHistory> } {
+  const kept = state.users.find((u) => u.id === KEPT_ACCOUNT);
+  const keptPoints: PointsConfig | undefined = state.points?.[KEPT_ACCOUNT];
+  const wallets = new Map(state.users.filter((u) => isSampleId(u.id) && !u.wallet.startsWith("sim:")).map((u) => [u.id, u.wallet]));
+  removeSample(state);
+  const history = addSampleHistory(state, now);
+  for (const u of state.users) {
+    const wallet = wallets.get(u.id);
+    if (wallet) u.wallet = wallet;
+  }
+  if (kept) {
+    const fresh = state.users.find((u) => u.id === KEPT_ACCOUNT)!;
+    const restored: User = { ...kept, createdAt: Math.min(kept.createdAt, fresh.createdAt) };
+    // Past streams and a schedule from the new history, unless the account already shows its own.
+    const own = kept.profile;
+    const hasOwn = (kind: "schedule" | "history") => (own?.[kind]?.length ?? 0) + (own?.twitch?.[kind]?.length ?? 0) > 0;
+    restored.profile = {
+      ...fresh.profile,
+      ...own,
+      schedule: hasOwn("schedule") ? own?.schedule : fresh.profile?.schedule,
+      history: hasOwn("history") ? own?.history : fresh.profile?.history,
+      bio: own?.bio || fresh.profile?.bio,
+    };
+    delete restored.awarded;
+    state.users[state.users.indexOf(fresh)] = restored;
+    if (keptPoints) state.points![KEPT_ACCOUNT] = keptPoints;
+  }
+  return { balances: history.balances, history };
+}
+
 let busy = false;
 
 /** Brings the server in line with POTTED_DEMO_SEED. Safe to call often; does nothing when there is nothing to do. */
@@ -53,10 +103,25 @@ export async function ensureDemoSeed(log: (line: string) => void = (line) => con
       return;
     }
     ledger();
+    const resets = state.sample ? pendingResets(state) : [];
+    if (resets.length > 0) {
+      const backup = writeBackup(state, `demo-reset-${resets.at(-1)}`);
+      const { history } = rebuildSample(state);
+      state.demoResets = [...(state.demoResets ?? []), ...resets];
+      save();
+      log(`reset the demo sample (backup at ${backup}): ${history.challenges.length} past challenges, ${history.pledges.length} pledges, ${history.gifts.length} gifts`);
+      await fundSampleWallets(history.balances, log);
+      await addSampleLive({ minutes: LIVE_MINUTES, log });
+      log("opened the live sample pots");
+      return;
+    }
     if (!state.sample) {
       const history = addSampleHistory(state);
+      // A fresh state needs no reset later.
+      state.demoResets = [...(state.demoResets ?? []), ...pendingResets(state)];
       save();
       log(`added ${history.users.length} sample accounts, ${history.challenges.length} past challenges, ${history.pledges.length} pledges`);
+      await fundSampleWallets(history.balances, log);
       await addSampleLive({ minutes: LIVE_MINUTES, log });
       log("opened the live sample pots");
       return;

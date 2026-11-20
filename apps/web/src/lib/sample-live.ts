@@ -73,7 +73,7 @@ export function livePlans(minutes: number): Plan[] {
 }
 
 /** Public devnet RPCs rate-limit bursts. On Solana, space the steps out and retry a rate-limited one. */
-async function step<T>(work: () => Promise<T>): Promise<T> {
+export async function step<T>(work: () => Promise<T>): Promise<T> {
   if (ledger().kind !== "solana") return work();
   for (let attempt = 0; ; attempt++) {
     await new Promise((r) => setTimeout(r, 400));
@@ -165,6 +165,34 @@ export async function addSampleLive({ minutes, log = () => {} }: LiveOptions): P
     log("Juniper invited Ryan to a collab");
   }
   save();
+}
+
+/**
+ * On Solana, tops each sample account's wallet up to what its history says
+ * it holds (climbers what they earned, planters their change), with test
+ * USDC from the devnet faucet. On the simulated ledger the balances are
+ * already written by addSampleHistory.
+ */
+export async function fundSampleWallets(balances: Record<string, number>, log: (line: string) => void = () => {}): Promise<number> {
+  const L = ledger();
+  if (L.kind !== "solana") return 0;
+  giveRealWallets();
+  let funded = 0;
+  for (const [placeholder, target] of Object.entries(balances)) {
+    const user = service.getUser(placeholder.replace(/^sim:/, ""));
+    if (!user || target <= 0) continue;
+    try {
+      const have = await step(() => L.balanceOf(user.wallet));
+      if (have >= target) continue;
+      await step(() => L.faucet(user.wallet, target - have));
+      funded += 1;
+    } catch (err) {
+      log(`could not fund ${user.name}: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+  save();
+  log(`funded ${funded} sample wallets with test USDC`);
+  return funded;
 }
 
 /** Takes the live part of the sample back out (open challenges, their pledges, pending invites), leaving the history. */

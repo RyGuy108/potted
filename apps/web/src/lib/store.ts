@@ -271,6 +271,8 @@ export interface Db {
   sample?: { challengeIds: string[]; addedAt: number };
   /** Test USDC the devnet faucet added to each account when a pledge came up short, in micro-dollars. */
   topUps?: Record<string, number>;
+  /** One-time fresh starts of the demo sample already run on this state (see demo-seed.ts). */
+  demoResets?: string[];
   /** One-time clean slates already run on this state (see purge.ts). */
   purges?: string[];
 }
