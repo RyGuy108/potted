@@ -49,7 +49,7 @@ export default async function Leaderboard({ searchParams }: { searchParams: Prom
             entries={
               board === "planters"
                 ? planters.slice(0, 3).map((r) => ({ id: r.user.id, name: r.user.name, avatarUrl: r.user.profile?.publicProfile ? r.user.profile.avatarUrl : undefined, href: r.user.profile?.publicProfile ? `/u/${r.user.id}` : undefined, sub: r.level.name, value: xp(r.xp), lines: [`${pct(r.hitRate)} completed`, `${formatUsd(r.plantedMicro)} planted`], me: r.user.id === user?.id }))
-                : climbers.slice(0, 3).map((r) => ({ id: r.user.id, name: r.user.name, avatarUrl: r.user.profile?.avatarUrl, href: `/s/${r.user.handle}`, sub: `@${r.user.handle}`, value: planterCount(r.planters), lines: [`${pct(r.completionRate)} completed`, `${r.completed} of ${r.challenges} challenges`], me: r.user.id === user?.id }))
+                : climbers.slice(0, 3).map((r) => ({ id: r.user.id, name: r.user.name, avatarUrl: r.user.profile?.avatarUrl, href: `/s/${r.user.handle}`, sub: `@${r.user.handle}`, value: <>{r.planters.toLocaleString("en-US")}<span className="podium-unit">{r.planters === 1 ? "planter" : "planters"}</span></>, lines: [`${pct(r.completionRate)} completed`, `${r.completed} of ${r.challenges} challenges`], me: r.user.id === user?.id }))
             }
           />
         )}
@@ -177,7 +177,7 @@ function LevelTrack({ current }: { current?: number }) {
     <ol className="lb-levels" aria-label="Planter levels">
       {LEVELS.map((l, i) => (
         <li key={l.name} className={i === current ? "on" : undefined} title={`${l.name}: ${l.at} XP`}>
-          <Beanstalk stage={Math.min(4, i)} size={30} />
+          <Beanstalk stage={Math.min(4, i)} size={26} />
           {i === current && <span>{l.name}</span>}
         </li>
       ))}

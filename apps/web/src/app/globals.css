@@ -4982,7 +4982,7 @@ body {
 
 .lb-top {
   display: grid;
-  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  grid-template-columns: minmax(260px, 400px) minmax(0, 1fr);
   gap: 32px;
   align-items: end;
   padding: 28px;
@@ -4994,7 +4994,7 @@ body {
     var(--glass);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 960px) {
   .lb-top {
     grid-template-columns: 1fr;
   }
@@ -5002,8 +5002,11 @@ body {
 
 .lb-you {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   align-self: start;
+  /* Never wider than its column, so nothing runs under the podium. */
+  min-width: 0;
 }
 
 .lb-you h1 {
@@ -5046,7 +5049,7 @@ body {
 .lb-levels {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   padding: 6px;
   margin: 0;
   list-style: none;
@@ -5055,13 +5058,14 @@ body {
   background: #0f0c09;
   width: fit-content;
   max-width: 100%;
+  flex-wrap: wrap;
 }
 
 .lb-levels li {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 8px;
+  padding: 4px;
   border-radius: 10px;
   opacity: 0.45;
 }
@@ -5188,6 +5192,14 @@ body {
 .podium-value {
   font-size: 1.6rem;
   font-weight: 700;
+}
+
+.podium-unit {
+  display: block;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted, rgba(255, 255, 255, 0.6));
 }
 
 .place-first .podium-value {
