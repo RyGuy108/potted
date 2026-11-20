@@ -37,8 +37,13 @@ describe("provider sign-in", () => {
     expect(String(deps.calls[0]!.init.body)).toContain("code=code-1");
     expect((deps.calls[1]!.init.headers as Record<string, string>).Authorization).toBe("Bearer tok");
 
-    const twitch = provider({ data: [{ id: "t-9", display_name: "KaiPlays" }] });
-    expect(await fetchProfile("twitch", "c", "http://cb", twitch)).toMatchObject({ subject: "t-9", name: "KaiPlays" });
+    const google = provider({ sub: "g-2", name: "Creator", email: "creator@gmail.com", email_verified: true });
+    expect(await fetchProfile("google", "c", "http://cb", google)).toMatchObject({ emailVerified: true });
+    const external = provider({ sub: "g-3", name: "Creator", email: "creator@example.com", email_verified: true });
+    expect(await fetchProfile("google", "c", "http://cb", external)).not.toHaveProperty("emailVerified");
+
+    const twitch = provider({ data: [{ id: "t-9", display_name: "KaiPlays", email: "kai@example.com" }] });
+    expect(await fetchProfile("twitch", "c", "http://cb", twitch)).toMatchObject({ subject: "t-9", name: "KaiPlays", emailVerified: true });
     expect((twitch.calls[1]!.init.headers as Record<string, string>)["Client-Id"]).toBe("tid");
   });
 
@@ -48,7 +53,7 @@ describe("provider sign-in", () => {
   });
 
   it("creates one account per provider identity and asks it to choose a role", async () => {
-    const maya = await service.signInWith("google", { subject: "g-1", name: "Maya", email: "maya@example.com" });
+    const maya = await service.signInWith("google", { subject: "g-1", name: "Maya", email: "maya@example.com", emailVerified: true });
     expect(maya).toMatchObject({ role: "fan", onboarded: false });
     expect(await service.balanceOf(maya)).toBeGreaterThan(0);
     expect((await service.signInWith("google", { subject: "g-1", name: "Renamed" })).id).toBe(maya.id);
@@ -68,6 +73,21 @@ describe("provider sign-in", () => {
     expect(service.getStreamer("kira_live")?.id).toBe(kira.id);
     const noah = await service.signInWith("twitch", { subject: "t-2", name: "Noah" });
     await expect(service.chooseRole(noah, "streamer", "kira_live")).rejects.toThrow("taken");
+  });
+
+  it("lets a new account become a keeper only with the invite code", async () => {
+    const ada = await service.signInWith("google", { subject: "g-keeper", name: "Ada" });
+    delete process.env.POTTED_KEEPER_CODE;
+    await expect(service.chooseRole(ada, "mod", "", "anything")).rejects.toThrow("invite only");
+    process.env.POTTED_KEEPER_CODE = "garden-keys";
+    try {
+      await expect(service.chooseRole(ada, "mod", "", "wrong")).rejects.toThrow("not right");
+      expect(ada.onboarded).toBe(false);
+      await service.chooseRole(ada, "mod", "", " garden-keys ");
+      expect(ada).toMatchObject({ role: "mod", onboarded: true });
+    } finally {
+      delete process.env.POTTED_KEEPER_CODE;
+    }
   });
 });
 
@@ -433,5 +453,38 @@ describe("up-front share carries over", () => {
     });
     await service.cancel(s, c.id);
     expect((await service.runAgain(s, c.id)).upfrontPct).toBe(25);
+  });
+});
+
+describe("email-based account matching", () => {
+  it("links verified Google and Twitch sign-ins to one email account and preserves the planter role", async () => {
+    const email = "planter@gmail.com";
+    const original = await service.signInWith("email", { subject: email, name: "Planter", email });
+    await service.chooseRole(original, "fan");
+    const google = await service.signInWith("google", { subject: "google-1", name: "Google", email: email.toUpperCase(), emailVerified: true });
+    const twitch = await service.signInWith("twitch", { subject: "twitch-1", name: "Twitch", email, emailVerified: true });
+    expect(google.id).toBe(original.id);
+    expect(twitch).toMatchObject({ id: original.id, wallet: original.wallet, role: "fan", onboarded: true });
+    expect(twitch.identities).toHaveLength(3);
+    expect(twitch.settings).toBeUndefined();
+  });
+
+  it("reuses an OAuth-first account with email and rejects unverified or conflicting providers", async () => {
+    const email = "creator@gmail.com";
+    const original = await service.signInWith("google", { subject: "google-a", name: "Creator", email, emailVerified: true });
+    await expect(service.signInWith("twitch", { subject: "unverified", name: "Other", email })).rejects.toThrow("original sign-in");
+    await expect(service.signInWith("google", { subject: "google-b", name: "Other", email, emailVerified: true })).rejects.toThrow("original sign-in");
+    const verified = await service.signInWith("email", { subject: email, name: "Email", email });
+    expect(verified.id).toBe(original.id);
+  });
+
+  it("does not create a duplicate on simultaneous verified sign-ins", async () => {
+    const email = "race@gmail.com";
+    const [google, twitch] = await Promise.all([
+      service.signInWith("google", { subject: "g-race", name: "Google", email, emailVerified: true }),
+      service.signInWith("twitch", { subject: "t-race", name: "Twitch", email, emailVerified: true }),
+    ]);
+    expect(google.id).toBe(twitch.id);
+    expect(google.identities).toHaveLength(2);
   });
 });

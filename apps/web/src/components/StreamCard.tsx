@@ -1,3 +1,4 @@
+import { Avatar } from "./StreamHeader";
 import { formatUsd } from "@potted/core";
 import Link from "next/link";
 import { gameOf } from "@/lib/format";
@@ -27,9 +28,7 @@ export function StreamCard({ listing, reason, rank }: { listing: StreamListing; 
         </span>
       </div>
       <div className="stream-info">
-        <span className="avatar" aria-hidden="true">
-          {streamer.name.charAt(0).toUpperCase()}
-        </span>
+        <Avatar name={streamer.name} handle={streamer.id} src={streamer.profile?.avatarUrl} size={40} />
         <div className="stream-text">
           <strong className="stream-title">{headline.title}</strong>
           <span className="stream-name">{streamer.name}</span>

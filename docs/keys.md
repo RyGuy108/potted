@@ -91,7 +91,7 @@ service connected, the code is shown on screen. To mail it:
 | Sign-in codes to anyone, no domain needed | `BREVO_API_KEY`, `EMAIL_FROM` | brevo.com (free, 300 emails a day) → Senders, Domains & Dedicated IPs → Senders → add and verify the address you send from (a Gmail address works). Then SMTP & API → API Keys → Generate. Set `EMAIL_FROM` to that address, e.g. `Potted <you@gmail.com>`. Used first when set. |
 | Sign-in codes by email (Resend) | `RESEND_API_KEY`, optionally `EMAIL_FROM` | resend.com → API Keys → Create. Without a verified domain Resend only delivers to your own address; `EMAIL_FROM` defaults to `Potted <onboarding@resend.dev>`. |
 
-A production server never shows codes unless `POTTED_SHOW_EMAIL_CODES=true`.
+Production always requires a configured mail service and delivers codes to the mailbox.
 
 ## Supabase (off-chain data)
 
@@ -151,6 +151,6 @@ every change back, so it survives redeploys and serverless hosts.
 
 ## Demo accounts and clean slates
 
-**Demo accounts.** `POTTED_DEMO_ACCOUNTS=on|off` controls the six test accounts (Tester One/Two, Test Climber/Two, Keeper Test/Two), the demo climbers Ryan and Kai, the one-click demo logins (website and extension) and the name-only "try the demo" sign-ups for planters and climbers. Unset, they are **off on Railway production** (`RAILWAY_ENVIRONMENT_NAME=production`) and on everywhere else. Keeper sign-up stays name-only either way. `POTTED_TEST_ACCOUNTS=off` still turns off just the six test accounts.
+**Demo accounts.** `POTTED_DEMO_ACCOUNTS=on|off` controls the six test accounts (Tester One/Two, Test Climber/Two, Keeper Test/Two), the demo climbers Ryan and Kai, the one-click demo logins (website and extension) and the name-only "try the demo" sign-ups for planters and climbers. Unset, they are **off on Railway production** (`RAILWAY_ENVIRONMENT_NAME=production`) and on everywhere else. Keepers sign up with email or a provider like everyone else, then enter the invite code in `POTTED_KEEPER_CODE` (without it, the Keeper option is hidden and keeper sign-up is closed). `POTTED_TEST_ACCOUNTS=off` still turns off just the six test accounts.
 
 **Clean slates.** `apps/web/src/lib/purge.ts` lists one-time purges. On Railway production each runs once at start: it writes the whole state to `/data/backups/pre-purge-<id>.json` (and the wallet keys to `pre-purge-<id>-wallets.json`), then removes every account and everything tied to accounts. It keeps the cookie secret, cause wallets and the wallet key file. The server log lists every account removed. `POTTED_PURGE=off` skips it; `POTTED_PURGE=force` runs it off Railway. To undo one: stop the service, copy the pre-purge backup over `/data/potted.json`, set `POTTED_PURGE=off`, start it (with Supabase on, the restored file is not pushed back automatically, so restore Supabase too or unset its keys first).

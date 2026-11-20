@@ -2,10 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { connectEmail } from "@/app/(site)/settings/actions";
 import { emailCodeAction, emailVerifyAction } from "@/app/actions";
 
 /** Sign in or sign up with an email address and a six-digit code. `as` is the sign-up page's account type. */
-export function EmailSignIn({ as, verb = "Continue" }: { as?: "fan" | "streamer"; verb?: string }) {
+export function EmailSignIn({ as, verb = "Continue", link = false }: { as?: "fan" | "streamer" | "mod"; verb?: string; link?: boolean }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -26,6 +27,12 @@ export function EmailSignIn({ as, verb = "Continue" }: { as?: "fan" | "streamer"
   const verify = () =>
     start(async () => {
       setError(undefined);
+      if (link) {
+        const result = await connectEmail(email, code);
+        if (!result.ok) return setError(result.message);
+        router.refresh();
+        return;
+      }
       const r = await emailVerifyAction(email, code, as);
       if (!r.ok) return setError(r.error);
       router.push(r.next);
@@ -66,7 +73,7 @@ export function EmailSignIn({ as, verb = "Continue" }: { as?: "fan" | "streamer"
         </>
       )}
       <button className="btn" type="submit" disabled={pending}>
-        {pending ? "One moment…" : step === "email" ? `${verb} with email` : "Sign in"}
+        {pending ? "One moment…" : step === "email" ? `${verb} with email` : link ? "Verify and connect" : "Sign in"}
       </button>
       {step === "code" && (
         <button type="button" className="linkish small" onClick={() => { setStep("email"); setCode(""); setShown(undefined); }}>

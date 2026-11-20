@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Avatar } from "@/components/StreamHeader";
 import { formatUsd } from "@potted/core";
 import { redirect } from "next/navigation";
 import { AccountBento } from "@/components/AccountBento";
@@ -40,12 +42,16 @@ export default async function Me() {
       <div className="row between wrap me-head">
         <div>
           <p className="eyebrow">{user.role === "streamer" ? "Climber" : user.role === "mod" ? "Keeper" : "Planter"}</p>
-          <h1>{user.name}</h1>
+          <div className="account-profile-heading"><Avatar name={user.name} handle={user.id} src={user.profile?.avatarUrl} size={64} /><div><h1>{user.name}</h1>{user.profile?.bio && <p className="muted">{user.profile.bio}</p>}</div></div>
           {unread > 0 && <p className="muted">{unread} new {unread === 1 ? "notification" : "notifications"} in the bell above.</p>}
         </div>
-        <Wallet user={user} />
+        <div className="row wrap"><Link href="/settings" className="btn btn-ghost">Edit profile & settings</Link><Wallet user={user} /></div>
       </div>
-      <AccountBento items={items} />
+      <AccountBento items={[
+        { id: "settings", label: "Your account", title: "Profile & settings", description: "Photo, bio, connected accounts and preferences", href: "/settings", visual: <AccountTileIcon kind="settings" />, colSpan: user.role === "streamer" ? 1 : 2 },
+        ...(user.role === "streamer" ? [{ id: "channel", label: "Channel", title: "Links, rewards and settings", description: "Overlay, channel points and stream settings", href: "/dashboard/channel", visual: <AccountTileIcon kind="channel" /> }] : []),
+        ...items,
+      ]} />
     </>
   );
 }
@@ -331,14 +337,6 @@ function climberTiles(user: NonNullable<Awaited<ReturnType<typeof currentUser>>>
       href: "/activity",
       visual: <Big>{challenges.filter((c) => c.settledAt).length}</Big>,
     },
-    {
-      id: "channel",
-      label: "Channel",
-      title: "Links, rewards and settings",
-      description: "Overlay link, channel points, stream settings",
-      href: "/dashboard/channel",
-      colSpan: 2,
-    },
   ];
 }
 
@@ -392,6 +390,24 @@ function OverlayArt() {
       <rect x="10" y="46" width="62" height="14" rx="4" fill="currentColor" fillOpacity="0.18" />
       <rect x="10" y="46" width="40" height="14" rx="4" fill="#3ecf8e" />
       <circle cx="102" cy="16" r="5" fill="#e5484d" />
+    </svg>
+  );
+}
+
+function AccountTileIcon({ kind }: { kind: "settings" | "channel" }) {
+  return (
+    <svg className="account-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {kind === "settings" ? (
+        <>
+          <path d="M10 2h4l.6 2.6 1.4.8 2.6-.8 2 3.4-1.9 1.9v1.7l1.9 1.9-2 3.4-2.6-.8-1.4.8L14 20h-4l-.6-2.6-1.4-.8-2.6.8-2-3.4 1.9-1.9v-1.7L3.4 8.5l2-3.4 2.6.8 1.4-.8L10 2Z" transform="translate(0 1)" />
+          <circle cx="12" cy="12" r="3" />
+        </>
+      ) : (
+        <>
+          <rect x="2" y="5" width="20" height="14" rx="4" />
+          <path d="m10 9 5 3-5 3Z" fill="currentColor" stroke="none" />
+        </>
+      )}
     </svg>
   );
 }

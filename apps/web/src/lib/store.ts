@@ -144,6 +144,7 @@ export interface Backing {
 }
 
 export interface User {
+  profile?: import("./account-types").AccountProfile;
   id: string;
   name: string;
   role: Role;
@@ -158,6 +159,9 @@ export interface User {
   /** Accounts this user signs in with, e.g. Google. Demo users have none. */
   identities?: { provider: string; subject: string }[];
   email?: string;
+  emailVerified?: boolean;
+  /** Providers explicitly disconnected, which must be linked manually again. */
+  disconnectedProviders?: string[];
   /** False until someone who signed in with a provider has picked planter or climber. */
   onboarded?: boolean;
   /** Awards this user has already been told about, so each is announced once. */

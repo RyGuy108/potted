@@ -14,6 +14,7 @@ import { DEMO_GUEST_ID, DEMO_STREAMER_ID } from "@/lib/store";
 const ERRORS: Record<string, string> = {
   "not-set-up": "That sign-in option is not connected on this server yet.",
   cancelled: "Sign-in was cancelled. Nothing was changed.",
+  "link-email": "Sign in with your email code or your original provider, then connect the other sign-in method in Settings.",
   failed: "That sign-in did not go through. Please try again.",
 };
 

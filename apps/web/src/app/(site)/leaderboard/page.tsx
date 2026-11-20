@@ -48,8 +48,8 @@ export default async function Leaderboard({ searchParams }: { searchParams: Prom
           <Podium
             entries={
               board === "planters"
-                ? planters.slice(0, 3).map((r) => ({ id: r.user.id, name: r.user.name, sub: r.level.name, value: xp(r.xp), lines: [`${pct(r.hitRate)} completed`, `${formatUsd(r.plantedMicro)} planted`], me: r.user.id === user?.id }))
-                : climbers.slice(0, 3).map((r) => ({ id: r.user.id, name: r.user.name, href: `/s/${r.user.handle}`, sub: `@${r.user.handle}`, value: planterCount(r.planters), lines: [`${pct(r.completionRate)} completed`, `${r.completed} of ${r.challenges} challenges`], me: r.user.id === user?.id }))
+                ? planters.slice(0, 3).map((r) => ({ id: r.user.id, name: r.user.name, avatarUrl: r.user.profile?.publicProfile ? r.user.profile.avatarUrl : undefined, href: r.user.profile?.publicProfile ? `/u/${r.user.id}` : undefined, sub: r.level.name, value: xp(r.xp), lines: [`${pct(r.hitRate)} completed`, `${formatUsd(r.plantedMicro)} planted`], me: r.user.id === user?.id }))
+                : climbers.slice(0, 3).map((r) => ({ id: r.user.id, name: r.user.name, avatarUrl: r.user.profile?.avatarUrl, href: `/s/${r.user.handle}`, sub: `@${r.user.handle}`, value: planterCount(r.planters), lines: [`${pct(r.completionRate)} completed`, `${r.completed} of ${r.challenges} challenges`], me: r.user.id === user?.id }))
             }
           />
         )}
@@ -83,9 +83,9 @@ export default async function Leaderboard({ searchParams }: { searchParams: Prom
                     <td className="lb-rank mono">#{r.rank}</td>
                     <td>
                       <span className="lb-who">
-                        <RankAvatar name={r.user.name} size={40} />
+                        <RankAvatar src={r.user.role === "streamer" || r.user.profile?.publicProfile ? r.user.profile?.avatarUrl : undefined} name={r.user.name} size={40} />
                         <span>
-                          <strong>{r.user.name}</strong>
+                          <strong>{r.user.profile?.publicProfile ? <Link href={`/u/${r.user.id}`}>{r.user.name}</Link> : r.user.name}</strong>
                           <span className="muted small">{r.level.name}</span>
                         </span>
                       </span>
@@ -100,7 +100,7 @@ export default async function Leaderboard({ searchParams }: { searchParams: Prom
                     <td className="lb-rank mono">#{r.rank}</td>
                     <td>
                       <span className="lb-who">
-                        <RankAvatar name={r.user.name} size={40} />
+                        <RankAvatar src={r.user.role === "streamer" || r.user.profile?.publicProfile ? r.user.profile?.avatarUrl : undefined} name={r.user.name} size={40} />
                         <span>
                           <strong>
                             <Link href={`/s/${r.user.handle}`}>{r.user.name}</Link>
