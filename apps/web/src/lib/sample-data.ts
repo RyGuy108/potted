@@ -10,8 +10,9 @@ import {
   splitPot,
   upfrontOf,
 } from "@potted/core";
+import type { AccountProfile, StreamEntry } from "./account-types";
 import { STARTER_REWARDS } from "./points";
-import { type Db, type Invite, type PointsConfig, type Redemption, type Role, type StreamEvent, type StreamSettings, type Suggestion, type User, DEMO_GUEST_ID, DEMO_STREAMER_ID } from "./store";
+import { type Db, type Gift, type Invite, type PointsConfig, type Redemption, type Role, type StreamEvent, type StreamSettings, type Suggestion, type User, DEMO_GUEST_ID, DEMO_STREAMER_ID } from "./store";
 
 /**
  * Sample history for demos: climbers, planters and keepers with about six
@@ -64,13 +65,13 @@ interface StreamerSpec {
 }
 
 export const SAMPLE_STREAMERS: StreamerSpec[] = [
-  { id: "u_s_juniper", name: "Juniper", handle: "juniperplays", games: ["minecraft", "speedrun", "other"], sessions: 7, settings: { voice: "sarah" } },
-  { id: "u_s_moss", name: "Moss", handle: "mossbyte", games: ["chess", "study"], sessions: 6, lichess: "mossbyte_chess" },
-  { id: "u_s_fern", name: "Fern", handle: "ironfern", games: ["fortnite", "steam", "twitch"], sessions: 7, fortnite: "IronFernTTV", steamId: "76561198000004417" },
-  { id: "u_s_sol", name: "Sol", handle: "solcooks", games: ["cooking", "fitness"], sessions: 5, cause: { name: "Hearthside Food Pantry", pct: 50 } },
-  { id: "u_s_wren", name: "Wren", handle: "wrenruns", games: ["speedrun", "fitness", "steam", "twitch"], sessions: 6, steamId: "76561198000007731" },
-  { id: "u_s_nova", name: "Nova", handle: "novabrawl", games: ["brawlstars", "other"], sessions: 5, brawl: "2QY0LPJC" },
-  { id: "u_s_ash", name: "Ash", handle: "ashsketches", games: ["art", "music"], sessions: 4 },
+  { id: "u_s_juniper", name: "Juniper", handle: "juniperplays", games: ["minecraft", "speedrun", "other"], sessions: 10, settings: { voice: "sarah" } },
+  { id: "u_s_moss", name: "Moss", handle: "mossbyte", games: ["chess", "study"], sessions: 14, lichess: "mossbyte_chess" },
+  { id: "u_s_fern", name: "Fern", handle: "ironfern", games: ["fortnite", "steam", "twitch"], sessions: 10, fortnite: "IronFernTTV", steamId: "76561198000004417" },
+  { id: "u_s_sol", name: "Sol", handle: "solcooks", games: ["cooking", "fitness"], sessions: 8, cause: { name: "Hearthside Food Pantry", pct: 50 } },
+  { id: "u_s_wren", name: "Wren", handle: "wrenruns", games: ["speedrun", "fitness", "steam", "twitch"], sessions: 8, steamId: "76561198000007731" },
+  { id: "u_s_nova", name: "Nova", handle: "novabrawl", games: ["brawlstars", "other"], sessions: 7, brawl: "2QY0LPJC" },
+  { id: "u_s_ash", name: "Ash", handle: "ashsketches", games: ["art", "music"], sessions: 6 },
 ];
 
 /** The test climbers get a past too, so their analytics and pages have something in them. */
@@ -175,6 +176,31 @@ const SAMPLE_POINTS: Record<string, { perUsd: number; when: PointsConfig["when"]
   },
 };
 
+/** What each sample climber says about their stream on their profile. */
+const STREAMER_BIOS: Record<string, { bio: string; interests: string; title: (game: string) => string }> = {
+  u_s_juniper: { bio: "Hardcore Minecraft, Celeste routes and the occasional Elden Ring suffering. Chat picks the pain.", interests: "hardcore runs, speedruns, cozy builds", title: (g) => `${g} with chat's rules` },
+  u_s_moss: { bio: "Blitz and rapid every week, climbing toward 2000. Send me your games and I'll review them live.", interests: "blitz, rapid, opening prep, game reviews", title: (g) => (g === "Coding" ? "Coding a chess trainer" : "Blitz climb, chat picks the openings") },
+  u_s_fern: { bio: "Fortnite zero builds and Steam achievement hunts. Austin, TX.", interests: "zero build, achievement hunting", title: (g) => `${g}: road to the next Victory Royale` },
+  u_s_sol: { bio: "Cooking live and lifting after. Half of every pot goes to the Hearthside Food Pantry.", interests: "fresh pasta, baking, strength training", title: (g) => (g === "Fitness" ? "Leg day, live" : "Cooking from chat's pantry") },
+  u_s_wren: { bio: "Speedrunner. Celeste any%, Hades heat runs, and a 5k after every PB.", interests: "Celeste, Hades, running", title: (g) => `${g} PB attempts` },
+  u_s_nova: { bio: "Brawl Stars ranked grind. Chat picks my brawler when I lose.", interests: "ranked, power league", title: () => "Brawl Stars ranked, chat picks" },
+  u_s_ash: { bio: "Painting and guitar. Commissions live, songs by request.", interests: "watercolour, character art, acoustic covers", title: (g) => (g === "Music" ? "Song requests" : "Live commissions") },
+};
+const GAME_NAMES: Record<string, string> = { chess: "Chess", fortnite: "Fortnite", brawlstars: "Brawl Stars", steam: "Steam", twitch: "Just Chatting", gta6: "GTA VI" };
+const GIFT_NOTES = ["Great stream tonight!", "For the next pot", "That clutch was unreal", "Thanks for the review", "Keep climbing", "Coffee's on me", "GG", "Happy stream-iversary", ""];
+const PLANTER_BIOS: Record<string, string> = {
+  u_s_maya: "Here for the clutch moments. I back a challenge most nights and keep my streak going.",
+  u_s_leoverse: "Fortnite and chess regular.",
+  u_s_avak: "Cooking streams and good vibes.",
+  u_s_irisb: "Speedrun enjoyer.",
+  u_s_diego: "GTA VI day one.",
+};
+const KEEPER_BIOS: Record<string, string> = {
+  u_s_hazel: "Keeper. I watch the whole clip before I rule, every time.",
+  u_s_otto: "Keeper for speedrun and Minecraft challenges.",
+  u_s_mira: "Keeper. Fair calls, quick calls.",
+};
+
 const REDEEM_LINES = ["Celeste", "Hollow Knight", "the Sicilian", "Tilted Towers", "lemon risotto", "Wolf Lake", "Shelly", "teal, gold, black", "Mr. Brightside", "my wizard OC", "any% glitchless"];
 
 const PLANTERS = [
@@ -249,7 +275,8 @@ export interface SampleHistory {
   points: Record<string, PointsConfig>;
   redemptions: Redemption[];
   follows: { fanId: string; streamerId: string; at: number }[];
-  /** Simulated-ledger balances for the sample accounts. */
+  gifts: Gift[];
+  /** Simulated-ledger balances for the sample accounts, by their placeholder wallet. */
   balances: Record<string, number>;
 }
 
@@ -418,7 +445,7 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
     // Pledges in the first part of the window, until the pot lands somewhere around its goal.
     const target = usd(goalUsd * (0.35 + r.next() * 1.15));
     const pool = [...new Set([...(opts.extraFans ?? []), ...regulars.get(spec.id)!, ...(opts.guest ? regulars.get(opts.guest.id)! : []), ...Array.from({ length: 6 }, () => r.pick(fans))])];
-    if (r.chance(0.17)) pool.splice(r.int(0, 2), 0, "u_s_maya");
+    if (r.chance(spec.id === "u_s_moss" ? 0.45 : 0.3)) pool.splice(r.int(0, 2), 0, "u_s_maya");
     // The test planters back plenty, so they have badges and history to look at.
     for (const tester of testPlanters) if (r.chance(spec.id.startsWith("u_t_") ? 0.5 : 0.1)) pool.splice(r.int(0, 3), 0, tester);
     const lockAt = created + Math.round(minutes * (0.35 + r.next() * 0.25)) * MIN;
@@ -532,11 +559,13 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
       : spec.id === "u_t_climber2"
         ? testClimbers[0]
         : spec.id === DEMO_STREAMER_ID ? hosts.find((h) => h.id === DEMO_GUEST_ID) : spec.id === DEMO_GUEST_ID ? hosts.find((h) => h.id === DEMO_STREAMER_ID) : spec.id === "u_s_juniper" ? SAMPLE_STREAMERS[4] : spec.id === "u_s_wren" ? SAMPLE_STREAMERS[0] : undefined;
+  const streamStarts = new Map<string, { start: number; gameId: string }[]>();
   for (const spec of specs) {
     const days = new Set<number>();
     while (days.size < spec.sessions) days.add(r.int(1, 42));
     for (const daysAgo of days) {
       const start = now - daysAgo * DAY - (now % DAY) + r.pick(EVENING_SLOTS) * MIN;
+      streamStarts.set(spec.id, [...(streamStarts.get(spec.id) ?? []), { start, gameId: r.pick(spec.games) }]);
       const count = r.int(1, 3);
       for (let i = 0; i < count; i++) {
         const guest = r.chance(0.18) ? partner(spec) : undefined;
@@ -578,10 +607,53 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
     }
   }
 
+  // Gifts: regulars send a few dollars straight to the climbers they watch.
+  const gifts: Gift[] = [];
+  for (const spec of specs) {
+    for (const fan of new Set(regulars.get(spec.id)!)) {
+      const n = r.int(0, 3);
+      for (let i = 0; i < n; i++) {
+        gifts.push({ id: id("g"), fanId: fan, streamerId: spec.id, amountMicro: usd(r.pick([1, 2, 3, 5, 5, 10, 20])), note: r.pick(GIFT_NOTES), at: now - r.int(1, 40) * DAY - r.int(0, 600) * MIN, tx: simTx() });
+      }
+    }
+    if (spec.id === "u_s_moss" || spec.id === "u_s_juniper") {
+      gifts.push({ id: id("g"), fanId: "u_s_maya", streamerId: spec.id, amountMicro: usd(5), note: "For the next pot", at: now - r.int(1, 10) * DAY, tx: simTx() });
+    }
+  }
+  gifts.sort((a, b) => a.at - b.at);
+
+  // Profiles: bios, a weekly schedule and the past streams the challenges came from.
+  const iso = (ms: number) => new Date(ms).toISOString();
+  const tz = "America/Chicago";
+  for (const u of users) {
+    if (u.role === "streamer") {
+      const about = STREAMER_BIOS[u.id];
+      const spec = SAMPLE_STREAMERS.find((x) => x.id === u.id)!;
+      const gameName = (g: string) => GAME_NAMES[g] ?? CLIP_IDEAS[g]?.game ?? "Variety";
+      const history: StreamEntry[] = (streamStarts.get(u.id) ?? [])
+        .sort((a, b) => b.start - a.start)
+        .map((s, i) => ({ id: `h${SAMPLE_TAG}${u.id.slice(4)}${i}`, title: about?.title(gameName(s.gameId)) ?? `${gameName(s.gameId)} stream`, startsAt: iso(s.start - 15 * MIN), endsAt: iso(s.start + r.int(150, 270) * MIN), url: `/s/${u.handle}`, source: "manual" }));
+      const dayStart = now - (now % DAY);
+      const schedule: StreamEntry[] = [];
+      for (let d = 1; d <= 14; d++) {
+        if (r.chance(0.55)) {
+          const at = dayStart + d * DAY + r.pick(EVENING_SLOTS) * MIN;
+          schedule.push({ id: `sc${SAMPLE_TAG}${u.id.slice(4)}${d}`, title: about?.title(gameName(r.pick(spec.games))) ?? "Live", startsAt: iso(at), endsAt: iso(at + 180 * MIN), url: `/s/${u.handle}`, source: "manual" });
+        }
+      }
+      u.profile = { bio: about?.bio, interests: about?.interests, timezone: tz, showSchedule: true, showHistory: true, schedule, history } satisfies AccountProfile;
+    } else if (u.role === "fan") {
+      u.profile = { timezone: tz, ...(PLANTER_BIOS[u.id] ? { bio: PLANTER_BIOS[u.id], publicProfile: true } : {}) };
+    } else {
+      u.profile = { timezone: tz, bio: KEEPER_BIOS[u.id] };
+    }
+  }
+
   // Simulated-ledger balances: climbers hold what they earned, planters some change.
   const balances: Record<string, number> = {};
   for (const u of users) {
-    if (u.role === "fan") balances[u.wallet] = usd(r.int(6, 60));
+    if (u.role === "fan") balances[u.wallet] = usd(u.id === "u_s_maya" ? 120 : r.int(15, 80));
+    if (u.role === "mod") balances[u.wallet] = usd(r.int(10, 30));
     if (u.role === "streamer") {
       let earned = 0;
       for (const c of challenges) {
@@ -594,7 +666,7 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
         };
         earned += share(upfront) + (c.status === "paid" ? share(c.totalMicro - upfront) : 0);
       }
-      balances[u.wallet] = earned;
+      balances[u.wallet] = earned + gifts.filter((g) => g.streamerId === u.id).reduce((sum, g) => sum + g.amountMicro, 0);
     }
   }
 
@@ -665,7 +737,7 @@ export function buildSampleHistory(now: number, existing: User[]): SampleHistory
 
   const known = new Set(everyone.map((u) => u.id));
   const kept = follows.filter((f) => known.has(f.fanId) && known.has(f.streamerId));
-  return { users, challenges, pledges, suggestions, invites, events, points, redemptions, follows: kept, balances };
+  return { users, challenges, pledges, suggestions, invites, events, points, redemptions, follows: kept, gifts, balances };
 }
 
 /** Takes every sample record back out, leaving everything else as it was. */
@@ -690,6 +762,15 @@ export function removeSample(state: Db): number {
   if (state.follows) state.follows = state.follows.filter((f) => !sampleUsers.has(f.fanId) && !sampleUsers.has(f.streamerId));
   if (state.notices) state.notices = state.notices.filter((n) => !sampleUsers.has(n.userId) && !sampleChallenges.has(n.href.replace("/c/", "")));
   if (state.redemptions) state.redemptions = state.redemptions.filter((r) => !isSampleId(r.id) && !sampleUsers.has(r.userId) && !sampleUsers.has(r.streamerId));
+  if (state.gifts) state.gifts = state.gifts.filter((g) => !isSampleId(g.id) && !sampleUsers.has(g.fanId) && !sampleUsers.has(g.streamerId));
+  const sampleBounties = new Set((state.bounties ?? []).filter((b) => sampleUsers.has(b.creatorId) || sampleUsers.has(b.streamerId) || (b.challengeId && sampleChallenges.has(b.challengeId))).map((b) => b.id));
+  state.bounties = (state.bounties ?? []).filter((b) => !sampleBounties.has(b.id));
+  state.backings = (state.backings ?? []).filter((k) => !sampleBounties.has(k.bountyId) && !sampleUsers.has(k.userId));
+  for (const uid of sampleUsers) {
+    delete state.scouts?.[uid];
+    delete state.liveAnnounced?.[uid];
+    delete state.topUps?.[uid];
+  }
   delete state.sample;
   return before - (state.users.length + state.challenges.length + state.pledges.length);
 }
@@ -707,6 +788,7 @@ export function addSampleHistory(state: Db, now = Date.now()): SampleHistory {
   Object.assign(state.balances, history.balances);
   Object.assign((state.points ??= {}), history.points);
   (state.redemptions ??= []).push(...history.redemptions);
+  (state.gifts ??= []).push(...history.gifts);
   const followed = new Set((state.follows ?? []).map((f) => `${f.fanId}>${f.streamerId}`));
   (state.follows ??= []).push(...history.follows.filter((f) => !followed.has(`${f.fanId}>${f.streamerId}`)));
   // Two climbers have a campaign running (the live challenges opened later join it)

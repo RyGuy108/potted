@@ -61,7 +61,7 @@ export function cleanSlate(before: Db, purgeId: string): Db {
   };
 }
 
-function writeBackup(state: Db, id: string): string {
+export function writeBackup(state: Db, id: string): string {
   const dir = path.join(dataDir(), "backups");
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   const file = path.join(dir, `pre-purge-${id}.json`);
