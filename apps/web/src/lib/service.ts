@@ -1,3 +1,4 @@
+import { importProfile } from "./account";
 import {
   type Challenge,
   type Evidence,
@@ -1298,9 +1299,9 @@ async function walletFor(userId: string): Promise<string> {
  * Signs someone in with a provider account. The first time, they get a
  * planter account that still has to choose its role.
  */
-export async function signInWith(provider: string, profile: { subject: string; name: string; email?: string }): Promise<User> {
+export async function signInWith(provider: string, profile: import("./oauth").Profile): Promise<User> {
   const existing = db().users.find((u) => u.identities?.some((i) => i.provider === provider && i.subject === profile.subject));
-  if (existing) return existing;
+  if (existing) { importProfile(existing, provider, profile); save(); return existing; }
   const id = newId("u");
   const name = profile.name.trim().slice(0, 24) || "Planter";
   const user: User = {
@@ -1313,6 +1314,7 @@ export async function signInWith(provider: string, profile: { subject: string; n
     ...(profile.email ? { email: profile.email } : {}),
     onboarded: false,
   };
+  importProfile(user, provider, profile);
   db().users.push(user);
   await ledger().faucet(user.wallet, FAUCET_MICRO);
   save();
@@ -1340,6 +1342,7 @@ export async function chooseRole(actor: User, role: "fan" | "streamer" | "mod", 
   if (role === "streamer") {
     actor.handle = claimableHandle(handle);
     actor.role = "streamer";
+    if (actor.profile?.twitch?.login) actor.settings = { ...actor.settings, twitchChannel: actor.profile.twitch.login };
   }
   actor.onboarded = true;
   save();

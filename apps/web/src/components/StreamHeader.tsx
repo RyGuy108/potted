@@ -2,31 +2,8 @@ import type { LiveSession } from "@/lib/store";
 import type { TwitchChannel } from "@/lib/twitch";
 import { GameArt } from "./GameArt";
 
-/** A colour from the handle, so streamers without a Twitch picture still look distinct. */
-function hue(seed: string): number {
-  let h = 0;
-  for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) % 360;
-  return h;
-}
-
-export function Avatar({ name, handle, src, size = 84 }: { name: string; handle: string; src?: string | null; size?: number }) {
-  if (src) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img className="avatar" src={src} alt={`${name}'s profile picture`} width={size} height={size} />;
-  }
-  const h = hue(handle);
-  const initials = name
-    .split(/\s+/)
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-  return (
-    <span className="avatar avatar-initials" style={{ width: size, height: size, fontSize: size * 0.38, background: `linear-gradient(135deg, hsl(${h} 65% 45%), hsl(${(h + 50) % 360} 70% 32%))` }} aria-hidden="true">
-      {initials}
-    </span>
-  );
-}
+import { Avatar } from "./Avatar";
+export { Avatar } from "./Avatar";
 
 /** The streamer's picture, name and where to watch. */
 const PLATFORM = { twitch: "Twitch", youtube: "YouTube", kick: "Kick" } as const;
@@ -38,9 +15,11 @@ export function StreamHeader({
   twitchLogin,
   session,
   follow,
+  avatarUrl,
 }: {
   name: string;
   handle: string;
+  avatarUrl?: string;
   twitch: TwitchChannel | null;
   twitchLogin: string;
   /** The stream the climber said they started, on any platform. */
@@ -52,7 +31,7 @@ export function StreamHeader({
   return (
     <header className="stream-header">
       <div className={`avatar-ring${live ? " is-live" : ""}`}>
-        <Avatar name={name} handle={handle} src={twitch?.profileImageUrl} />
+        <Avatar name={name} handle={handle} src={avatarUrl ?? twitch?.profileImageUrl} />
         {live && <span className="live-pill">LIVE</span>}
       </div>
       <div>

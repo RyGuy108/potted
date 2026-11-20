@@ -15,6 +15,9 @@ export interface Profile {
   subject: string;
   name: string;
   email?: string;
+  avatarUrl?: string;
+  bio?: string;
+  login?: string;
 }
 
 interface Provider {
@@ -39,7 +42,7 @@ export const PROVIDERS = {
     token: "https://oauth2.googleapis.com/token",
     userinfo: "https://openidconnect.googleapis.com/v1/userinfo",
     scope: "openid email profile",
-    profile: (b) => (text(b?.sub) ? { subject: b.sub, name: text(b.given_name) ?? text(b.name) ?? "Planter", email: text(b.email) } : undefined),
+    profile: (b) => (text(b?.sub) ? { subject: b.sub, name: text(b.given_name) ?? text(b.name) ?? "Planter", email: text(b.email), ...(text(b.picture) ? { avatarUrl: b.picture } : {}) } : undefined),
   },
   twitch: {
     label: "Twitch",
@@ -51,7 +54,7 @@ export const PROVIDERS = {
     clientIdHeader: "Client-Id",
     profile: (b) => {
       const u = b?.data?.[0];
-      return text(u?.id) ? { subject: u.id, name: text(u.display_name) ?? text(u.login) ?? "Planter", email: text(u.email) } : undefined;
+      return text(u?.id) ? { subject: u.id, name: text(u.display_name) ?? text(u.login) ?? "Planter", email: text(u.email), ...(text(u.profile_image_url) ? { avatarUrl: u.profile_image_url } : {}), ...(typeof u.description === "string" ? { bio: u.description } : {}), ...(text(u.login) ? { login: u.login } : {}) } : undefined;
     },
   },
   discord: {
@@ -61,7 +64,7 @@ export const PROVIDERS = {
     token: "https://discord.com/api/oauth2/token",
     userinfo: "https://discord.com/api/users/@me",
     scope: "identify email",
-    profile: (b) => (text(b?.id) ? { subject: b.id, name: text(b.global_name) ?? text(b.username) ?? "Planter", email: text(b.email) } : undefined),
+    profile: (b) => (text(b?.id) ? { subject: b.id, name: text(b.global_name) ?? text(b.username) ?? "Planter", email: text(b.email), ...(text(b.avatar) && /^\d+$/.test(b.id) && /^[a-zA-Z0-9_]+$/.test(b.avatar) ? { avatarUrl: `https://cdn.discordapp.com/avatars/${b.id}/${b.avatar}.png?size=256` } : {}) } : undefined),
   },
 } as const satisfies Record<string, Provider>;
 

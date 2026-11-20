@@ -35,6 +35,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           {user ? (
             <>
               <NotificationBell initialUnread={unreadCount(user)} />
+              <Link href="/settings" className="muted small">Settings</Link>
               <Link href="/me" className="who" title="Your account">
                 {user.name}
               </Link>

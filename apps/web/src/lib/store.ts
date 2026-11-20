@@ -144,6 +144,7 @@ export interface Backing {
 }
 
 export interface User {
+  profile?: import("./account-types").AccountProfile;
   id: string;
   name: string;
   role: Role;

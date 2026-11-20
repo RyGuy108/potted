@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { authorizeUrl, isConfigured, isProvider } from "@/lib/oauth";
+import { currentUser } from "@/lib/session";
 import { publicBase } from "@/lib/url";
 
 export const dynamic = "force-dynamic";
@@ -15,8 +16,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ prov
   // proves the callback belongs to a sign-in this browser started.
   const state = randomBytes(16).toString("hex");
   // Which sign-up page they came from, so a new account skips the role question.
-  const as = new URL(request.url).searchParams.get("as");
+  const query = new URL(request.url).searchParams;
+  const actor = query.get("link") === "1" ? await currentUser() : undefined;
+  if (query.get("link") === "1" && !actor) return NextResponse.redirect(`${base}/login`);
+  const as = query.get("as");
   const intent = as === "fan" || as === "streamer" || as === "mod" ? as : "";
-  (await cookies()).set("potted_oauth", `${provider}:${state}:${intent}`, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 600 });
+  (await cookies()).set("potted_oauth", `${provider}:${state}:${actor ? "link" : intent}:${actor?.id ?? ""}`, { secure: process.env.NODE_ENV === "production" && process.env.POTTED_INSECURE_COOKIES !== "true", httpOnly: true, sameSite: "lax", path: "/", maxAge: 600 });
   return NextResponse.redirect(authorizeUrl(provider, `${base}/api/auth/${provider}/callback`, state));
 }

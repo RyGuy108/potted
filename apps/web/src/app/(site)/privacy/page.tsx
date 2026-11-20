@@ -18,14 +18,17 @@ export default function Privacy() {
       <ul>
         <li>
           <strong>Account information.</strong> When you sign in with email, Google, Twitch or Discord, we store the provider&rsquo;s account
-          id for you, your display name and your email address. We never see or store your password.
+          id for you, your display name and your email address. We also import available profile photos and bios. We never see or store your password.
+        </li>
+        <li>
+          <strong>Profile settings.</strong> Photos you upload, your bio, website, interests, time zone, visibility and notification choices. Connected Twitch accounts can also import upcoming schedules and available past broadcasts.
         </li>
         <li>
           <strong>Activity on Potted.</strong> Challenges you create, fund, back or review, tips, comments, notifications and your settings.
         </li>
         <li>
           <strong>Connected channels.</strong> If a streamer connects Kick or YouTube so the <code>!potted</code> chat bot can work, we store
-          that channel&rsquo;s name and id and the access tokens, encrypted on our server.
+          that channel&rsquo;s name and id and the access tokens on our server. Kick tokens are encrypted at rest.
         </li>
         <li>
           <strong>Wallets.</strong> Solana devnet wallet addresses linked to your account. Transactions on Solana are public by design.
@@ -45,26 +48,26 @@ export default function Privacy() {
         <li>your email address (to identify your account and send notices you ask for).</li>
       </ul>
       <p>
-        Google also offers your profile picture with these scopes; Potted does not store it. We use the access token Google gives us once,
+        Google also offers your profile picture with these scopes; Potted stores its URL to display as your account photo. You can replace or remove it in Settings. We use the access token Google gives us once,
         to read the details above, and then discard it. We do not store Google tokens for sign-in, and we do not access your Gmail, contacts,
         Drive, calendar or any other Google data.
       </p>
       <p>
         If a streamer separately chooses &ldquo;Connect YouTube&rdquo;, Potted asks for YouTube access so the chat bot can read and reply in
-        that streamer&rsquo;s live chat. Those tokens are encrypted on our server, used only for that chat, and deleted when the streamer
+        that streamer&rsquo;s live chat. Those tokens are stored on our server, used only for that chat, and deleted when the streamer
         disconnects.
       </p>
       <p>
-        <strong>How we use it.</strong> Google user data is used only to sign you in, show your name on the site, and contact you about your
+        <strong>How we use it.</strong> Google user data is used only to sign you in, show your name and chosen profile photo on the site, and contact you about your
         account and challenges. We do not use it for advertising, we do not sell it, and we do not use it to train AI models.
       </p>
       <p>
-        <strong>How we share it.</strong> We do not share Google user data with anyone, except the hosting and storage providers that run
+        <strong>How we share it.</strong> Your display name is public. Your imported photo appears on your streamer profile, or on your planter profile if you publish it. Other Google user data is shared only with the hosting and storage providers that run
         Potted for us (listed below), or when required by law.
       </p>
       <p>
         <strong>How we store and protect it.</strong> Account data is stored on our server at Railway and in our Supabase database, both
-        over encrypted connections. Connected-channel tokens are additionally encrypted at rest. Access is limited to the people who run
+        over encrypted connections. Kick connection tokens are additionally encrypted at rest. Access is limited to the people who run
         Potted.
       </p>
       <p>
@@ -88,7 +91,7 @@ export default function Privacy() {
 
       <h2>Who else sees it</h2>
       <p>
-        Your display name and your activity on challenges are public on the site. Your email address is never shown publicly. These services
+        Your display name and your activity on challenges are public on the site. Streamer profiles show chosen profile information; planter and keeper profile pages are private until published. Your email address is never shown publicly. These services
         process data for us, each only what it needs to do its job: Railway (hosting), Supabase (database), Google, Twitch, Discord and Kick
         (sign-in and chat), Privy (wallets), Resend (email delivery), ElevenLabs (voice announcements), xAI (challenge commentary, which
         sees challenge text, not your email) and QuickNode (Solana access).
@@ -96,7 +99,7 @@ export default function Privacy() {
 
       <h2>Your choices</h2>
       <p>
-        You can disconnect Kick or YouTube from your Channel page, and revoke Potted from your Google, Twitch,
+        You can edit or remove your photo, change your bio and profile visibility, and choose in-app notifications in Settings. Disconnect Google, Twitch or Discord there after connecting another sign-in method. Custom edits remain; imported profile data from the disconnected source is removed. You can disconnect Kick or YouTube from your Channel page, and revoke Potted from your Google, Twitch,
         Discord or Kick account settings at any time. You can ask for a copy of your data or for its deletion through Contact below.
       </p>
 

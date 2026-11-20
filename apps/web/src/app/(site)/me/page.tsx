@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Avatar } from "@/components/StreamHeader";
 import { formatUsd } from "@potted/core";
 import { redirect } from "next/navigation";
 import { AccountBento } from "@/components/AccountBento";
@@ -40,12 +42,12 @@ export default async function Me() {
       <div className="row between wrap me-head">
         <div>
           <p className="eyebrow">{user.role === "streamer" ? "Climber" : user.role === "mod" ? "Keeper" : "Planter"}</p>
-          <h1>{user.name}</h1>
+          <div className="account-profile-heading"><Avatar name={user.name} handle={user.id} src={user.profile?.avatarUrl} size={64} /><div><h1>{user.name}</h1>{user.profile?.bio && <p className="muted">{user.profile.bio}</p>}</div></div>
           {unread > 0 && <p className="muted">{unread} new {unread === 1 ? "notification" : "notifications"} in the bell above.</p>}
         </div>
-        <Wallet user={user} />
+        <div className="row wrap"><Link href="/settings" className="btn btn-ghost">Edit profile & settings</Link><Wallet user={user} /></div>
       </div>
-      <AccountBento items={items} />
+      <AccountBento items={[{ id: "settings", label: "Your account", title: "Profile & settings", description: "Photo, bio, connected accounts and preferences", href: "/settings", colSpan: 2 }, ...items]} />
     </>
   );
 }
