@@ -1,5 +1,6 @@
 import type { Challenge } from "@potted/core";
-import { draftTerms, usesGrok } from "@potted/coordinator";
+import { type Draft, draftTerms, usesGrok } from "@potted/coordinator";
+
 import { GAMES, formatUsd } from "@potted/core";
 import Link from "next/link";
 import { cancelAction, checkAction, declineBountyAction, recapAction, respondInviteAction, withdrawInviteAction, dismissSuggestionAction, lockAction, simulateAction } from "@/app/actions";
@@ -20,6 +21,22 @@ import { pitchFields, scoutOf } from "@/lib/scout";
 import { backersOf, bountiesSupported, bountyTotal, expireBounties, getSuggestion, getUser, invitesFor, listChallenges, listStreamers, liveSessionOf, openBounties, pendingSuggestions, settingsOf, shareOf, simulatedResultsAllowed, stageChallenges } from "@/lib/service";
 import { currentUser } from "@/lib/session";
 import { publicBase } from "@/lib/url";
+
+/** One Grok draft per idea, so reopening the same idea (or a page refresh) is instant. */
+const drafts = new Map<string, Promise<Draft>>();
+function cachedDraft(gameId: string, text: string): Promise<Draft> {
+  const key = `${gameId}:${text}`;
+  let draft = drafts.get(key);
+  if (!draft) {
+    draft = draftTerms({ gameId, text });
+    drafts.set(key, draft);
+    // A fallback is not kept, so the next try asks Grok again.
+    void draft.then((d) => d.source !== "grok" && drafts.delete(key));
+    if (drafts.size > 200) drafts.delete(drafts.keys().next().value!);
+  }
+  return draft;
+}
+
 
 /** The climber's Challenges page: running challenges, everything waiting on them, a new challenge, and past ones to run again. Setup, money and rewards are on /dashboard/channel. */
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ use?: string; bounty?: string; pitch?: string }> }) {
@@ -58,7 +75,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const draft = pickedPitch
     ? { gameId: pickedPitch.gameId, fields: pitchFields(user, pickedPitch), note: `From the scout: ${pickedPitch.why}`, source: scoutRun!.source }
     : seed
-      ? await draftTerms({ gameId: seed.gameId, text: seed.text })
+      ? await cachedDraft(seed.gameId, seed.text)
       : session
         ? {
             gameId: session.gameId,
