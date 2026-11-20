@@ -5,7 +5,8 @@ import { Beanstalk } from "@/components/Beanstalk";
 import { Wordmark } from "@/components/Wordmark";
 import { HowItWorks } from "@/components/HowItWorks";
 import { WaysToTakePart, type Way } from "@/components/WaysToTakePart";
-import { type Tech, TechTag } from "@/components/TechTag";
+import { BuiltOn, type Part } from "@/components/BuiltOn";
+import { MoneyFlow, type MoneyOutcome, type MoneyStop } from "@/components/MoneyFlow";
 import { formatUsd, growthOf } from "@potted/core";
 import { liveStreams, pledgesFor } from "@/lib/service";
 import { currentUser } from "@/lib/session";
@@ -62,20 +63,48 @@ const GUARANTEES: [IconName, string, string][] = [
   ],
 ];
 
-/** Where a dollar goes, in four stops. */
-const MONEY: [string, string][] = [
-  ["Your wallet", "USDC: a digital dollar, always worth $1"],
-  ["Escrow", "Held by a program on Solana that nobody at Potted can spend from"],
-  ["The result", "Game data or a clip says whether it happened"],
-  ["Paid or refunded", "To the streamer if they did it, back to you if not"],
+/** Where a dollar goes: three stops, then a fork. */
+const MONEY: MoneyStop[] = [
+  { icon: "wallet", title: "Your wallet", text: "USDC: a digital dollar, always worth $1" },
+  { icon: "lock", title: "Escrow", text: "Held by a program on Solana that nobody at Potted can spend from" },
+  { icon: "data", title: "The result", text: "Game data or a clip says whether it happened" },
+];
+const MONEY_END = { title: "Paid or refunded" };
+const MONEY_OUTCOMES: [MoneyOutcome, MoneyOutcome] = [
+  { icon: "check", title: "To the streamer", text: "if they did it", tone: "paid" },
+  { icon: "refund", title: "Back to you", text: "if not", tone: "refund" },
 ];
 
 /** What each piece of the stack does, named where it happens in the app. */
-const BUILT_ON: [Tech, string, string][] = [
-  ["solana", "Solana", "An escrow program holds every pot in USDC. Only a verified result pays the climber; a miss or a passed deadline refunds every planter."],
-  ["quicknode", "QuickNode Streams", "Streams the escrow program's transactions to Potted, so pledge alerts and the public activity log come from the chain, not our database."],
-  ["grok", "Grok", "Turns a fan's loose idea into exact terms the checker can verify, scouts X for what to run next, and briefs keepers on disputed clips. It never moves money."],
-  ["elevenlabs", "ElevenLabs", "Reads pledges, milestones and results out on stream in the climber's chosen voice and language, with sound effects for each stage of the beanstalk."],
+const BUILT_ON: Part[] = [
+  {
+    tech: "solana",
+    name: "Solana",
+    text: "An escrow program holds every pot in USDC. Only a verified result pays the climber; a miss or a passed deadline refunds every planter.",
+    image: "/built-on/solana.svg",
+    alt: "A locked block on a chain holding USDC in escrow",
+  },
+  {
+    tech: "quicknode",
+    name: "QuickNode Streams",
+    text: "Streams the escrow program's transactions to Potted, so pledge alerts and the public activity log come from the chain, not our database.",
+    image: "/built-on/quicknode.svg",
+    alt: "Three streams of transactions flowing from the chain into a live feed",
+  },
+  {
+    tech: "grok",
+    name: "Grok",
+    text: "Turns a fan's loose idea into exact terms the checker can verify, scouts X for what to run next, and briefs keepers on disputed clips. It never moves money.",
+    image: "/built-on/grok.svg",
+    alt: "A loose idea in a chat bubble becomes exact, checkable terms",
+  },
+  {
+    tech: "elevenlabs",
+    name: "ElevenLabs",
+    text: "Reads pledges, milestones and results out on stream in the climber's chosen voice and language, with sound effects for each stage of the beanstalk.",
+    image: "/built-on/elevenlabs.svg",
+    alt: "A voice waveform reading out a pledge on stream",
+  },
 ];
 
 /** Sample rows for the hero preview. Labelled as an example on the page. */
@@ -208,29 +237,14 @@ export async function Marketing() {
       <section className="money">
         <p className="eyebrow">Where the money goes</p>
         <h2 className="section-title">Money held secure at every stage</h2>
-        <ol className="money-flow">
-          {MONEY.map(([title, text], i) => (
-            <li key={title}>
-              <span className="money-step mono">0{i + 1}</span>
-              <strong>{title}</strong>
-              <span className="muted small">{text}</span>
-            </li>
-          ))}
-        </ol>
+        <MoneyFlow stops={MONEY} end={MONEY_END} outcomes={MONEY_OUTCOMES} />
         <p className="muted money-note">Every move is a public Solana transaction, so anyone can check where a pledge went.</p>
       </section>
 
       <section id="built-on">
         <p className="eyebrow">Built on</p>
         <h2 className="section-title">Each part does one job, and says so on screen</h2>
-        <ul className="built-on">
-          {BUILT_ON.map(([tech, name, text]) => (
-            <li key={tech}>
-              <TechTag tech={tech}>{name}</TechTag>
-              <span className="muted small">{text}</span>
-            </li>
-          ))}
-        </ul>
+        <BuiltOn parts={BUILT_ON} />
         <p className="muted small money-note">
           See the chain's own record on <Link href="/activity">Activity</Link>.
         </p>

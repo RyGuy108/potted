@@ -1,0 +1,52 @@
+/* Built on: a fan of sponsor cards over what each one does. */
+.built-parts {
+  list-style: none;
+  padding: 0;
+  margin: 20px 0 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.built-part {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.built-part .tech-tag {
+  align-self: flex-start;
+}
+
+.built-part p {
+  margin: 0;
+}
+
+.built-part-active {
+  border-color: var(--wood-line);
+  background-color: var(--wood-soft);
+}
+
+.built-solana.built-part-active { border-color: rgba(153, 69, 255, 0.5); background-color: rgba(153, 69, 255, 0.08); }
+.built-quicknode.built-part-active { border-color: rgba(79, 209, 197, 0.45); background-color: rgba(79, 209, 197, 0.07); }
+.built-grok.built-part-active { border-color: rgba(255, 255, 255, 0.35); background-color: rgba(255, 255, 255, 0.05); }
+.built-elevenlabs.built-part-active { border-color: rgba(255, 138, 61, 0.45); background-color: rgba(255, 138, 61, 0.07); }
+
+@media (max-width: 1000px) {
+  .built-parts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .built-parts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .built-part {
+    transition: none;
+  }
+}

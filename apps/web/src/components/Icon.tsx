@@ -8,6 +8,7 @@ const PATHS = {
   clip: "M5 5h14v14H5V5Zm5 4.5v5l4.5-2.5L10 9.5Z",
   lock: "M7 11V8a5 5 0 0 1 10 0v3M6 11h12v9H6v-9Z",
   arrow: "M5 12h14m-5-5 5 5-5 5",
+  wallet: "M4 7.5A1.5 1.5 0 0 1 5.5 6H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7.5Zm0 0L15 3.5V6M16 12.5h1",
 } as const;
 
 export type IconName = keyof typeof PATHS;

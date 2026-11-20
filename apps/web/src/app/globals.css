@@ -5854,66 +5854,8 @@ span.warn {
 }
 
 /* Where the money goes */
-.money-flow {
-  list-style: none;
-  margin: 26px 0 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-  counter-reset: step;
-}
-
-.money-flow li {
-  position: relative;
-  display: grid;
-  gap: 6px;
-  align-content: start;
-  padding: 18px 18px 20px;
-  border-radius: 16px;
-  border: 1px solid var(--line);
-  background: var(--glass);
-}
-
-.money-flow li:not(:last-child)::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  right: -12px;
-  width: 10px;
-  height: 10px;
-  border-top: 1.5px solid var(--wood);
-  border-right: 1.5px solid var(--wood);
-  transform: translateY(-50%) rotate(45deg);
-  z-index: 1;
-}
-
-.money-flow li:nth-child(2) {
-  border-color: var(--wood-line);
-  background: linear-gradient(180deg, var(--wood-soft), transparent), var(--glass);
-}
-
-.money-step {
-  color: var(--wood-light);
-  font-size: 0.8rem;
-}
-
-.money-flow strong {
-  font-size: 1.05rem;
-}
-
 .money-note {
   margin-top: 16px;
-}
-
-@media (max-width: 820px) {
-  .money-flow {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .money-flow li:nth-child(2)::after {
-    display: none;
-  }
 }
 
 /* Front page: hero copy centred against the example card, wordmark lined up with the text.
@@ -5940,20 +5882,6 @@ span.warn {
 .how-gallery .ag-panel {
   border: 1px solid var(--line);
   background: #120f0c;
-}
-
-/* Where the money goes: no arrows, more room */
-.money-flow {
-  gap: 20px;
-}
-
-.money-flow li::after {
-  display: none !important;
-}
-
-.money-flow li {
-  padding: 22px 22px 24px;
-  gap: 8px;
 }
 
 /* Settlement accordion: a quiet focus ring instead of the browser's white box */
